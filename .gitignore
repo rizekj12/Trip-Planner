@@ -1,0 +1,9 @@
+# node / tooling
+node_modules
+dist
+.vscode
+.DS_Store
+
+# env (keep secrets out of git)
+.env
+.env.local
