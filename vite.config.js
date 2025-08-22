@@ -36,6 +36,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // allow up to 8 MiB
         navigateFallback: "/offline.html",
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,jpeg,webp}"],
         runtimeCaching: [
