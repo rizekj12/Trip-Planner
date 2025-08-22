@@ -10,6 +10,7 @@ export default defineConfig({
       includeAssets: [
         "icon-192.png",
         "icon-256.png",
+        "icon-384.png",
         "icon-512.png",
         "apple-touch-icon.png",
         "icons/maskable-512.png",
