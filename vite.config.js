@@ -39,6 +39,7 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // allow up to 8 MiB
         navigateFallback: "/offline.html",
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,jpeg,webp}"],
+        additionalManifestEntries: [{ url: "/offline.html", revision: null }],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[abc]\.tile\.openstreetmap\.org\/.*/i,
