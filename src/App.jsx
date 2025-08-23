@@ -20,6 +20,7 @@ import { tabForToday, gmaps } from "./utils/helpers";
 import { AnimatePresence, motion } from "framer-motion";
 import { getExtraPicks } from "./utils/storage";
 import { useDaySelections } from "./hooks/useDaySelections";
+import WeatherWidget from "./components/WeatherWidget";
 
 export default function App() {
     const [tab, setTab] = useState(() => tabForToday(days));
@@ -63,7 +64,13 @@ export default function App() {
             }}
         >
             <HeaderBanner />
+
+
             <Countdown theme={t} />
+            <WeatherWidget
+                defaultCity={themeKey === "kansai" ? "kyoto" : "tokyo"}
+                themeKey={themeKey}
+            />
 
             <div className="mx-auto max-w-7xl px-4 pb-16">
                 <TabsBar tabs={tabs} active={tab} setActive={setTab} theme={t} />
