@@ -1,10 +1,5 @@
 import { supabase } from "./supabase";
 
-export async function updateCatalogSpot(id, patch) {
-  // patch example: { coords: [35.68, 139.76] }
-  return supabase.from("catalog_spots").update(patch).eq("id", id);
-}
-
 /** Create */
 export async function addToDay(dayKey, spot) {
   const user = (await supabase.auth.getUser()).data.user;
@@ -39,4 +34,13 @@ export async function updatePick(id, patch) {
 /** Delete */
 export async function removePick(id) {
   return supabase.from("day_selections").delete().eq("id", id);
+}
+
+export async function updateCatalogSpot(id, patch) {
+  return supabase.from("catalog_spots").update(patch).eq("id", id);
+}
+
+export async function deleteCatalogSpot(id) {
+  // RLS already restricts delete to creator (created_by = auth.uid())
+  return supabase.from("catalog_spots").delete().eq("id", id);
 }

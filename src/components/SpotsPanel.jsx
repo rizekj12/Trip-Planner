@@ -1,19 +1,27 @@
 import React from 'react';
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import DayMap from "./DayMap";
 import TodayStopsList from "./TodayStopsList";
 import AddSpotModal from "./AddSpotModal";
 import EditCoordsModal from "./EditCoordsModal";
+import ConfirmDialog from "./ConfirmDialog";
 import { useCatalog } from "../hooks/useCatalog";
-import { updateCatalogSpot } from "../utils/db";
+import { updateCatalogSpot, deleteCatalogSpot } from "../utils/db";
+import { supabase } from "../utils/supabase";
+import { FiTrash2 } from "react-icons/fi";
 
 export default function SpotsPanel({ items = [], theme, title = "List", category }) {
-    // Live user-added items from Supabase
-    const catalog = useCatalog(category);
-    // Merge DB catalog first (so their numbering appears before static or vice versa; your choice)
+    const [session, setSession] = useState(null);
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data }) => setSession(data.session));
+        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+        return () => sub.subscription.unsubscribe();
+    }, []);
+    const myId = session?.user?.id;
+
+    const catalog = useCatalog(category); // DB items
     const combined = useMemo(() => [...catalog, ...items], [catalog, items]);
 
-    // Regions for chips
     const allRegions = useMemo(() => {
         const set = new Set(combined.map((i) => i.region).filter(Boolean));
         return Array.from(set);
@@ -22,9 +30,11 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
     const [regions, setRegions] = useState([]);
     const [q, setQ] = useState("");
     const [openAdd, setOpenAdd] = useState(false);
-
-    // Edit coords modal state
     const [editing, setEditing] = useState(null);
+
+    // delete state
+    const [toDelete, setToDelete] = useState(null);
+    const [deleteMsg, setDeleteMsg] = useState("");
 
     const toggleRegion = (r) => {
         setRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
@@ -40,7 +50,6 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
         });
     }, [combined, regions, q]);
 
-    // Items with coords go on the map
     const mapItems = filtered.filter((s) => Array.isArray(s.coords));
 
     async function saveCoords(latlng) {
@@ -49,15 +58,21 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
         setEditing(null);
     }
 
+    async function confirmDelete() {
+        if (!toDelete?.id) return;
+        setDeleteMsg("");
+        const { error } = await deleteCatalogSpot(toDelete.id);
+        if (error) setDeleteMsg(error.message || "Failed to delete.");
+        else setToDelete(null);
+    }
+
     return (
         <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-                {/* Map */}
                 <div className="md:col-span-3">
                     <DayMap items={mapItems} theme={theme} />
                 </div>
 
-                {/* List + controls */}
                 <div className="md:col-span-2">
                     <div className={`rounded-2xl p-6 shadow-xl ${theme.card}`}>
                         <div className={`mb-3 flex items-center justify-between rounded-xl p-3 ${theme.header}`}>
@@ -117,18 +132,18 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                             </div>
                         </div>
 
-                        {/* Numbered list (with region + edit button for catalog items) */}
+                        {/* Numbered list */}
                         <div className="max-h-[420px] overflow-auto pr-1">
                             {filtered.length === 0 ? (
-                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">
-                                    No matches. Try removing filters.
-                                </div>
+                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">No matches. Try removing filters.</div>
                             ) : (
                                 <ul className={`rounded-xl p-3 ${theme.sub}`}>
                                     <div className="mb-2 font-medium">Pick a place</div>
                                     {filtered.map((spot, i) => {
-                                        const isCatalog = !!spot.id; // catalog items have numeric id from DB
+                                        const isCatalog = !!spot.id;
                                         const needsCoords = !Array.isArray(spot.coords);
+                                        const isOwner = isCatalog && myId && spot.created_by === myId; // only show delete if creator
+
                                         return (
                                             <li key={(spot.id || spot.title) + i} className="flex items-center gap-3 py-2">
                                                 <span
@@ -145,15 +160,25 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                                                     </div>
                                                 </div>
                                                 {isCatalog && (
-                                                    <button
-                                                        onClick={() => setEditing(spot)}
-                                                        className={`rounded-md px-2 py-1 text-xs ${needsCoords ? "bg-amber-500 text-black hover:bg-amber-400"
-                                                            : "bg-white/85 text-zinc-900 hover:bg-white"
-                                                            }`}
-                                                        title="Set or adjust map location"
-                                                    >
-                                                        {needsCoords ? "Set location" : "Edit location"}
-                                                    </button>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => setEditing(spot)}
+                                                            className={`rounded-md px-2 py-1 text-xs ${needsCoords ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-white/85 text-zinc-900 hover:bg-white"
+                                                                }`}
+                                                            title="Set or adjust map location"
+                                                        >
+                                                            {needsCoords ? "Set location" : "Edit location"}
+                                                        </button>
+                                                        {isOwner && (
+                                                            <button
+                                                                onClick={() => setToDelete(spot)}
+                                                                className="rounded-md bg-rose-600 px-2 py-1 text-xs text-white hover:bg-rose-700"
+                                                                title="Delete (only creator can delete)"
+                                                            >
+                                                                <FiTrash2 />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </li>
                                         );
@@ -168,6 +193,20 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
             {/* Modals */}
             <AddSpotModal open={openAdd} onClose={() => setOpenAdd(false)} category={category} />
             <EditCoordsModal open={!!editing} onClose={() => setEditing(null)} item={editing} onSave={saveCoords} />
+
+            <ConfirmDialog
+                open={!!toDelete}
+                onClose={() => setToDelete(null)}
+                title="Delete this place?"
+                message={toDelete ? `“${toDelete.title}” will be removed for everyone. This cannot be undone.` : ""}
+                confirmText="Delete"
+                onConfirm={confirmDelete}
+            />
+            {deleteMsg && (
+                <div className="fixed bottom-4 left-1/2 z-[9999] -translate-x-1/2 rounded-lg bg-rose-700 px-3 py-2 text-sm text-white shadow">
+                    {deleteMsg}
+                </div>
+            )}
         </>
     );
 }

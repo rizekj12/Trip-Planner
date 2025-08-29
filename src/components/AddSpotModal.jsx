@@ -1,223 +1,212 @@
-// src/components/AddSpotModal.jsx
 import React from 'react';
-import { useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import DayMap from "./DayMap";
+import TodayStopsList from "./TodayStopsList";
+import AddSpotModal from "./AddSpotModal";
+import EditCoordsModal from "./EditCoordsModal";
+import ConfirmDialog from "./ConfirmDialog";
+import { useCatalog } from "../hooks/useCatalog";
+import { updateCatalogSpot, deleteCatalogSpot } from "../utils/db";
 import { supabase } from "../utils/supabase";
-import Modal from "./Modal";
-import { gmaps } from "../utils/helpers";
+import { FiTrash2 } from "react-icons/fi";
 
-/** Try to extract coords (and sometimes title) from a Google Maps URL */
-function parseGoogleMapsLink(url) {
-    if (!url) return { coords: null, titleHint: null };
+export default function SpotsPanel({ items = [], theme, title = "List", category }) {
+    const [session, setSession] = useState(null);
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data }) => setSession(data.session));
+        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+        return () => sub.subscription.unsubscribe();
+    }, []);
+    const myId = session?.user?.id;
 
-    try {
-        const u = new URL(url);
+    const catalog = useCatalog(category); // DB items
+    const combined = useMemo(() => [...catalog, ...items], [catalog, items]);
 
-        // Case 1: .../@35.6895,139.6917,17z
-        const at = u.pathname.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-        if (at) {
-            return { coords: [parseFloat(at[1]), parseFloat(at[2])], titleHint: null };
-        }
+    const allRegions = useMemo(() => {
+        const set = new Set(combined.map((i) => i.region).filter(Boolean));
+        return Array.from(set);
+    }, [combined]);
 
-        // Case 2: ...?q=35.6895,139.6917  OR  ...?query=35.6895,139.6917
-        const q = u.searchParams.get("q") || u.searchParams.get("query");
-        if (q) {
-            const m = q.match(/(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)/);
-            if (m) return { coords: [parseFloat(m[1]), parseFloat(m[2])], titleHint: null };
-            // If it's not coords, it may be a text place name – return as title hint
-            return { coords: null, titleHint: q };
-        }
+    const [regions, setRegions] = useState([]);
+    const [q, setQ] = useState("");
+    const [openAdd, setOpenAdd] = useState(false);
+    const [editing, setEditing] = useState(null);
 
-        // Case 3: /place/<name>/...
-        const place = u.pathname.match(/\/place\/([^/]+)/);
-        if (place) {
-            const titleHint = decodeURIComponent(place[1]).replace(/\+/g, " ");
-            return { coords: null, titleHint };
-        }
-    } catch {
-        // ignore parse errors
+    // delete state
+    const [toDelete, setToDelete] = useState(null);
+    const [deleteMsg, setDeleteMsg] = useState("");
+
+    const toggleRegion = (r) => {
+        setRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
+    };
+
+    const filtered = useMemo(() => {
+        const rx = q.trim().toLowerCase();
+        return combined.filter((i) => {
+            const regionPass = regions.length === 0 || (i.region && regions.includes(i.region));
+            if (!regionPass) return false;
+            if (!rx) return true;
+            return i.title.toLowerCase().includes(rx);
+        });
+    }, [combined, regions, q]);
+
+    const mapItems = filtered.filter((s) => Array.isArray(s.coords));
+
+    async function saveCoords(latlng) {
+        if (!editing?.id) return;
+        await updateCatalogSpot(editing.id, { coords: latlng });
+        setEditing(null);
     }
-    return { coords: null, titleHint: null };
-}
 
-/** Optional: geocode if user provided address and link lacked coords */
-async function geocode(address) {
-    if (!address) return null;
-    try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        const data = await res.json();
-        if (Array.isArray(data) && data[0]) {
-            const { lat, lon } = data[0];
-            return [parseFloat(lat), parseFloat(lon)];
-        }
-    } catch { }
-    return null;
-}
-
-export default function AddSpotModal({ open, onClose, category }) {
-    const [title, setTitle] = useState("");
-    const [googleLink, setGoogleLink] = useState(""); // NEW (preferred)
-    const [address, setAddress] = useState("");       // optional fallback
-    const [region, setRegion] = useState("");         // Tokyo/Kyoto/Osaka/Nagoya
-    const [img, setImg] = useState("");
-    const [youtube, setYouTube] = useState("");
-    const [tiktok, setTikTok] = useState("");
-    const [website, setWebsite] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [msg, setMsg] = useState("");
-
-    async function submit(e) {
-        e.preventDefault();
-        setBusy(true); setMsg("");
-
-        try {
-            if (!title.trim()) {
-                setMsg("Name of place is required.");
-                setBusy(false);
-                return;
-            }
-
-            // 1) Try to get coords/title from the Google Maps link
-            const { coords: linkCoords, titleHint } = parseGoogleMapsLink(googleLink);
-
-            // If no coords came from link, 2) try to geocode the address (if provided)
-            const coords =
-                linkCoords ||
-                (address ? await geocode(address) : null);
-
-            // Final “maps” link: prefer the user’s link; fallback to generated link
-            const mapsLink = googleLink || gmaps(`${title} ${address || ""}`);
-
-            const links = {
-                youtube: youtube || undefined,
-                tiktok: tiktok || undefined,
-                website: website || undefined,
-                maps: mapsLink,
-            };
-
-            const user = (await supabase.auth.getUser()).data.user;
-
-            // Save in catalog_spots
-            const { error } = await supabase.from("catalog_spots").insert({
-                category,                   // "extras" | "food"
-                title: title.trim() || titleHint || "Untitled Place",
-                address: address || "",     // optional
-                coords,                     // may be null -> no map marker until set
-                region: region || null,
-                img: img || null,
-                links,
-                created_by: user?.id || null,
-            });
-            if (error) throw error;
-
-            // Reset and close
-            setTitle(""); setGoogleLink(""); setAddress("");
-            setRegion(""); setImg(""); setYouTube(""); setTikTok(""); setWebsite("");
-            onClose?.();
-        } catch (err) {
-            setMsg(err.message || "Failed to add spot.");
-        } finally {
-            setBusy(false);
-        }
+    async function confirmDelete() {
+        if (!toDelete?.id) return;
+        setDeleteMsg("");
+        const { error } = await deleteCatalogSpot(toDelete.id);
+        if (error) setDeleteMsg(error.message || "Failed to delete.");
+        else setToDelete(null);
     }
 
     return (
-        <Modal open={open} onClose={onClose} theme={{ header: "bg-indigo-600 text-white" }}>
-            <form onSubmit={submit} className="grid gap-3">
-                <h3 className="text-lg font-semibold">Add a {category === "food" ? "Food spot" : "Thing to do"}</h3>
-
-                {/* Required */}
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Name of place *</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        required
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="e.g., Ghibli Park"
-                    />
+        <>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+                <div className="md:col-span-3">
+                    <DayMap items={mapItems} theme={theme} />
                 </div>
 
-                {/* Preferred */}
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Google Maps share link (preferred)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={googleLink}
-                        onChange={(e) => setGoogleLink(e.target.value)}
-                        placeholder="Paste a link from the Share button in Google Maps"
-                    />
-                    <p className="text-xs opacity-70">Tip: Open Google Maps → search place → Share → Copy link → paste here.</p>
-                </div>
+                <div className="md:col-span-2">
+                    <div className={`rounded-2xl p-6 shadow-xl ${theme.card}`}>
+                        <div className={`mb-3 flex items-center justify-between rounded-xl p-3 ${theme.header}`}>
+                            <h2 className="text-xl font-semibold">{title}</h2>
+                            <div className="flex items-center gap-2">
+                                {(regions.length > 0 || q) && (
+                                    <button
+                                        onClick={() => { setRegions([]); setQ(""); }}
+                                        className="rounded-full bg-white/20 px-3 py-1 text-xs text-white hover:bg-white/30"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => setOpenAdd(true)}
+                                    className="rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-zinc-900 hover:bg-white"
+                                    title="Add a place"
+                                >
+                                    + Add
+                                </button>
+                            </div>
+                        </div>
 
-                {/* Fallback */}
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Address (optional if link provided)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="123 Example St, City"
-                    />
-                </div>
+                        {/* Filters */}
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setRegions([])}
+                                    className={["rounded-full px-3 py-1 text-sm transition", regions.length === 0 ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
+                                    aria-pressed={regions.length === 0}
+                                >
+                                    All
+                                </button>
+                                {allRegions.map((r) => {
+                                    const active = regions.includes(r);
+                                    return (
+                                        <button
+                                            key={r}
+                                            onClick={() => toggleRegion(r)}
+                                            className={["rounded-full px-3 py-1 text-sm transition", active ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
+                                            aria-pressed={active}
+                                        >
+                                            {r}
+                                        </button>
+                                    );
+                                })}
+                            </div>
 
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Region (Tokyo / Kyoto / Osaka / Nagoya)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                    />
-                </div>
+                            <div className="relative">
+                                <input
+                                    value={q}
+                                    onChange={(e) => setQ(e.target.value)}
+                                    placeholder="Search places…"
+                                    className="w-full rounded-lg bg-white/85 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-500 shadow focus:outline-none focus:ring-2 focus:ring-white/70 sm:w-64"
+                                    aria-label="Search places"
+                                />
+                            </div>
+                        </div>
 
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Image URL (optional)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={img}
-                        onChange={(e) => setImg(e.target.value)}
-                        placeholder="https://…"
-                    />
-                </div>
+                        {/* Numbered list */}
+                        <div className="max-h-[420px] overflow-auto pr-1">
+                            {filtered.length === 0 ? (
+                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">No matches. Try removing filters.</div>
+                            ) : (
+                                <ul className={`rounded-xl p-3 ${theme.sub}`}>
+                                    <div className="mb-2 font-medium">Pick a place</div>
+                                    {filtered.map((spot, i) => {
+                                        const isCatalog = !!spot.id;
+                                        const needsCoords = !Array.isArray(spot.coords);
+                                        const isOwner = isCatalog && myId && spot.created_by === myId; // only show delete if creator
 
-                {/* Optional links */}
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">YouTube link (optional)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={youtube}
-                        onChange={(e) => setYouTube(e.target.value)}
-                        placeholder="https://youtube.com/…"
-                    />
+                                        return (
+                                            <li key={(spot.id || spot.title) + i} className="flex items-center gap-3 py-2">
+                                                <span
+                                                    className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-bold text-white"
+                                                    style={{ backgroundColor: theme.markerColor }}
+                                                >
+                                                    {i + 1}
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate font-medium">{spot.title}</div>
+                                                    <div className="text-xs opacity-70">
+                                                        {spot.region || "—"}
+                                                        {needsCoords && isCatalog && <span className="ml-2 rounded bg-amber-300/80 px-1.5 py-0.5 text-[10px] text-black">location needed</span>}
+                                                    </div>
+                                                </div>
+                                                {isCatalog && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => setEditing(spot)}
+                                                            className={`rounded-md px-2 py-1 text-xs ${needsCoords ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-white/85 text-zinc-900 hover:bg-white"
+                                                                }`}
+                                                            title="Set or adjust map location"
+                                                        >
+                                                            {needsCoords ? "Set location" : "Edit location"}
+                                                        </button>
+                                                        {isOwner && (
+                                                            <button
+                                                                onClick={() => setToDelete(spot)}
+                                                                className="rounded-md bg-rose-600 px-2 py-1 text-xs text-white hover:bg-rose-700"
+                                                                title="Delete (only creator can delete)"
+                                                            >
+                                                                <FiTrash2 />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">TikTok link (optional)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={tiktok}
-                        onChange={(e) => setTikTok(e.target.value)}
-                        placeholder="https://www.tiktok.com/@…"
-                    />
-                </div>
-                <div className="grid gap-1">
-                    <label className="text-sm opacity-80">Website (optional)</label>
-                    <input
-                        className="rounded-md px-3 py-2 text-zinc-900"
-                        value={website}
-                        onChange={(e) => setWebsite(e.target.value)}
-                        placeholder="https://…"
-                    />
-                </div>
+            </div>
 
-                {msg && <div className="rounded bg-white/30 p-2 text-sm text-zinc-900">{msg}</div>}
+            {/* Modals */}
+            <AddSpotModal open={openAdd} onClose={() => setOpenAdd(false)} category={category} />
+            <EditCoordsModal open={!!editing} onClose={() => setEditing(null)} item={editing} onSave={saveCoords} />
 
-                <div className="mt-1 flex items-center justify-end gap-2">
-                    <button type="button" onClick={onClose} className="rounded-md bg-zinc-600 px-3 py-2 text-white hover:bg-zinc-700">Cancel</button>
-                    <button disabled={busy} className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">
-                        {busy ? "Saving…" : "Add"}
-                    </button>
+            <ConfirmDialog
+                open={!!toDelete}
+                onClose={() => setToDelete(null)}
+                title="Delete this place?"
+                message={toDelete ? `“${toDelete.title}” will be removed for everyone. This cannot be undone.` : ""}
+                confirmText="Delete"
+                onConfirm={confirmDelete}
+            />
+            {deleteMsg && (
+                <div className="fixed bottom-4 left-1/2 z-[9999] -translate-x-1/2 rounded-lg bg-rose-700 px-3 py-2 text-sm text-white shadow">
+                    {deleteMsg}
                 </div>
-            </form>
-        </Modal>
+            )}
+        </>
     );
 }

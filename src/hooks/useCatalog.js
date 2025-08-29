@@ -51,5 +51,6 @@ export function useCatalog(category) {
     region: r.region || undefined,
     img: r.img || undefined,
     links: r.links || {},
+    created_by: r.created_by || null,
   }));
 }
