@@ -9,6 +9,8 @@ import { useCatalog } from "../hooks/useCatalog";
 import { updateCatalogSpot, deleteCatalogSpot } from "../utils/db";
 import { supabase } from "../utils/supabase";
 import { FiTrash2 } from "react-icons/fi";
+import { HOTELS } from "../data/hotels";
+
 
 export default function SpotsPanel({ items = [], theme, title = "List", category }) {
     // ---- Auth/session (for creator-only delete) ----
@@ -29,6 +31,12 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
         };
     }, []);
     const myId = session?.user?.id || null;
+    const hotel =
+        category === "itinerary"
+            ? (region === "Kyoto" ? HOTELS.kyoto_rokujo
+                : region === "Tokyo" && isLastTokyoDay ? HOTELS.tokyo_tamachi
+                    : HOTELS.tokyo_akiba)
+            : null;
 
     // ---- Data merge (static + DB catalog) ----
     const baseItems = Array.isArray(items) ? items : [];
@@ -94,7 +102,7 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
             <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                 {/* Map */}
                 <div className="md:col-span-3">
-                    <DayMap items={mapItems} theme={theme} />
+                    <DayMap items={mapItems} theme={theme} hotel={hotel} />
                 </div>
 
                 {/* Right column: list + controls */}
