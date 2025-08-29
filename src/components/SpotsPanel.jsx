@@ -1,7 +1,7 @@
 import React from 'react';
 import { useMemo, useState, useEffect } from "react";
 import DayMap from "./DayMap";
-import TodayStopsList from "./TodayStopsList";
+import TodayStopsList from "./TodayStopsList"; // keep if you use it elsewhere
 import AddSpotModal from "./AddSpotModal";
 import EditCoordsModal from "./EditCoordsModal";
 import ConfirmDialog from "./ConfirmDialog";
@@ -11,28 +11,44 @@ import { supabase } from "../utils/supabase";
 import { FiTrash2 } from "react-icons/fi";
 
 export default function SpotsPanel({ items = [], theme, title = "List", category }) {
+    // ---- Auth/session (for creator-only delete) ----
     const [session, setSession] = useState(null);
     useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => setSession(data.session));
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-        return () => sub.subscription.unsubscribe();
+        let isMounted = true;
+        supabase.auth.getSession().then(({ data }) => {
+            if (isMounted) setSession(data?.session ?? null);
+        });
+        const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+            if (isMounted) setSession(s);
+        });
+        return () => {
+            isMounted = false;
+            try {
+                data?.subscription?.unsubscribe?.();
+            } catch { }
+        };
     }, []);
-    const myId = session?.user?.id;
+    const myId = session?.user?.id || null;
 
-    const catalog = useCatalog(category); // DB items
-    const combined = useMemo(() => [...catalog, ...items], [catalog, items]);
+    // ---- Data merge (static + DB catalog) ----
+    const baseItems = Array.isArray(items) ? items : [];
+    const catalog = useCatalog(category) || [];
+    const combined = useMemo(() => [...(catalog || []), ...(baseItems || [])], [catalog, baseItems]);
 
+    // ---- Regions for filter chips ----
     const allRegions = useMemo(() => {
-        const set = new Set(combined.map((i) => i.region).filter(Boolean));
+        const set = new Set();
+        (combined || []).forEach((i) => i?.region && set.add(i.region));
         return Array.from(set);
     }, [combined]);
 
+    // ---- UI state ----
     const [regions, setRegions] = useState([]);
     const [q, setQ] = useState("");
     const [openAdd, setOpenAdd] = useState(false);
     const [editing, setEditing] = useState(null);
 
-    // delete state
+    // Delete state
     const [toDelete, setToDelete] = useState(null);
     const [deleteMsg, setDeleteMsg] = useState("");
 
@@ -40,22 +56,29 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
         setRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
     };
 
+    // ---- Filtered list ----
     const filtered = useMemo(() => {
         const rx = q.trim().toLowerCase();
-        return combined.filter((i) => {
+        return (combined || []).filter((i) => {
+            if (!i) return false;
             const regionPass = regions.length === 0 || (i.region && regions.includes(i.region));
             if (!regionPass) return false;
             if (!rx) return true;
-            return i.title.toLowerCase().includes(rx);
+            return (i.title || "").toLowerCase().includes(rx);
         });
     }, [combined, regions, q]);
 
-    const mapItems = filtered.filter((s) => Array.isArray(s.coords));
+    // Items with coords go on the map
+    const mapItems = (filtered || []).filter((s) => Array.isArray(s?.coords) && s.coords.length === 2);
 
+    // ---- Actions ----
     async function saveCoords(latlng) {
-        if (!editing?.id) return;
-        await updateCatalogSpot(editing.id, { coords: latlng });
-        setEditing(null);
+        try {
+            if (!editing?.id) return;
+            await updateCatalogSpot(editing.id, { coords: latlng });
+        } finally {
+            setEditing(null);
+        }
     }
 
     async function confirmDelete() {
@@ -69,12 +92,15 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
     return (
         <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+                {/* Map */}
                 <div className="md:col-span-3">
                     <DayMap items={mapItems} theme={theme} />
                 </div>
 
+                {/* Right column: list + controls */}
                 <div className="md:col-span-2">
                     <div className={`rounded-2xl p-6 shadow-xl ${theme.card}`}>
+                        {/* Header bar */}
                         <div className={`mb-3 flex items-center justify-between rounded-xl p-3 ${theme.header}`}>
                             <h2 className="text-xl font-semibold">{title}</h2>
                             <div className="flex items-center gap-2">
@@ -101,7 +127,10 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                             <div className="flex flex-wrap gap-2">
                                 <button
                                     onClick={() => setRegions([])}
-                                    className={["rounded-full px-3 py-1 text-sm transition", regions.length === 0 ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
+                                    className={[
+                                        "rounded-full px-3 py-1 text-sm transition",
+                                        regions.length === 0 ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40",
+                                    ].join(" ")}
                                     aria-pressed={regions.length === 0}
                                 >
                                     All
@@ -112,7 +141,10 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                                         <button
                                             key={r}
                                             onClick={() => toggleRegion(r)}
-                                            className={["rounded-full px-3 py-1 text-sm transition", active ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
+                                            className={[
+                                                "rounded-full px-3 py-1 text-sm transition",
+                                                active ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40",
+                                            ].join(" ")}
                                             aria-pressed={active}
                                         >
                                             {r}
@@ -135,35 +167,48 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                         {/* Numbered list */}
                         <div className="max-h-[420px] overflow-auto pr-1">
                             {filtered.length === 0 ? (
-                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">No matches. Try removing filters.</div>
+                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">
+                                    No matches. Try removing filters.
+                                </div>
                             ) : (
                                 <ul className={`rounded-xl p-3 ${theme.sub}`}>
                                     <div className="mb-2 font-medium">Pick a place</div>
                                     {filtered.map((spot, i) => {
-                                        const isCatalog = !!spot.id;
+                                        const isCatalog = !!spot.id; // DB row has id
                                         const needsCoords = !Array.isArray(spot.coords);
-                                        const isOwner = isCatalog && myId && spot.created_by === myId; // only show delete if creator
+                                        const isOwner = isCatalog && myId && spot.created_by === myId;
 
                                         return (
                                             <li key={(spot.id || spot.title) + i} className="flex items-center gap-3 py-2">
+                                                {/* Number badge */}
                                                 <span
                                                     className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-bold text-white"
                                                     style={{ backgroundColor: theme.markerColor }}
                                                 >
                                                     {i + 1}
                                                 </span>
+
+                                                {/* Title + meta */}
                                                 <div className="min-w-0 flex-1">
                                                     <div className="truncate font-medium">{spot.title}</div>
                                                     <div className="text-xs opacity-70">
                                                         {spot.region || "—"}
-                                                        {needsCoords && isCatalog && <span className="ml-2 rounded bg-amber-300/80 px-1.5 py-0.5 text-[10px] text-black">location needed</span>}
+                                                        {needsCoords && isCatalog && (
+                                                            <span className="ml-2 rounded bg-amber-300/80 px-1.5 py-0.5 text-[10px] text-black">
+                                                                location needed
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
+
+                                                {/* Actions */}
                                                 {isCatalog && (
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => setEditing(spot)}
-                                                            className={`rounded-md px-2 py-1 text-xs ${needsCoords ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-white/85 text-zinc-900 hover:bg-white"
+                                                            className={`rounded-md px-2 py-1 text-xs ${needsCoords
+                                                                ? "bg-amber-500 text-black hover:bg-amber-400"
+                                                                : "bg-white/85 text-zinc-900 hover:bg-white"
                                                                 }`}
                                                             title="Set or adjust map location"
                                                         >
@@ -202,6 +247,7 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
                 confirmText="Delete"
                 onConfirm={confirmDelete}
             />
+
             {deleteMsg && (
                 <div className="fixed bottom-4 left-1/2 z-[9999] -translate-x-1/2 rounded-lg bg-rose-700 px-3 py-2 text-sm text-white shadow">
                     {deleteMsg}

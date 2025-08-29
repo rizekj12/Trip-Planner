@@ -1,212 +1,174 @@
 import React from 'react';
-import { useMemo, useState, useEffect } from "react";
-import DayMap from "./DayMap";
-import TodayStopsList from "./TodayStopsList";
-import AddSpotModal from "./AddSpotModal";
-import EditCoordsModal from "./EditCoordsModal";
-import ConfirmDialog from "./ConfirmDialog";
-import { useCatalog } from "../hooks/useCatalog";
-import { updateCatalogSpot, deleteCatalogSpot } from "../utils/db";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../utils/supabase";
-import { FiTrash2 } from "react-icons/fi";
+import Modal from "./Modal";
+import { gmaps } from "../utils/helpers";
 
-export default function SpotsPanel({ items = [], theme, title = "List", category }) {
-    const [session, setSession] = useState(null);
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => setSession(data.session));
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-        return () => sub.subscription.unsubscribe();
-    }, []);
-    const myId = session?.user?.id;
+/** Extract coords or a title hint from a Google Maps URL */
+function parseGoogleMapsLink(url) {
+    if (!url || typeof url !== "string") return { coords: null, titleHint: null };
+    try {
+        const trimmed = url.trim();
+        if (!/^https?:\/\//i.test(trimmed)) return { coords: null, titleHint: null };
+        const u = new URL(trimmed);
 
-    const catalog = useCatalog(category); // DB items
-    const combined = useMemo(() => [...catalog, ...items], [catalog, items]);
+        // Case 1: …/@35.6895,139.6917
+        const at = u.pathname.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+        if (at) return { coords: [parseFloat(at[1]), parseFloat(at[2])], titleHint: null };
 
-    const allRegions = useMemo(() => {
-        const set = new Set(combined.map((i) => i.region).filter(Boolean));
-        return Array.from(set);
-    }, [combined]);
+        // Case 2: ?q=lat,lon or ?query=lat,lon
+        const q = u.searchParams.get("q") || u.searchParams.get("query");
+        if (q) {
+            const m = q.match(/(-?\d+\.?\d*)[, ]+(-?\d+\.?\d*)/);
+            if (m) return { coords: [parseFloat(m[1]), parseFloat(m[2])], titleHint: null };
+            return { coords: null, titleHint: q };
+        }
 
-    const [regions, setRegions] = useState([]);
-    const [q, setQ] = useState("");
-    const [openAdd, setOpenAdd] = useState(false);
-    const [editing, setEditing] = useState(null);
-
-    // delete state
-    const [toDelete, setToDelete] = useState(null);
-    const [deleteMsg, setDeleteMsg] = useState("");
-
-    const toggleRegion = (r) => {
-        setRegions((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
-    };
-
-    const filtered = useMemo(() => {
-        const rx = q.trim().toLowerCase();
-        return combined.filter((i) => {
-            const regionPass = regions.length === 0 || (i.region && regions.includes(i.region));
-            if (!regionPass) return false;
-            if (!rx) return true;
-            return i.title.toLowerCase().includes(rx);
-        });
-    }, [combined, regions, q]);
-
-    const mapItems = filtered.filter((s) => Array.isArray(s.coords));
-
-    async function saveCoords(latlng) {
-        if (!editing?.id) return;
-        await updateCatalogSpot(editing.id, { coords: latlng });
-        setEditing(null);
+        // Case 3: /place/<name>
+        const place = u.pathname.match(/\/place\/([^/]+)/);
+        if (place) {
+            return { coords: null, titleHint: decodeURIComponent(place[1]).replace(/\+/g, " ") };
+        }
+    } catch {
+        // ignore bad input
     }
+    return { coords: null, titleHint: null };
+}
 
-    async function confirmDelete() {
-        if (!toDelete?.id) return;
-        setDeleteMsg("");
-        const { error } = await deleteCatalogSpot(toDelete.id);
-        if (error) setDeleteMsg(error.message || "Failed to delete.");
-        else setToDelete(null);
+async function geocode(address) {
+    if (!address) return null;
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]) {
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        }
+    } catch { }
+    return null;
+}
+
+export default function AddSpotModal({ open, onClose, category }) {
+    const [title, setTitle] = useState("");
+    const [googleLink, setGoogleLink] = useState("");
+    const [address, setAddress] = useState("");
+    const [region, setRegion] = useState("");
+    const [img, setImg] = useState("");
+    const [youtube, setYouTube] = useState("");
+    const [tiktok, setTikTok] = useState("");
+    const [website, setWebsite] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState("");
+    const [previewCoords, setPreviewCoords] = useState(null);
+
+    useEffect(() => {
+        const { coords } = parseGoogleMapsLink(googleLink);
+        setPreviewCoords(coords || null);
+    }, [googleLink]);
+
+    const coordsLabel = useMemo(() => {
+        if (previewCoords) return `${previewCoords[0].toFixed(5)}, ${previewCoords[1].toFixed(5)} (from Maps link)`;
+        return address ? "Will try to geocode the address" : "No map location yet (you can set it later)";
+    }, [previewCoords, address]);
+
+    async function submit(e) {
+        e.preventDefault();
+        setBusy(true); setMsg("");
+        try {
+            if (!title.trim()) throw new Error("Name of place is required.");
+            const { coords: linkCoords, titleHint } = parseGoogleMapsLink(googleLink);
+            const coords = linkCoords || (address ? await geocode(address) : null);
+            const mapsLink = googleLink || gmaps(`${title} ${address || ""}`);
+            const user = (await supabase.auth.getUser()).data.user;
+
+            const { error } = await supabase.from("catalog_spots").insert({
+                category,
+                title: title.trim() || titleHint || "Untitled Place",
+                address: address || "",
+                coords,
+                region: region || null,
+                img: img || null,
+                links: {
+                    maps: mapsLink,
+                    youtube: youtube || undefined,
+                    tiktok: tiktok || undefined,
+                    website: website || undefined,
+                },
+                created_by: user?.id || null,
+            });
+            if (error) throw error;
+
+            // reset after save
+            setTitle(""); setGoogleLink(""); setAddress(""); setRegion("");
+            setImg(""); setYouTube(""); setTikTok(""); setWebsite(""); setPreviewCoords(null);
+            onClose?.();
+        } catch (err) {
+            setMsg(err.message || "Failed to add spot.");
+        } finally {
+            setBusy(false);
+        }
     }
 
     return (
-        <>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-                <div className="md:col-span-3">
-                    <DayMap items={mapItems} theme={theme} />
+        <Modal open={open} onClose={onClose} theme={{ header: "bg-indigo-600 text-white" }}>
+            <form onSubmit={submit} className="grid gap-4">
+                <h3 className="text-lg font-semibold">
+                    Add a {category === "food" ? "Food spot" : "Thing to do"}
+                </h3>
+
+                {/* Name */}
+                <div className="grid gap-1">
+                    <label className="text-sm font-medium">Name *</label>
+                    <input className="rounded-md px-3 py-2 text-zinc-900" required
+                        value={title} onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g., Ghibli Park" />
                 </div>
 
-                <div className="md:col-span-2">
-                    <div className={`rounded-2xl p-6 shadow-xl ${theme.card}`}>
-                        <div className={`mb-3 flex items-center justify-between rounded-xl p-3 ${theme.header}`}>
-                            <h2 className="text-xl font-semibold">{title}</h2>
-                            <div className="flex items-center gap-2">
-                                {(regions.length > 0 || q) && (
-                                    <button
-                                        onClick={() => { setRegions([]); setQ(""); }}
-                                        className="rounded-full bg-white/20 px-3 py-1 text-xs text-white hover:bg-white/30"
-                                    >
-                                        Clear
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setOpenAdd(true)}
-                                    className="rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-zinc-900 hover:bg-white"
-                                    title="Add a place"
-                                >
-                                    + Add
-                                </button>
-                            </div>
-                        </div>
+                {/* Location section */}
+                <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
+                    <div className="text-sm font-medium">Location</div>
+                    <label className="text-xs opacity-80">Google Maps share link (preferred)</label>
+                    <input className="rounded-md px-3 py-2 text-zinc-900"
+                        value={googleLink} onChange={(e) => setGoogleLink(e.target.value)}
+                        placeholder="Paste link from Google Maps → Share → Copy link" />
+                    <div className="text-[11px] opacity-75">Detected: {coordsLabel}</div>
 
-                        {/* Filters */}
-                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setRegions([])}
-                                    className={["rounded-full px-3 py-1 text-sm transition", regions.length === 0 ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
-                                    aria-pressed={regions.length === 0}
-                                >
-                                    All
-                                </button>
-                                {allRegions.map((r) => {
-                                    const active = regions.includes(r);
-                                    return (
-                                        <button
-                                            key={r}
-                                            onClick={() => toggleRegion(r)}
-                                            className={["rounded-full px-3 py-1 text-sm transition", active ? "bg-white/90 text-zinc-900 shadow" : "bg-white/30 text-white hover:bg-white/40"].join(" ")}
-                                            aria-pressed={active}
-                                        >
-                                            {r}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                    <label className="text-xs opacity-80 mt-2">Address (optional if link provided)</label>
+                    <input className="rounded-md px-3 py-2 text-zinc-900"
+                        value={address} onChange={(e) => setAddress(e.target.value)}
+                        placeholder="123 Example St, City" />
 
-                            <div className="relative">
-                                <input
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search places…"
-                                    className="w-full rounded-lg bg-white/85 px-3 py-2 text-sm text-zinc-900 placeholder-zinc-500 shadow focus:outline-none focus:ring-2 focus:ring-white/70 sm:w-64"
-                                    aria-label="Search places"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Numbered list */}
-                        <div className="max-h-[420px] overflow-auto pr-1">
-                            {filtered.length === 0 ? (
-                                <div className="rounded-lg bg-white/40 p-3 text-sm text-zinc-900">No matches. Try removing filters.</div>
-                            ) : (
-                                <ul className={`rounded-xl p-3 ${theme.sub}`}>
-                                    <div className="mb-2 font-medium">Pick a place</div>
-                                    {filtered.map((spot, i) => {
-                                        const isCatalog = !!spot.id;
-                                        const needsCoords = !Array.isArray(spot.coords);
-                                        const isOwner = isCatalog && myId && spot.created_by === myId; // only show delete if creator
-
-                                        return (
-                                            <li key={(spot.id || spot.title) + i} className="flex items-center gap-3 py-2">
-                                                <span
-                                                    className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-bold text-white"
-                                                    style={{ backgroundColor: theme.markerColor }}
-                                                >
-                                                    {i + 1}
-                                                </span>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="truncate font-medium">{spot.title}</div>
-                                                    <div className="text-xs opacity-70">
-                                                        {spot.region || "—"}
-                                                        {needsCoords && isCatalog && <span className="ml-2 rounded bg-amber-300/80 px-1.5 py-0.5 text-[10px] text-black">location needed</span>}
-                                                    </div>
-                                                </div>
-                                                {isCatalog && (
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => setEditing(spot)}
-                                                            className={`rounded-md px-2 py-1 text-xs ${needsCoords ? "bg-amber-500 text-black hover:bg-amber-400" : "bg-white/85 text-zinc-900 hover:bg-white"
-                                                                }`}
-                                                            title="Set or adjust map location"
-                                                        >
-                                                            {needsCoords ? "Set location" : "Edit location"}
-                                                        </button>
-                                                        {isOwner && (
-                                                            <button
-                                                                onClick={() => setToDelete(spot)}
-                                                                className="rounded-md bg-rose-600 px-2 py-1 text-xs text-white hover:bg-rose-700"
-                                                                title="Delete (only creator can delete)"
-                                                            >
-                                                                <FiTrash2 />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
+                    <label className="text-xs opacity-80 mt-2">Region (Tokyo / Kyoto / Osaka / Nagoya)</label>
+                    <input className="rounded-md px-3 py-2 text-zinc-900"
+                        value={region} onChange={(e) => setRegion(e.target.value)} />
                 </div>
-            </div>
 
-            {/* Modals */}
-            <AddSpotModal open={openAdd} onClose={() => setOpenAdd(false)} category={category} />
-            <EditCoordsModal open={!!editing} onClose={() => setEditing(null)} item={editing} onSave={saveCoords} />
-
-            <ConfirmDialog
-                open={!!toDelete}
-                onClose={() => setToDelete(null)}
-                title="Delete this place?"
-                message={toDelete ? `“${toDelete.title}” will be removed for everyone. This cannot be undone.` : ""}
-                confirmText="Delete"
-                onConfirm={confirmDelete}
-            />
-            {deleteMsg && (
-                <div className="fixed bottom-4 left-1/2 z-[9999] -translate-x-1/2 rounded-lg bg-rose-700 px-3 py-2 text-sm text-white shadow">
-                    {deleteMsg}
+                {/* Media + links */}
+                <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
+                    <div className="text-sm font-medium">Media & Links (optional)</div>
+                    <input className="rounded-md px-3 py-2 text-zinc-900" value={img}
+                        onChange={(e) => setImg(e.target.value)} placeholder="Image URL" />
+                    <input className="rounded-md px-3 py-2 text-zinc-900" value={youtube}
+                        onChange={(e) => setYouTube(e.target.value)} placeholder="YouTube link" />
+                    <input className="rounded-md px-3 py-2 text-zinc-900" value={tiktok}
+                        onChange={(e) => setTikTok(e.target.value)} placeholder="TikTok link" />
+                    <input className="rounded-md px-3 py-2 text-zinc-900" value={website}
+                        onChange={(e) => setWebsite(e.target.value)} placeholder="Website" />
                 </div>
-            )}
-        </>
+
+                {msg && <div className="rounded bg-rose-100 px-3 py-2 text-sm text-rose-700">{msg}</div>}
+
+                <div className="mt-1 flex items-center justify-end gap-2">
+                    <button type="button" onClick={onClose}
+                        className="rounded-md bg-zinc-600 px-3 py-2 text-white hover:bg-zinc-700">
+                        Cancel
+                    </button>
+                    <button disabled={busy}
+                        className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">
+                        {busy ? "Saving…" : "Add"}
+                    </button>
+                </div>
+            </form>
+        </Modal>
     );
 }

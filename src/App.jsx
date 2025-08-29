@@ -10,6 +10,7 @@ import Countdown from "./components/Countdown"; // ← NEW
 import SpotsPanel from "./components/SpotsPanel"
 import { otherThings } from "./data/otherThings";
 import { foodSpots } from "./data/foodSpots";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 import { days } from "./data/days";
 import { flights } from "./data/flights";
@@ -92,9 +93,13 @@ export default function App() {
                                 </div>
                             </div>
                         ) : tab === "extras" ? (
-                            <SpotsPanel items={otherThings} theme={t} title="Other things to do" category="extras" />
+                            <ErrorBoundary>
+                                <SpotsPanel items={otherThings} theme={t} title="Other things to do" category="extras" />
+                            </ErrorBoundary>
                         ) : tab === "food" ? (
-                            <SpotsPanel items={foodSpots} theme={t} title="Food spots" category="food" />
+                            <ErrorBoundary>
+                                <SpotsPanel items={foodSpots} theme={t} title="Food spots" category="food" />
+                            </ErrorBoundary>
                         ) : (
                             activeDay && (
                                 <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
