@@ -2,32 +2,34 @@ import React from 'react';
 // src/components/HotelInfoModal.jsx
 import { FaYoutube } from "react-icons/fa";
 import { SiGooglemaps } from "react-icons/si";
-import { FiX, FiGlobe } from "react-icons/fi";
+import { FiX, FiGlobe, FiPhone, FiCalendar } from "react-icons/fi";
 
 /**
  * Props:
  * - open: boolean
  * - onClose: () => void
- * - hotel: { title, region?, img?, links?: { maps?, youtube?, website? }, note?, distanceLabel? }
+ * - hotel: {
+ *     title, region?, img?,
+ *     links?: { maps?: string, youtube?: string, website?: string },
+ *     note?, distanceLabel?,
+ *     phone?, checkIn?, checkOut?
+ *   }
  * - themeKey: "tokyo" | "kansai"
  */
 export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo" }) {
     if (!open || !hotel) return null;
 
     const header =
-        themeKey === "kansai"
-            ? "bg-red-600 text-white"
-            : "bg-indigo-600 text-white";
+        themeKey === "kansai" ? "bg-red-600 text-white" : "bg-indigo-600 text-white";
 
     const chip =
         themeKey === "kansai"
-            ? "bg-red-200/80 text-red-900"
-            : "bg-indigo-200/80 text-indigo-900";
+            ? "bg-red-200/90 text-red-900 ring-1 ring-red-300"
+            : "bg-indigo-200/90 text-indigo-900 ring-1 ring-indigo-300";
 
-    // image fallback (local or remote)
-    const imgSrc =
-        hotel.img ||
-        "/hotel-fallback.jpg"; // optional: add a fallback image in /public
+    const imgSrc = hotel.img || "/hotel-fallback.jpg"; // optional fallback
+    const hasDates = !!(hotel.checkIn || hotel.checkOut);
+    const hasPhone = !!hotel.phone;
 
     return (
         <div
@@ -35,18 +37,19 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
             aria-modal="true"
             role="dialog"
         >
-            {/* backdrop */}
-            <div
+            {/* Backdrop */}
+            <button
                 className="absolute inset-0 bg-black/40 backdrop-blur-sm"
                 onClick={onClose}
+                aria-label="Close"
             />
 
-            {/* card */}
+            {/* Card */}
             <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl bg-white text-zinc-900 shadow-2xl ring-1 ring-black/10">
-                {/* header */}
+                {/* Header */}
                 <div className={`flex items-center justify-between px-4 py-3 ${header}`}>
                     <div className="min-w-0">
-                        <div className="truncate text-base font-semibold">{hotel.title}</div>
+                        <h2 className="truncate text-base font-semibold">{hotel.title}</h2>
                         {hotel.region && (
                             <div className="mt-0.5 text-xs opacity-90">{hotel.region}</div>
                         )}
@@ -61,60 +64,75 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                     </button>
                 </div>
 
-                {/* image */}
+                {/* Image */}
                 <div className="aspect-video w-full bg-zinc-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {/* eslint-disable-next-line jsx-a11y/alt-text */}
                     <img
                         src={imgSrc}
                         alt={hotel.title}
                         className="h-full w-full object-cover"
                         onError={(e) => {
-                            // if custom image fails, swap to a neutral fallback color
                             e.currentTarget.style.display = "none";
                         }}
                     />
                 </div>
 
-                {/* body */}
-                <div className="px-4 py-4">
-                    {/* chips */}
-                    <div className="mb-3 flex flex-wrap gap-2">
-                        {hotel.distanceLabel && (
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${chip}`}>
-                                {hotel.distanceLabel}
-                            </span>
-                        )}
-                        {hotel.note && (
-                            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs">
-                                {hotel.note}
-                            </span>
-                        )}
-                    </div>
+                {/* Body */}
+                <div className="px-4 py-4 space-y-4">
+                    {/* Dates (single chip) + optional distance/note */}
+                    {(hasDates || hotel.distanceLabel || hotel.note) && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {hasDates && (
+                                <span
+                                    className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium shadow-sm ${chip}`}
+                                >
+                                    <FiCalendar className="opacity-80" />
+                                    {hotel.checkIn && hotel.checkOut ? (
+                                        <span className="truncate">
+                                            {hotel.checkIn} → {hotel.checkOut}
+                                        </span>
+                                    ) : hotel.checkIn ? (
+                                        <span className="truncate">Check-in: {hotel.checkIn}</span>
+                                    ) : (
+                                        <span className="truncate">Check-out: {hotel.checkOut}</span>
+                                    )}
+                                </span>
+                            )}
+                            {hotel.distanceLabel && (
+                                <span className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-2.5 py-1 text-[11px] sm:text-xs">
+                                    {hotel.distanceLabel}
+                                </span>
+                            )}
+                            {hotel.note && (
+                                <span className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-2.5 py-1 text-[11px] sm:text-xs">
+                                    {hotel.note}
+                                </span>
+                            )}
+                        </div>
+                    )}
 
-                    {/* links */}
+                    {/* Primary actions: equal width, aligned */}
                     <div className="flex flex-wrap gap-3">
+                        {hasPhone && (
+                            <a
+                                href={`tel:${hotel.phone.replace(/\s+/g, "")}`}
+                                className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                                title={`Call ${hotel.phone}`}
+                            >
+                                <FiPhone />
+                                Call
+                            </a>
+                        )}
                         {hotel.links?.maps && (
                             <a
                                 href={hotel.links.maps}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
+                                className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                                 title="Open in Google Maps"
                             >
                                 <SiGooglemaps size={18} />
-                                <span className="text-sm">Maps</span>
-                            </a>
-                        )}
-                        {hotel.links?.youtube && (
-                            <a
-                                href={hotel.links.youtube}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-white hover:bg-rose-700"
-                                title="Watch on YouTube"
-                            >
-                                <FaYoutube size={18} />
-                                <span className="text-sm">YouTube</span>
+                                Maps
                             </a>
                         )}
                         {hotel.links?.website && (
@@ -122,14 +140,30 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 href={hotel.links.website}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-white hover:bg-emerald-700"
+                                className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                                 title="Open website"
                             >
                                 <FiGlobe size={18} />
-                                <span className="text-sm">Website</span>
+                                Website
                             </a>
                         )}
                     </div>
+
+                    {/* Secondary links row (optional) */}
+                    {hotel.links?.youtube && (
+                        <div className="pt-1">
+                            <a
+                                href={hotel.links.youtube}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                                title="Watch on YouTube"
+                            >
+                                <FaYoutube size={18} />
+                                YouTube
+                            </a>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

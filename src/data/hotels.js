@@ -8,8 +8,8 @@ export const HOTELS = {
     address: "3-10-11 Sotokanda, Tokyo 110-0021",
     // Put your image at: public/hotels/nohga-akihabara.jpg
     img: "/hotels/nohga-akihabara.jpg",
-    checkIn: "15:00",
-    checkOut: "11:00",
+    checkIn: "Thu Sep 25, 2025",
+    checkOut: "Mon Sep 29, 2025",
     phone: "+81 3-6206-0560",
     website: "https://nohgahotel.com/akihabara/en/",
     links: { maps: "https://maps.app.goo.gl/BSm2UM2hBoq3aKck9" },
@@ -23,8 +23,8 @@ export const HOTELS = {
     address: "181 Bokumikanabutsu-cho, Kyoto 600-8333",
     // Put your image at: public/hotels/oriental-kyoto-rokujo.jpg
     img: "/hotels/oriental-kyoto-rokujo.jpg",
-    checkIn: "15:00",
-    checkOut: "11:00",
+    checkIn: "Mon Sep 29, 2025",
+    checkOut: "Fri Oct 3, 2025",
     phone: "+81 75-371-6345",
     website: "https://www.hotelkyoto.oriental-hotels.com/",
     links: { maps: "https://maps.app.goo.gl/QkXxFe2zS3x7jGpRA" },
@@ -38,8 +38,8 @@ export const HOTELS = {
     address: "3-6-18 Shibaura, Minato-ku, Tokyo 108-0023",
     // Put your image at: public/hotels/prezio-tamachi.jpg
     img: "/hotels/prezio-tamachi.jpg",
-    checkIn: "15:00",
-    checkOut: "11:00",
+    checkIn: "Fri Oct 3, 2025",
+    checkOut: "Sat Oct 4, 2025",
     phone: "+81 3-6722-1132",
     website: "https://www.shizutetsu-hotel.jp/prezio-tamachi/en/",
     links: { maps: "https://maps.app.goo.gl/8G5dA1T2Qy6b6e1E7" },
