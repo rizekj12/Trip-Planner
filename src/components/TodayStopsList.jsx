@@ -22,8 +22,6 @@ export default function TodayStopsList({ items, theme, showRegion = false }) {
               )}
             </div>
 
-            <AddToDay spot={spot} />
-
           </li>
         ))}
       </ul>

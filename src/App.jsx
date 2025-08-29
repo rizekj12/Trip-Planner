@@ -11,7 +11,7 @@ import SpotsPanel from "./components/SpotsPanel"
 import { otherThings } from "./data/otherThings";
 import { foodSpots } from "./data/foodSpots";
 import ErrorBoundary from "./components/ErrorBoundary";
-
+import { HOTELS } from "./data/hotels"
 import { days } from "./data/days";
 import { flights } from "./data/flights";
 import { spots } from "./data/spots";
@@ -27,6 +27,12 @@ export default function App() {
     const [tab, setTab] = useState(() => tabForToday(days));
     const [extrasTick, setExtrasTick] = useState(0); // bump to re-render when picks change
 
+    const hotelForTab =
+        ["day1", "day2", "day3", "day4"].includes(tab) ? HOTELS.tokyo_akiba :
+            ["day5", "day6", "day7", "day8"].includes(tab) ? HOTELS.kyoto_rokujo :
+                ["day9"].includes(tab) ? HOTELS.tokyo_tamachi :
+                    null;
+
     const tabs = [
         ...days.map((d, i) => ({ key: d.key, label: `Day ${i + 1}`, date: d.date })),
         { key: "extras", label: "Other things to do" },
@@ -34,6 +40,7 @@ export default function App() {
         { key: "flights", label: "Flight Info" },
     ];
 
+    const ALL_HOTELS = [HOTELS.tokyo_akiba, HOTELS.kyoto_rokujo, HOTELS.tokyo_tamachi];
 
     const themeKey = KANSAI_DAYS.has(tab) ? "kansai" : "tokyo";
     const t = THEMES[themeKey];
@@ -94,11 +101,11 @@ export default function App() {
                             </div>
                         ) : tab === "extras" ? (
                             <ErrorBoundary>
-                                <SpotsPanel items={otherThings} theme={t} title="Other things to do" category="extras" />
+                                <SpotsPanel items={otherThings} hotel={hotelForTab} hotels={ALL_HOTELS} theme={t} title="Other things to do" category="extras" />
                             </ErrorBoundary>
                         ) : tab === "food" ? (
                             <ErrorBoundary>
-                                <SpotsPanel items={foodSpots} theme={t} title="Food spots" category="food" />
+                                <SpotsPanel items={foodSpots} hotel={hotelForTab} hotels={ALL_HOTELS} theme={t} title="Food spots" category="food" />
                             </ErrorBoundary>
                         ) : (
                             activeDay && (
