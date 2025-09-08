@@ -89,7 +89,6 @@ export default function DayMap({ items = [], hotel = null, hotels = [], theme, t
     [items]
   );
 
-  // Merge any hotel(s): props.hotels[], props.hotel, and any hotels already inside items
   const hotelsFromItems = useMemo(
     () => (Array.isArray(items) ? items : []).filter((it) => it?.type === "hotel" && Array.isArray(it?.coords)),
     [items]
@@ -110,6 +109,10 @@ export default function DayMap({ items = [], hotel = null, hotels = [], theme, t
       return true;
     });
   }, [hotelsFromItems, hotel, hotels]);
+
+  // ADD THIS:
+  console.log("DayMap spots:", spots);
+  console.log("DayMap hotelList:", hotelList);
 
   const center = useMemo(
     () => spots[0]?.coords || hotelList[0]?.coords || [35.681236, 139.767125],

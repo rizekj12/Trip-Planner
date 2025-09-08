@@ -12,7 +12,7 @@ import { FiTrash2 } from "react-icons/fi";
 import { HOTELS } from "../data/hotels";
 
 
-export default function SpotsPanel({ items = [], theme, title = "List", category, themeKey, hotel, hotels }) {
+export default function SpotsPanel({ items = [], theme, title = "List", category, themeKey, hotel, hotels, showMap = true }) {
     // ---- Auth/session (for creator-only delete) ----
     const [session, setSession] = useState(null);
     useEffect(() => {
@@ -101,11 +101,11 @@ export default function SpotsPanel({ items = [], theme, title = "List", category
         <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                 {/* Map */}
-                <div className="md:col-span-3">
+                {showMap && (<div className="md:col-span-3">
                     <DayMap items={mapItems} themeKey={themeKey} theme={theme} hotel={hotel} hotels={hotels} />
                 </div>
 
-                {/* Right column: list + controls */}
+                )}
                 <div className="md:col-span-2">
                     <div className={`rounded-2xl p-6 shadow-xl ${theme.card}`}>
                         {/* Header bar */}

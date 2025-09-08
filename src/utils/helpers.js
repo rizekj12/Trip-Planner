@@ -1,10 +1,14 @@
 import L from "leaflet";
 
 export function yt(q) {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(
+    q
+  )}`;
 }
 export function gmaps(q) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    q
+  )}`;
 }
 
 // Leaflet numbered divIcon
@@ -34,13 +38,18 @@ export function toDateObj(label) {
   return new Date(`${month} ${day}, ${TRIP_YEAR} 00:00:00`);
 }
 export function tabForToday(daysArr) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const withDates = daysArr.map(d => ({ key: d.key, date: toDateObj(d.date) }));
-  const exact = withDates.find(d => d.date.getTime() === today.getTime());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const withDates = daysArr.map((d) => ({
+    key: d.key,
+    date: toDateObj(d.date),
+  }));
+  const exact = withDates.find((d) => d.date.getTime() === today.getTime());
   if (exact) return exact.key;
-  const first = withDates[0].date, last = withDates[withDates.length-1].date;
+  const first = withDates[0].date;
+  const last = withDates[withDates.length - 1].date;
   if (today < first) return withDates[0].key;
-  if (today > last) return withDates[withDates.length-1].key;
-  const upcoming = withDates.find(d => d.date >= today);
+  if (today > last) return withDates[0].key; // <--- always show first day if after trip
+  const upcoming = withDates.find((d) => d.date >= today);
   return (upcoming && upcoming.key) || withDates[0].key;
 }

@@ -1,5 +1,5 @@
 export const TOKYO_LAVENDER = "bg-[rgb(229,222,243)]"; // deeper soft purple for Tokyo
-export const LAVENDER = "bg-[rgb(236,230,245)]";       // shared soft lavender
+export const LAVENDER = "bg-[rgb(236,230,245)]"; // shared soft lavender
 
 export const THEMES = {
   tokyo: {
