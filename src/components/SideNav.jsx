@@ -97,6 +97,14 @@ export default function SideNav({
                 </button>
 
                 <button
+                  className={baseBtn}
+                  style={{ borderColor: th.markerColor }}
+                  onClick={() => onSelectSection("currency")}
+                >
+                  <span className="inline-flex items-center gap-2">💱 <span>YEN → USD</span></span>
+                </button>
+
+                <button
                   className={baseBtn + (currentSection === "clubs" ? activeClass : "")}
                   style={{ borderColor: th.markerColor }}
                   onClick={() => onSelectSection("clubs")}

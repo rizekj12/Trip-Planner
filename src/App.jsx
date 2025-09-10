@@ -20,7 +20,7 @@ import { spots } from "./data/spots";
 import { Menu as MenuIcon } from "lucide-react";
 import { clubsBars } from "./data/clubsBars";
 import { shrinesTemples } from "./data/shrinesTemples";
-
+import CurrencyTab from "./components/CurrencyTab";
 
 import { THEMES, KANSAI_DAYS } from "./utils/theme";
 import { tabForToday, gmaps } from "./utils/helpers";
@@ -85,6 +85,7 @@ export default function App() {
     ...days.map((d, i) => ({ key: d.key, label: `Day ${i + 1}`, date: d.date })),
     { key: "extras", label: "Other things to do" },
     { key: "food", label: "Food spots" },
+    { key: "currency", label: "YEN → USD" }, // <-- new tab
     { key: "flights", label: "Flight Info" },
   ];
 
@@ -157,6 +158,8 @@ export default function App() {
                   ))}
                 </div>
               </div>
+            ) : tab === "currency" ? (
+              <CurrencyTab />
             ) : tab === "extras" ? (
               <ErrorBoundary>
                 <SpotsPanel items={otherThings} hotel={hotelForTab} hotels={ALL_HOTELS} theme={t} title="Other things to do" category="extras" />
@@ -212,7 +215,7 @@ export default function App() {
         activeDayKey={tab}
         onSelectDay={(k) => { setTab(k); setSection("days"); setNavOpen(false); }}
         onSelectSection={(s) => {
-          if (s === "extras" || s === "food") { setTab(s); setSection("days"); }
+          if (s === "extras" || s === "food" || s === "currency") { setTab(s); setSection("days"); }
           else { setSection(s); }
           setNavOpen(false);
         }}
@@ -220,11 +223,7 @@ export default function App() {
         theme={t}
       />
 
-      {/* Debug logs */}
-      {console.log("hotelForTab", hotelForTab)}
-      {console.log("hotelMarker", hotelMarker)}
-      {console.log("mapItems", mapItems)}
-      {console.log("section", section)}
+      {/* Debug logs removed */}
     </div>
   );
 }

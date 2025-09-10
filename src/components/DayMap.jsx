@@ -110,10 +110,6 @@ export default function DayMap({ items = [], hotel = null, hotels = [], theme, t
     });
   }, [hotelsFromItems, hotel, hotels]);
 
-  // ADD THIS:
-  console.log("DayMap spots:", spots);
-  console.log("DayMap hotelList:", hotelList);
-
   const center = useMemo(
     () => spots[0]?.coords || hotelList[0]?.coords || [35.681236, 139.767125],
     [spots, hotelList]
