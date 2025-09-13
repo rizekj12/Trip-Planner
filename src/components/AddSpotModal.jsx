@@ -48,7 +48,15 @@ async function geocode(address) {
     return null;
 }
 
-export default function AddSpotModal({ open, onClose, category }) {
+export default function AddSpotModal({ open, onClose, theme, ...props }) {
+    // safe default theme so theme.card etc. can't be read from undefined
+    const th = theme || {
+        card: "bg-white",
+        header: "bg-zinc-100",
+        markerColor: "#4f46e5",
+        overlayScrim: "bg-black/40",
+    };
+
     const [title, setTitle] = useState("");
     const [googleLink, setGoogleLink] = useState("");
     const [address, setAddress] = useState("");
@@ -110,65 +118,65 @@ export default function AddSpotModal({ open, onClose, category }) {
     }
 
     return (
-        <Modal open={open} onClose={onClose} theme={{ header: "bg-indigo-600 text-white" }}>
-            <form onSubmit={submit} className="grid gap-4">
-                <h3 className="text-lg font-semibold">
-                    Add a {category === "food" ? "Food spot" : "Thing to do"}
-                </h3>
+        <Modal open={open} onClose={onClose}>
+            <div className="p-6 rounded-xl bg-white/90 text-black">
+                <h3 className="text-lg font-semibold mb-4">Add Spot</h3>
 
-                {/* Name */}
-                <div className="grid gap-1">
-                    <label className="text-sm font-medium">Name *</label>
-                    <input className="rounded-md px-3 py-2 text-zinc-900" required
-                        value={title} onChange={(e) => setTitle(e.target.value)}
-                        placeholder="e.g., Ghibli Park" />
-                </div>
+                <form onSubmit={submit} className="grid gap-4">
+                    {/* Name */}
+                    <div className="grid gap-1">
+                        <label className="text-sm font-medium">Name *</label>
+                        <input className="rounded-md px-3 py-2 text-zinc-900" required
+                            value={title} onChange={(e) => setTitle(e.target.value)}
+                            placeholder="e.g., Ghibli Park" />
+                    </div>
 
-                {/* Location section */}
-                <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
-                    <div className="text-sm font-medium">Location</div>
-                    <label className="text-xs opacity-80">Google Maps share link (preferred)</label>
-                    <input className="rounded-md px-3 py-2 text-zinc-900"
-                        value={googleLink} onChange={(e) => setGoogleLink(e.target.value)}
-                        placeholder="Paste link from Google Maps → Share → Copy link" />
-                    <div className="text-[11px] opacity-75">Detected: {coordsLabel}</div>
+                    {/* Location section */}
+                    <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
+                        <div className="text-sm font-medium">Location</div>
+                        <label className="text-xs opacity-80">Google Maps share link (preferred)</label>
+                        <input className="rounded-md px-3 py-2 text-zinc-900"
+                            value={googleLink} onChange={(e) => setGoogleLink(e.target.value)}
+                            placeholder="Paste link from Google Maps → Share → Copy link" />
+                        <div className="text-[11px] opacity-75">Detected: {coordsLabel}</div>
 
-                    <label className="text-xs opacity-80 mt-2">Address (optional if link provided)</label>
-                    <input className="rounded-md px-3 py-2 text-zinc-900"
-                        value={address} onChange={(e) => setAddress(e.target.value)}
-                        placeholder="123 Example St, City" />
+                        <label className="text-xs opacity-80 mt-2">Address (optional if link provided)</label>
+                        <input className="rounded-md px-3 py-2 text-zinc-900"
+                            value={address} onChange={(e) => setAddress(e.target.value)}
+                            placeholder="123 Example St, City" />
 
-                    <label className="text-xs opacity-80 mt-2">Region (Tokyo / Kyoto / Osaka / Nagoya)</label>
-                    <input className="rounded-md px-3 py-2 text-zinc-900"
-                        value={region} onChange={(e) => setRegion(e.target.value)} />
-                </div>
+                        <label className="text-xs opacity-80 mt-2">Region (Tokyo / Kyoto / Osaka / Nagoya)</label>
+                        <input className="rounded-md px-3 py-2 text-zinc-900"
+                            value={region} onChange={(e) => setRegion(e.target.value)} />
+                    </div>
 
-                {/* Media + links */}
-                <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
-                    <div className="text-sm font-medium">Media & Links (optional)</div>
-                    <input className="rounded-md px-3 py-2 text-zinc-900" value={img}
-                        onChange={(e) => setImg(e.target.value)} placeholder="Image URL" />
-                    <input className="rounded-md px-3 py-2 text-zinc-900" value={youtube}
-                        onChange={(e) => setYouTube(e.target.value)} placeholder="YouTube link" />
-                    <input className="rounded-md px-3 py-2 text-zinc-900" value={tiktok}
-                        onChange={(e) => setTikTok(e.target.value)} placeholder="TikTok link" />
-                    <input className="rounded-md px-3 py-2 text-zinc-900" value={website}
-                        onChange={(e) => setWebsite(e.target.value)} placeholder="Website" />
-                </div>
+                    {/* Media + links */}
+                    <div className="grid gap-2 rounded-xl bg-white/40 p-3 text-zinc-900">
+                        <div className="text-sm font-medium">Media & Links (optional)</div>
+                        <input className="rounded-md px-3 py-2 text-zinc-900" value={img}
+                            onChange={(e) => setImg(e.target.value)} placeholder="Image URL" />
+                        <input className="rounded-md px-3 py-2 text-zinc-900" value={youtube}
+                            onChange={(e) => setYouTube(e.target.value)} placeholder="YouTube link" />
+                        <input className="rounded-md px-3 py-2 text-zinc-900" value={tiktok}
+                            onChange={(e) => setTikTok(e.target.value)} placeholder="TikTok link" />
+                        <input className="rounded-md px-3 py-2 text-zinc-900" value={website}
+                            onChange={(e) => setWebsite(e.target.value)} placeholder="Website" />
+                    </div>
 
-                {msg && <div className="rounded bg-rose-100 px-3 py-2 text-sm text-rose-700">{msg}</div>}
+                    {msg && <div className="rounded bg-rose-100 px-3 py-2 text-sm text-rose-700">{msg}</div>}
 
-                <div className="mt-1 flex items-center justify-end gap-2">
-                    <button type="button" onClick={onClose}
-                        className="rounded-md bg-zinc-600 px-3 py-2 text-white hover:bg-zinc-700">
-                        Cancel
-                    </button>
-                    <button disabled={busy}
-                        className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">
-                        {busy ? "Saving…" : "Add"}
-                    </button>
-                </div>
-            </form>
+                    <div className="mt-1 flex items-center justify-end gap-2">
+                        <button type="button" onClick={onClose}
+                            className="rounded-md bg-zinc-600 px-3 py-2 text-white hover:bg-zinc-700">
+                            Cancel
+                        </button>
+                        <button disabled={busy}
+                            className="rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700 disabled:opacity-60">
+                            {busy ? "Saving…" : "Add"}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </Modal>
     );
 }

@@ -56,7 +56,7 @@ export default function SideNav({
                   aria-expanded={daysOpen}
                   aria-controls="days-submenu"
                 >
-                  <span className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center text-black gap-2">
                     <CalendarDays size={18} className="opacity-90" />
                     <span>Days</span>
                   </span>

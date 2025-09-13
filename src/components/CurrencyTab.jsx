@@ -25,7 +25,6 @@ export default function CurrencyTab() {
     const [convertedValue, setConvertedValue] = useState(null);
     const [copied, setCopied] = useState(false);
 
-    // debug helper: log when convert is triggered
     async function handleConvert() {
         const amt = Number(amount || 0);
         if (isNaN(amt)) {
@@ -62,7 +61,6 @@ export default function CurrencyTab() {
                 if (json && (json.result !== undefined || json.success === true)) {
                     const val = Number((json.result ?? (amt * (json.info?.rate || 0))).toFixed(2));
                     setConvertedValue(val);
-                    // if provider gave an info.rate store as cached rate for future
                     if (json.info?.rate) setRate(json.info.rate);
                     const text = `${val} ${to}`;
                     try {
@@ -239,28 +237,28 @@ export default function CurrencyTab() {
 
     return (
         <section className="max-w-xl mx-auto mt-8">
-            <h2 className="text-2xl font-bold mb-4 text-black">Currency Converter</h2>
+            <h2 className="text-2xl font-bold mb-4 text-white">Currency Converter</h2>
 
-            <div className="bg-white/30 rounded-xl p-6 shadow-lg text-black">
+            <div className="bg-black/50 rounded-xl p-6 shadow-lg text-white">
                 <div className="flex items-center justify-between gap-4 mb-4">
                     <div>
-                        <div className="text-xs text-zinc-600">Direction</div>
+                        <div className="text-xs text-white/80">Direction</div>
                         <div className="flex gap-2 items-center mt-1">
                             <button
                                 onClick={() => setDir("JPY->USD")}
-                                className={`px-3 py-1 rounded-md ${dir === "JPY->USD" ? "bg-indigo-600 text-white" : "bg-white/80 text-black"}`}
+                                className={`px-3 py-1 rounded-md ${dir === "JPY->USD" ? "bg-indigo-500 text-white" : "bg-white/10 text-white/90"}`}
                             >
                                 JPY → USD
                             </button>
                             <button
                                 onClick={() => setDir("USD->JPY")}
-                                className={`px-3 py-1 rounded-md ${dir === "USD->JPY" ? "bg-indigo-600 text-white" : "bg-white/80 text-black"}`}
+                                className={`px-3 py-1 rounded-md ${dir === "USD->JPY" ? "bg-indigo-500 text-white" : "bg-white/10 text-white/90"}`}
                             >
                                 USD → JPY
                             </button>
                             <button
                                 onClick={toggleDir}
-                                className="ml-2 px-2 py-1 rounded-md bg-zinc-200 text-black"
+                                className="ml-2 px-2 py-1 rounded-md bg-white/10 text-white"
                                 title="Toggle"
                             >
                                 ↔
@@ -269,39 +267,41 @@ export default function CurrencyTab() {
                     </div>
 
                     <div className="text-right">
-                        <div className="text-xs text-zinc-600">Rate ({base} → {symbol})</div>
+                        <div className="text-xs text-white/80">Rate ({base} → {symbol})</div>
                         <div className="text-lg font-semibold">{loading ? "Loading…" : rate ? rate.toFixed(6) : "—"}</div>
                         {pctChange !== null && (
-                            <div className={`text-sm ${pctChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                            <div className={`text-sm ${pctChange >= 0 ? "text-green-400" : "text-red-400"}`}>
                                 {pctChange >= 0 ? "▲" : "▼"} {Math.abs(pctChange).toFixed(2)}% (24h)
                             </div>
                         )}
                         {periodChange !== null && (
-                            <div className="text-xs text-zinc-600">7d {periodChange >= 0 ? "▲" : "▼"} {Math.abs(periodChange).toFixed(2)}%</div>
+                            <div className="text-xs text-white/80">7d {periodChange >= 0 ? "▲" : "▼"} {Math.abs(periodChange).toFixed(2)}%</div>
                         )}
                     </div>
                 </div>
 
                 <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1">{dir === "JPY->USD" ? "JPY Amount" : "USD Amount"}</label>
+                    <label className="block text-sm font-medium mb-1 text-white">{
+                        dir === "JPY->USD" ? "JPY Amount" : "USD Amount"
+                    }</label>
                     <input
                         type="number"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleConvert(); } }}
-                        className="w-full p-3 rounded-md border border-zinc-200 focus:outline-none"
+                        className="w-full p-3 rounded-md border border-white/20 bg-white/5 text-white focus:outline-none"
                         min="0"
                     />
                 </div>
 
                 <div className="flex items-center justify-between gap-4 mb-4">
                     <div>
-                        <div className="text-xs text-zinc-600">Converted</div>
+                        <div className="text-xs text-white/80">Converted</div>
                         <div className="text-2xl font-bold">{converted !== null ? Number(converted).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "--"} {converted !== null ? symbol : ""}</div>
                     </div>
 
                     <div className="text-right">
-                        <div className="text-xs text-zinc-600">Actions</div>
+                        <div className="text-xs text-white/80">Actions</div>
                         <div className="flex gap-2 mt-1">
                             <button
                                 onClick={fetchData}
@@ -319,13 +319,13 @@ export default function CurrencyTab() {
                             </button>
                             <button
                                 onClick={() => { setAmount(dir === "JPY->USD" ? 1000 : 10); }}
-                                className="px-4 py-2 rounded-md bg-white/80 text-black hover:opacity-90"
+                                className="px-4 py-2 rounded-md bg-white/10 text-white hover:opacity-90"
                             >
                                 Reset
                             </button>
                             <button
                                 onClick={() => { setAmount(Number(amount || 0) * 2); }}
-                                className="px-3 py-2 rounded-md bg-zinc-200 text-black"
+                                className="px-3 py-2 rounded-md bg-white/10 text-white"
                                 title="Double"
                             >
                                 x2
@@ -335,22 +335,22 @@ export default function CurrencyTab() {
                 </div>
 
                 <div className="mt-2">
-                    <h3 className="text-sm font-medium mb-2">History (7 days)</h3>
+                    <h3 className="text-sm font-medium mb-2 text-white">History (7 days)</h3>
                     <div className="grid grid-cols-7 gap-2">
                         {history.length ? history.map((h) => (
-                            <div key={h.date} className="text-xs bg-white/80 rounded-md p-2 text-center">
+                            <div key={h.date} className="text-xs bg-white/10 rounded-md p-2 text-center text-white">
                                 <div className="font-semibold">{Number(h.rate).toFixed(4)}</div>
                                 <div className="opacity-80">{new Date(h.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
                             </div>
                         )) : (
-                            <div className="col-span-7 text-sm text-zinc-600">No history</div>
+                            <div className="col-span-7 text-sm text-white/80">No history</div>
                         )}
                     </div>
                 </div>
 
-                {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
-                {copied && <div className="mt-2 text-sm text-green-600">Copied to clipboard</div>}
-                {!rate && !loading && !error && <div className="mt-2 text-sm text-zinc-600">Rate unavailable — try Refresh or Convert (fallback)</div>}
+                {error && <div className="mt-3 text-sm text-red-400">{error}</div>}
+                {copied && <div className="mt-2 text-sm text-green-300">Copied to clipboard</div>}
+                {!rate && !loading && !error && <div className="mt-2 text-sm text-white/80">Rate unavailable — try Refresh or Convert (fallback)</div>}
             </div>
         </section>
     );
