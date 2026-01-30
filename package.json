@@ -8,7 +8,7 @@
     "build": "npm run build:tailwind && vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
     "start": "vite preview --host 0.0.0.0 --port 3000",
-    "build:tailwind": "tailwindcss -i /app/src/index.css -o /app/src/tailwind-output.css --content '/app/src/**/*.{js,jsx,ts,tsx}' --minify"
+    "build:tailwind": "tailwindcss -i /app/src/index.css -o /app/src/tailwind-output.css --content '/app/src/**/*.{js,jsx,ts,tsx,css}' --minify"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.56.0",
