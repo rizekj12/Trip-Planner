@@ -91,9 +91,12 @@ export default defineConfig({
     },
   },
   preview: {
-    allowedHosts: "trip-planner-production-8b37.up.railway.app",
     host: "0.0.0.0",
     port: 3000,
+    allowedHosts: [
+      "trip-planner-production-8b37.up.railway.app",
+      ".railway.app",
+    ],
   },
   optimizeDeps: {
     include: ["leaflet"],
