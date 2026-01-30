@@ -18,7 +18,7 @@ export default defineConfig({
       manifest: {
         name: "Tokyo Boyz Japan Trip 2025",
         short_name: "Tokyo Boyz",
-        description: "Itinerary, maps, QR codes — offline friendly.",
+        description: "Itinerary, maps, QR codes – offline friendly.",
         theme_color: "#6c3bb8",
         background_color: "#12081f",
         display: "standalone",
@@ -27,7 +27,6 @@ export default defineConfig({
           { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icon-256.png", sizes: "256x256", type: "image/png" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-          // Maskable for Android
           {
             src: "/icons/maskable-512.png",
             sizes: "512x512",
@@ -37,7 +36,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024, // allow up to 8 MiB
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
         navigateFallback: "/offline.html",
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,jpeg,webp}"],
         additionalManifestEntries: [{ url: "/offline.html", revision: null }],
@@ -81,4 +80,21 @@ export default defineConfig({
       },
     }),
   ],
+  css: {
+    postcss: "./postcss.config.cjs",
+  },
+  server: {
+    host: "0.0.0.0",
+    port: 3000,
+    watch: {
+      usePolling: true,
+    },
+  },
+  preview: {
+    host: "0.0.0.0",
+    port: 3000,
+  },
+  optimizeDeps: {
+    include: ["leaflet"],
+  },
 });
