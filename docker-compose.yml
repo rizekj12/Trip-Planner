@@ -1,0 +1,59 @@
+services:
+  # Development environment
+  app-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trip-planner-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - /app/node_modules
+    command: npm run dev
+    restart: unless-stopped
+    networks:
+      - trip-planner-network
+
+  # Production-like environment for testing
+  app-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    container_name: trip-planner-prod
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env.production
+    restart: unless-stopped
+    networks:
+      - trip-planner-network
+
+networks:
+  trip-planner-network:
+    driver: bridge
+
+### **Quick reminder of what this does:**
+
+# app-dev service:
+# ├─ Runs on port 3000
+# ├─ Mounts your source code (hot reload enabled)
+# ├─ Runs "npm run dev"
+# └─ Perfect for development
+
+# app-prod service:
+# ├─ Runs on port 3001
+# ├─ No code mounting (uses built code from image)
+# ├─ Runs "npm start"
+# └─ Perfect for testing production build locally
