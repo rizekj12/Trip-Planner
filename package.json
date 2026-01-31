@@ -7,7 +7,7 @@
     "dev": "npm run build:tailwind && vite --host 0.0.0.0 --port 3000",
     "build": "npm run build:tailwind && vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
-    "start": "vite preview --host 0.0.0.0 --port 3000",
+    "start": "sirv dist preview --host 0.0.0.0 --port 3000 --single",
     "build:tailwind": "tailwindcss -i ./src/index.css -o ./src/tailwind-output.css --content './src/**/*.{js,jsx,ts,tsx}' --minify"
   },
   "dependencies": {
@@ -19,7 +19,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-icons": "^4.12.0",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "sirv-cli": "^3.0.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
