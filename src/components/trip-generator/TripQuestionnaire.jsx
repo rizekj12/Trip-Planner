@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
 
 import WhereWhenStep from './WhereWhenStep';
 import AccommodationStep from './AccommodationStep';
 import StyleStep from './StyleStep';
 import ReviewStep from './ReviewStep';
 
-export default function TripQuestionnaire({ onComplete }) {
+export default function TripQuestionnaire({ onComplete, isGenerating }) {
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
         country: '',
@@ -33,7 +33,6 @@ export default function TripQuestionnaire({ onComplete }) {
     };
 
     const handleSubmit = () => {
-        // This will send data to AI
         onComplete(formData);
     };
 
@@ -112,7 +111,7 @@ export default function TripQuestionnaire({ onComplete }) {
                 <div className="mt-8 flex justify-between">
                     <button
                         onClick={prevStep}
-                        disabled={step === 1}
+                        disabled={step === 1 || isGenerating}
                         className="flex items-center gap-2 px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                     >
                         <ChevronLeft size={20} />
@@ -122,7 +121,7 @@ export default function TripQuestionnaire({ onComplete }) {
                     {step < totalSteps ? (
                         <button
                             onClick={nextStep}
-                            disabled={!canProceed()}
+                            disabled={!canProceed() || isGenerating}
                             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold"
                         >
                             Next
@@ -131,13 +130,39 @@ export default function TripQuestionnaire({ onComplete }) {
                     ) : (
                         <button
                             onClick={handleSubmit}
-                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-bold"
+                            disabled={isGenerating}
+                            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Sparkles size={20} />
-                            Generate Itinerary
+                            {isGenerating ? (
+                                <>
+                                    <Loader2 size={20} className="animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles size={20} />
+                                    Generate Itinerary
+                                </>
+                            )}
                         </button>
                     )}
                 </div>
+
+                {/* Generating Message */}
+                {isGenerating && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-6 text-center"
+                    >
+                        <p className="text-white text-sm">
+                            ✨ Claude is crafting your perfect itinerary...
+                        </p>
+                        <p className="text-white/60 text-xs mt-1">
+                            This usually takes 10-20 seconds
+                        </p>
+                    </motion.div>
+                )}
             </div>
         </div>
     );

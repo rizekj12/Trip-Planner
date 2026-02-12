@@ -28,24 +28,74 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getExtraPicks } from "./utils/storage";
 import { useDaySelections } from "./hooks/useDaySelections";
 import WeatherWidget from "./components/WeatherWidget";
+import { generateItinerary } from "./utils/aiService";
 
 export default function App() {
 
   const [showQuestionnaire, setShowQuestionnaire] = useState(true);
   const [generatedTrip, setGeneratedTrip] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleTripComplete = (formData) => {
+  const handleTripComplete = async (formData) => {
     console.log('Form Data:', formData);
-    setGeneratedTrip(formData);
-    // For now, just log it - we'll add AI next
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const itinerary = await generateItinerary(formData);
+      console.log('Generated Itinerary:', itinerary);
+      setGeneratedTrip(itinerary);
+      setShowQuestionnaire(false);
+    } catch (err) {
+      console.error('Generation error:', err);
+      setError(err.message || 'Failed to generate itinerary. Please try again.');
+      setIsGenerating(false);
+    }
   };
+
 
 
   if (showQuestionnaire && !generatedTrip) {
     return (
-      <TripQuestionnaire onComplete={handleTripComplete} />
+      <div>
+        <TripQuestionnaire
+          onComplete={handleTripComplete}
+          isGenerating={isGenerating}
+        />
+
+        {/* Error Display */}
+        {error && (
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-4 rounded-xl shadow-2xl max-w-md">
+            <p className="font-semibold">Oops! Something went wrong</p>
+            <p className="text-sm mt-1">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="mt-3 text-xs underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
+
+  if (generatedTrip) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+          <h1 className="text-3xl font-bold mb-4">Your Itinerary is Ready! 🎉</h1>
+          <pre className="bg-gray-100 p-4 rounded overflow-auto text-xs">
+            {JSON.stringify(generatedTrip, null, 2)}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+
+
+
   // const ALL_HOTELS = [HOTELS.tokyo_akiba, HOTELS.kyoto_rokujo, HOTELS.tokyo_tamachi];
 
   // const [tab, setTab] = useState(() => tabForToday(days));
