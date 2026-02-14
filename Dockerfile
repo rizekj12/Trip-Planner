@@ -29,13 +29,13 @@ FROM node:18-alpine AS runner
 
 WORKDIR /app
 
+# Copy package files from builder
 COPY --from=builder /app/package*.json ./
 
-RUN npm ci --omit=dev
+# Install ALL dependencies (need sirv-cli which might be in devDependencies)
+RUN npm ci
 
-# Copy necessary files from builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+# Copy built files from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
@@ -45,12 +45,9 @@ COPY --from=builder /app/server ./server
 # Set environment to production
 ENV NODE_ENV=production
 
-# Expose port
+# Expose ports
 EXPOSE 3000
-
-# Start the application
-CMD ["npm", "start"]
+EXPOSE 3001
 
 # Start BOTH backend and frontend
-# Backend on 3001, frontend serves static files on 3000
-CMD node server/index.js & sirv dist --host 0.0.0.0 --port 3000 --single
+CMD node server/index.js & npx sirv dist --host 0.0.0.0 --port 3000 --single
