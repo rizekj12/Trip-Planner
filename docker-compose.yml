@@ -4,9 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: builder
     container_name: trip-planner-dev
     ports:
       - "3000:3000"
+      - "3001:3001" # ← Add backend port
     environment:
       - NODE_ENV=development
     env_file:
@@ -14,9 +16,10 @@ services:
     volumes:
       - ./src:/app/src
       - ./public:/app/public
+      - ./server:/app/server # ← Add backend code mounting
       - ./index.html:/app/index.html
       - /app/node_modules
-    command: npm run dev
+    command: sh -c "npm run build:tailwind && (node server/index.js &) && npx vite --host 0.0.0.0 --port 3000"
     restart: unless-stopped
     networks:
       - trip-planner-network
@@ -29,9 +32,10 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_ANTHROPIC_API_KEY: ${VITE_ANTHROPIC_API_KEY} # ← Add API key
     container_name: trip-planner-prod
     ports:
-      - "3001:3000"
+      - "3002:3000" # ← Changed from 3001 to avoid conflict with dev backend
     environment:
       - NODE_ENV=production
     env_file:
@@ -47,13 +51,14 @@ networks:
 ### **Quick reminder of what this does:**
 
 # app-dev service:
-# ├─ Runs on port 3000
+# ├─ Frontend runs on port 3000
+# ├─ Backend runs on port 3001
 # ├─ Mounts your source code (hot reload enabled)
-# ├─ Runs "npm run dev"
+# ├─ Runs both Vite dev server AND Node backend
 # └─ Perfect for development
 
 # app-prod service:
-# ├─ Runs on port 3001
+# ├─ Runs on port 3002 (changed to avoid conflict)
 # ├─ No code mounting (uses built code from image)
-# ├─ Runs "npm start"
+# ├─ Runs built frontend + backend together
 # └─ Perfect for testing production build locally

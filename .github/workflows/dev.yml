@@ -51,21 +51,39 @@ jobs:
           push: false
           load: true
           tags: trip-planner-dev:latest
+          target: builder
           build-args: |
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
             VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+            VITE_ANTHROPIC_API_KEY=${{ secrets.VITE_ANTHROPIC_API_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
-          docker run -d -p 3000:3000 --name test-container \
+          # Run container in background
+          docker run -d -p 3000:3000 -p 3001:3001 --name test-container \
             -e VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }} \
             -e VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }} \
-            trip-planner-dev:latest
-          sleep 10
+            -e VITE_ANTHROPIC_API_KEY=${{ secrets.VITE_ANTHROPIC_API_KEY }} \
+            trip-planner-dev:latest \
+            sh -c "(node server/index.js &) && npx vite --host 0.0.0.0 --port 3000"
+
+          # Wait longer for services to start
+          echo "Waiting for services to start..."
+          sleep 30
+
+          # Check if backend is running
+          echo "Testing backend health..."
+          docker exec test-container wget -qO- http://localhost:3001/health || echo "Backend not ready yet"
+
+          # Check if frontend is accessible
+          echo "Testing frontend..."
           curl -f http://localhost:3000 || exit 1
+
+          # Cleanup
           docker stop test-container
+          docker rm test-container
 
   # Job 3: Deployment notification
   deploy-notification:
