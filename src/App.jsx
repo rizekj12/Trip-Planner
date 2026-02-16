@@ -73,13 +73,14 @@ export default function App() {
   };
 
   // EVENT HANDLERS
-  const handleTripComplete = async (formData) => {
+  const handleTripComplete = async (formData, useMock = false) => {
     console.log('Form Data:', formData);
     setIsGenerating(true);
     setError(null);
 
     try {
-      const itinerary = await generateItinerary(formData);
+      // Pass useMock flag to force mock data
+      const itinerary = await generateItinerary(formData, useMock);
       console.log('Generated Itinerary:', itinerary);
       setGeneratedTrip(itinerary);
       setShowQuestionnaire(false);
