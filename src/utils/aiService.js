@@ -1,4 +1,8 @@
-// Helper functions stay the same
+import { days as mockDays } from "../data/days";
+import { spots as mockSpots } from "../data/spots";
+import { HOTELS } from "../data/hotels";
+
+// Helper functions
 function calculateTotalDays(cities) {
   if (!cities || cities.length === 0) return 0;
 
@@ -93,19 +97,14 @@ Requirements:
 
 function parseItineraryResponse(apiResponse) {
   try {
-    // Extract the text content from Claude's response
     const textContent = apiResponse.content[0].text;
-
-    // Remove any markdown code blocks if present
     const cleanedText = textContent
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();
 
-    // Parse the JSON
     const itinerary = JSON.parse(cleanedText);
 
-    // Validate the structure
     if (!itinerary.days || !Array.isArray(itinerary.days)) {
       throw new Error("Invalid itinerary structure: missing days array");
     }
@@ -114,7 +113,6 @@ function parseItineraryResponse(apiResponse) {
       throw new Error("Invalid itinerary structure: missing spots object");
     }
 
-    // Add any missing fields that your existing app expects
     itinerary.days = itinerary.days.map((day) => ({
       ...day,
       markers: day.markers || [],
@@ -130,16 +128,38 @@ function parseItineraryResponse(apiResponse) {
   }
 }
 
-export async function generateItinerary(formData) {
+// Mock itinerary generator
+async function generateMockItinerary(formData) {
+  console.log("🎭 MOCK MODE: Using mock data instead of API");
+  console.log("Form data received:", formData);
+
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
+  // Return your existing Japan trip data
+  const mockItinerary = {
+    days: mockDays,
+    spots: mockSpots,
+    hotels: {
+      tokyo_akiba: HOTELS.tokyo_akiba,
+      kyoto_rokujo: HOTELS.kyoto_rokujo,
+      tokyo_tamachi: HOTELS.tokyo_tamachi,
+    },
+  };
+
+  console.log("✅ Mock itinerary generated");
+  return mockItinerary;
+}
+
+// Real AI itinerary generator
+async function generateRealItinerary(formData) {
   const prompt = buildPrompt(formData);
 
+  console.log("🤖 AI MODE: Calling Claude API");
   console.log("Generating itinerary with prompt length:", prompt.length);
 
-  // Determine backend URL based on environment
   const isDevelopment = import.meta.env.DEV;
-  const backendUrl = isDevelopment
-    ? "http://localhost:3001" // Local backend in dev
-    : ""; // Same origin in production (Railway will handle routing)
+  const backendUrl = isDevelopment ? "http://localhost:3001" : "";
 
   try {
     const response = await fetch(`${backendUrl}/api/generate-itinerary`, {
@@ -166,5 +186,17 @@ export async function generateItinerary(formData) {
   } catch (error) {
     console.error("AI generation failed:", error);
     throw error;
+  }
+}
+
+// Main export - decides between mock and real based on environment
+export async function generateItinerary(formData, forceMock = false) {
+  // Check environment variable to decide mock vs real
+  const useMock = forceMock || import.meta.env.VITE_USE_MOCK_DATA === "true";
+
+  if (useMock) {
+    return generateMockItinerary(formData);
+  } else {
+    return generateRealItinerary(formData);
   }
 }
