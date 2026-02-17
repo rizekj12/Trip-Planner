@@ -25,6 +25,52 @@ export default function App() {
     [tab, generatedTrip]
   );
 
+
+  function getCountryFlag(countryName) {
+    // Map of country names to ISO 2-letter codes
+    const countryMap = {
+      'afghanistan': 'AF', 'albania': 'AL', 'algeria': 'DZ', 'argentina': 'AR',
+      'australia': 'AU', 'austria': 'AT', 'bahamas': 'BS', 'bahrain': 'BH',
+      'bangladesh': 'BD', 'belgium': 'BE', 'bolivia': 'BO', 'brazil': 'BR',
+      'canada': 'CA', 'chile': 'CL', 'china': 'CN', 'colombia': 'CO',
+      'costa rica': 'CR', 'croatia': 'HR', 'cuba': 'CU', 'czech republic': 'CZ',
+      'denmark': 'DK', 'dominican republic': 'DO', 'ecuador': 'EC', 'egypt': 'EG',
+      'ethiopia': 'ET', 'finland': 'FI', 'france': 'FR', 'germany': 'DE',
+      'ghana': 'GH', 'greece': 'GR', 'guatemala': 'GT', 'honduras': 'HN',
+      'hungary': 'HU', 'iceland': 'IS', 'india': 'IN', 'indonesia': 'ID',
+      'iran': 'IR', 'iraq': 'IQ', 'ireland': 'IE', 'israel': 'IL',
+      'italy': 'IT', 'jamaica': 'JM', 'japan': 'JP', 'jordan': 'JO',
+      'kenya': 'KE', 'kuwait': 'KW', 'lebanon': 'LB', 'malaysia': 'MY',
+      'maldives': 'MV', 'mexico': 'MX', 'morocco': 'MA', 'netherlands': 'NL',
+      'new zealand': 'NZ', 'nicaragua': 'NI', 'nigeria': 'NG', 'norway': 'NO',
+      'pakistan': 'PK', 'panama': 'PA', 'paraguay': 'PY', 'peru': 'PE',
+      'philippines': 'PH', 'poland': 'PL', 'portugal': 'PT', 'puerto rico': 'PR',
+      'qatar': 'QA', 'romania': 'RO', 'russia': 'RU', 'saudi arabia': 'SA',
+      'senegal': 'SN', 'singapore': 'SG', 'south africa': 'ZA', 'south korea': 'KR',
+      'spain': 'ES', 'sri lanka': 'LK', 'sweden': 'SE', 'switzerland': 'CH',
+      'taiwan': 'TW', 'thailand': 'TH', 'turkey': 'TR', 'ukraine': 'UA',
+      'united arab emirates': 'AE', 'united kingdom': 'GB', 'uk': 'GB',
+      'united states': 'US', 'usa': 'US', 'uruguay': 'UY', 'venezuela': 'VE',
+      'vietnam': 'VN', 'zimbabwe': 'ZW'
+    };
+
+    if (!countryName) return '✈️';
+
+    // Look up the country code
+    const code = countryMap[countryName.toLowerCase().trim()];
+
+    if (!code) return '✈️'; // Default to plane if not found
+
+    // Convert country code to flag emoji
+    // Each letter becomes a regional indicator symbol
+    const flag = code
+      .toUpperCase()
+      .split('')
+      .map(char => String.fromCodePoint(127397 + char.charCodeAt(0)))
+      .join('');
+
+    return `${flag} ✈️`;
+  }
   const toMarker = (it, idx) =>
     it && it.coords
       ? { id: `m-${idx}`, title: it.title, coords: it.coords }
@@ -139,7 +185,7 @@ export default function App() {
             transition={{ duration: 0.6 }}
             className="text-4xl font-extrabold tracking-tight drop-shadow md:text-6xl"
           >
-            Your {tripFormData?.country ? `${tripFormData.country} ` : ''}Trip Itinerary ✈️
+            Your {tripFormData?.country ? `${tripFormData.country} ` : ''}Trip Itinerary {getCountryFlag(tripFormData?.country)}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
