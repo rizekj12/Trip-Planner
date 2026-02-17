@@ -17,6 +17,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("d1");
   const [navOpen, setNavOpen] = useState(false);
+  const [tripFormData, setTripFormData] = useState(null);
 
   // ALL useMemo hooks at the top (they'll return null if generatedTrip is null)
   const activeDay = useMemo(
@@ -74,6 +75,7 @@ export default function App() {
   const handleTripComplete = async (formData, useMock = false) => {
     console.log('Form Data:', formData);
     setIsGenerating(true);
+    setTripFormData(formData);
     setError(null);
 
     try {
@@ -137,7 +139,7 @@ export default function App() {
             transition={{ duration: 0.6 }}
             className="text-4xl font-extrabold tracking-tight drop-shadow md:text-6xl"
           >
-            Your Trip Itinerary ✈️
+            Your {tripFormData?.country ? `${tripFormData.country} ` : ''}Trip Itinerary ✈️
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
