@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from "react";
 import TripQuestionnaire from "./components/trip-generator/TripQuestionnaire";
 import { generateItinerary } from "./utils/aiService";
-
-import HeaderBanner from "./components/HeaderBanner";
 import DayMap from "./components/DayMap";
 import ItineraryCard from "./components/ItineraryCard";
 import { Menu as MenuIcon } from "lucide-react";
 import SideNav from "./components/SideNav";
 import { AnimatePresence, motion } from "framer-motion";
 import { gmaps } from "./utils/helpers";
+import SkyBackground from "./components/SkyBackground";
 
 export default function App() {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
@@ -66,7 +65,6 @@ export default function App() {
 
   // Simple theme
   const theme = {
-    bg: "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1600",
     card: "bg-white/95 backdrop-blur-sm text-gray-900",
     header: "bg-indigo-100 text-indigo-900",
     sub: "bg-gray-50 text-gray-800"
@@ -127,12 +125,10 @@ export default function App() {
   if (generatedTrip && activeDay) {
     return (
       <div
-        className="min-h-screen text-white bg-cover bg-no-repeat bg-fixed"
-        style={{
-          backgroundImage: `url(${theme.bg})`,
-          backgroundPosition: "center center",
-        }}
+        className="min-h-screen text-white relative"
       >
+        <SkyBackground />
+
         {/* Header */}
         <div className="px-6 py-12 md:px-12">
           <motion.h1
