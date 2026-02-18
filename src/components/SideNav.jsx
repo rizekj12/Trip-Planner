@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Utensils, MapPin, Martini, Landmark, CloudSun } from "lucide-react";
+import { CalendarDays, Utensils, MapPin, Martini, PartyPopper, CloudSun } from "lucide-react";
 
 export default function SideNav({
   open,
@@ -80,12 +80,22 @@ export default function SideNav({
               <div className={`rounded-xl p-3 ${th.card} space-y-2`}>
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-600/90">Explore</div>
 
+                {/* <button
+                  onClick={() => onSelectSection("events")}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${currentSection === "events"
+                    ? "bg-white/20 text-white font-semibold"
+                    : "text-black/80 hover:bg-white/10"
+                    }`}
+                >
+                  📅 Local Events
+                </button> */}
+
                 <button
                   className={baseBtn}
                   style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("extras")}
+                  onClick={() => onSelectSection("events")}
                 >
-                  <MapPin size={18} /> <span>Other Things to Do</span>
+                  <PartyPopper size={18} /> <span>Local Events</span>
                 </button>
 
                 <button
@@ -112,13 +122,7 @@ export default function SideNav({
                   <Martini size={18} /> <span>Clubs & Bars</span>
                 </button>
 
-                <button
-                  className={baseBtn + (currentSection === "shrines" ? activeClass : "")}
-                  style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("shrines")}
-                >
-                  <Landmark size={18} /> <span>Shrines & Temples</span>
-                </button>
+
 
                 <button
                   className={baseBtn + (currentSection === "weather" ? activeClass : "")}

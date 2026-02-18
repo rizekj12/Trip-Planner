@@ -1,0 +1,47 @@
+export const sampleEvents = [
+  {
+    id: "event_1",
+    title: "Bogotá International Food Festival",
+    date: "February 20-23, 2026",
+    time: "10:00 AM - 9:00 PM daily",
+    location: "Parque Simón Bolívar",
+    address: "Calle 63 #60-00, Bogotá",
+    description:
+      "Experience Colombia's diverse culinary culture with over 100 food vendors, live cooking demonstrations, and traditional music performances. Features regional dishes from all 32 departments of Colombia.",
+    price: "Free entry, food purchases separate",
+    website: "https://bogotafoodfestival.com",
+    ticketLink: "https://ticketera.com/bogota-food-fest",
+    category: "Food & Drink",
+    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400",
+  },
+  {
+    id: "event_2",
+    title: "Salsa Under the Stars",
+    date: "February 21, 2026",
+    time: "7:00 PM - 12:00 AM",
+    location: "Plaza de Bolívar",
+    address: "Carrera 7 #11-10, Bogotá",
+    description:
+      "Free outdoor salsa dancing event featuring live bands and professional dance performances. Beginner lessons available from 7-8 PM. Bring a partner or meet new dance friends!",
+    price: "Free",
+    website: "https://salsabogota.co",
+    ticketLink: null,
+    category: "Music & Dance",
+    image: "https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?w=400",
+  },
+  {
+    id: "event_3",
+    title: "Adventure Sports Expo 2026",
+    date: "February 19-22, 2026",
+    time: "9:00 AM - 6:00 PM",
+    location: "Corferias Convention Center",
+    address: "Carrera 37 #24-67, Bogotá",
+    description:
+      "Colombia's largest outdoor adventure and extreme sports exhibition. Try rock climbing walls, zip-lining simulators, and meet professional athletes. Includes paragliding demonstrations and gear sales.",
+    price: "$15 general admission, $25 VIP",
+    website: "https://adventureexpo.co",
+    ticketLink: "https://eventbrite.com/adventure-expo-bogota",
+    category: "Sports & Recreation",
+    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400",
+  },
+];
