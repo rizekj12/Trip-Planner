@@ -8,6 +8,8 @@ import SideNav from "./components/SideNav";
 import { AnimatePresence, motion } from "framer-motion";
 import { gmaps } from "./utils/helpers";
 import SkyBackground from "./components/SkyBackground";
+import EventsPanel from "./components/EventsPanel";
+import { sampleEvents } from "./data/events";
 
 export default function App() {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
@@ -17,6 +19,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("d1");
   const [navOpen, setNavOpen] = useState(false);
+  const [tripFormData, setTripFormData] = useState(null);
+  const [section, setSection] = useState("days");
 
   // ALL useMemo hooks at the top (they'll return null if generatedTrip is null)
   const activeDay = useMemo(
@@ -24,6 +28,52 @@ export default function App() {
     [tab, generatedTrip]
   );
 
+
+  function getCountryFlag(countryName) {
+    // Map of country names to ISO 2-letter codes
+    const countryMap = {
+      'afghanistan': 'AF', 'albania': 'AL', 'algeria': 'DZ', 'argentina': 'AR',
+      'australia': 'AU', 'austria': 'AT', 'bahamas': 'BS', 'bahrain': 'BH',
+      'bangladesh': 'BD', 'belgium': 'BE', 'bolivia': 'BO', 'brazil': 'BR',
+      'canada': 'CA', 'chile': 'CL', 'china': 'CN', 'colombia': 'CO',
+      'costa rica': 'CR', 'croatia': 'HR', 'cuba': 'CU', 'czech republic': 'CZ',
+      'denmark': 'DK', 'dominican republic': 'DO', 'ecuador': 'EC', 'egypt': 'EG',
+      'ethiopia': 'ET', 'finland': 'FI', 'france': 'FR', 'germany': 'DE',
+      'ghana': 'GH', 'greece': 'GR', 'guatemala': 'GT', 'honduras': 'HN',
+      'hungary': 'HU', 'iceland': 'IS', 'india': 'IN', 'indonesia': 'ID',
+      'iran': 'IR', 'iraq': 'IQ', 'ireland': 'IE', 'israel': 'IL',
+      'italy': 'IT', 'jamaica': 'JM', 'japan': 'JP', 'jordan': 'JO',
+      'kenya': 'KE', 'kuwait': 'KW', 'lebanon': 'LB', 'malaysia': 'MY',
+      'maldives': 'MV', 'mexico': 'MX', 'morocco': 'MA', 'netherlands': 'NL',
+      'new zealand': 'NZ', 'nicaragua': 'NI', 'nigeria': 'NG', 'norway': 'NO',
+      'pakistan': 'PK', 'panama': 'PA', 'paraguay': 'PY', 'peru': 'PE',
+      'philippines': 'PH', 'poland': 'PL', 'portugal': 'PT', 'puerto rico': 'PR',
+      'qatar': 'QA', 'romania': 'RO', 'russia': 'RU', 'saudi arabia': 'SA',
+      'senegal': 'SN', 'singapore': 'SG', 'south africa': 'ZA', 'south korea': 'KR',
+      'spain': 'ES', 'sri lanka': 'LK', 'sweden': 'SE', 'switzerland': 'CH',
+      'taiwan': 'TW', 'thailand': 'TH', 'turkey': 'TR', 'ukraine': 'UA',
+      'united arab emirates': 'AE', 'united kingdom': 'GB', 'uk': 'GB',
+      'united states': 'US', 'usa': 'US', 'uruguay': 'UY', 'venezuela': 'VE',
+      'vietnam': 'VN', 'zimbabwe': 'ZW'
+    };
+
+    if (!countryName) return '✈️';
+
+    // Look up the country code
+    const code = countryMap[countryName.toLowerCase().trim()];
+
+    if (!code) return '✈️'; // Default to plane if not found
+
+    // Convert country code to flag emoji
+    // Each letter becomes a regional indicator symbol
+    const flag = code
+      .toUpperCase()
+      .split('')
+      .map(char => String.fromCodePoint(127397 + char.charCodeAt(0)))
+      .join('');
+
+    return `${flag} ✈️`;
+  }
   const toMarker = (it, idx) =>
     it && it.coords
       ? { id: `m-${idx}`, title: it.title, coords: it.coords }
@@ -74,6 +124,7 @@ export default function App() {
   const handleTripComplete = async (formData, useMock = false) => {
     console.log('Form Data:', formData);
     setIsGenerating(true);
+    setTripFormData(formData);
     setError(null);
 
     try {
@@ -137,7 +188,7 @@ export default function App() {
             transition={{ duration: 0.6 }}
             className="text-4xl font-extrabold tracking-tight drop-shadow md:text-6xl"
           >
-            Your Trip Itinerary ✈️
+            Your {tripFormData?.country ? `${tripFormData.country} ` : ''}Trip Itinerary {getCountryFlag(tripFormData?.country)}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -168,36 +219,44 @@ export default function App() {
         <div className="mx-auto max-w-7xl px-4 pb-16">
           <AnimatePresence mode="wait">
             <motion.div
-              key={tab}
+              key={section === "events" ? "events" : tab}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-                {/* Map */}
-                <div className="md:col-span-3">
-                  <DayMap
-                    items={mapItems}
-                    hotels={[]}
-                    theme={theme}
-                    themeKey="default"
-                  />
+              {section === "events" ? (
+                // Show Events Panel
+                <EventsPanel events={generatedTrip?.events || []}
+                  theme={theme} />
+              ) : (
+                // Show Day View (existing code)
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+                  {/* Map */}
+                  <div className="md:col-span-3">
+                    <DayMap
+                      items={mapItems}
+                      hotels={[]}
+                      theme={theme}
+                      themeKey="default"
+                    />
+                  </div>
+                  {/* Itinerary */}
+                  <div className="md:col-span-2">
+                    <ItineraryCard
+                      day={activeDay}
+                      spots={generatedTrip.spots}
+                      theme={theme}
+                      gmaps={gmaps}
+                      extraItems={[]}
+                    />
+                  </div>
                 </div>
-                {/* Itinerary */}
-                <div className="md:col-span-2">
-                  <ItineraryCard
-                    day={activeDay}
-                    spots={generatedTrip.spots}
-                    theme={theme}
-                    gmaps={gmaps}
-                    extraItems={[]}
-                  />
-                </div>
-              </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
+
 
         {/* Footer */}
         <footer className="pb-10 text-center text-sm text-white/80 drop-shadow">
@@ -210,9 +269,12 @@ export default function App() {
           onClose={() => setNavOpen(false)}
           days={generatedTrip.days}
           activeDayKey={tab}
-          onSelectDay={(k) => { setTab(k); setNavOpen(false); }}
-          onSelectSection={() => { }}
-          currentSection="days"
+          onSelectDay={(k) => { setTab(k); setSection("days"); setNavOpen(false); }}
+          onSelectSection={(s) => {
+            setSection(s);
+            setNavOpen(false);
+          }}
+          currentSection={section}
           theme={theme}
         />
 

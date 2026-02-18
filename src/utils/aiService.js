@@ -1,6 +1,7 @@
 import { days as mockDays } from "../data/days";
 import { spots as mockSpots } from "../data/spots";
 import { HOTELS } from "../data/hotels";
+import { sampleEvents } from "../data/events";
 
 // Helper functions
 function calculateTotalDays(cities) {
@@ -85,12 +86,35 @@ Respond with ONLY valid JSON (no markdown):
         "maps": "https://www.google.com/maps/search/?api=1&query=Place+Name"
       }
     }
-  }
+  },
+  "events": [
+    {
+      "id": "event_1",
+      "title": "Event Name",
+      "date": "Date range or specific date",
+      "time": "Event time (or 'Varies' if not specific)",
+      "location": "Venue name",
+      "address": "Full address",
+      "description": "What happens at this event",
+      "price": "Free|$10|$5-$20|null if unknown",
+      "website": "URL or null",
+      "ticketLink": "URL or null if no tickets needed",
+      "category": "Food & Drink|Music & Dance|Sports & Recreation|Arts & Culture|Nightlife|Festival|Market|Other",
+      "image": "https://via.placeholder.com/400x300"
+    }
+  ]
 }
 
-Requirements:
-- Include ${numDays} days
-- 3-5 activities per day
+EVENT REQUIREMENTS:
+- Include 3-5 LOCAL events happening during trip dates (${formData.cities[0].checkIn} to ${formData.cities[formData.cities.length - 1].checkOut})
+- Mix of ticketed and free events
+- Include festivals, markets, concerts, sports, cultural events, street fairs, etc.
+- If ticket info unavailable, use null for ticketLink and "Check website" or "Free" for price
+- If no official website exists, use null
+- Events should match ${formData.vacationType} vacation type
+
+ITINERARY REQUIREMENTS:
+- Include ${numDays} days with 3-5 activities per day
 - Use real GPS coordinates
 - Match travel style: ${formData.travelStyle}`;
 }
@@ -111,6 +135,11 @@ function parseItineraryResponse(apiResponse) {
 
     if (!itinerary.spots || typeof itinerary.spots !== "object") {
       throw new Error("Invalid itinerary structure: missing spots object");
+    }
+
+    // Events are optional
+    if (!itinerary.events) {
+      itinerary.events = [];
     }
 
     itinerary.days = itinerary.days.map((day) => ({
@@ -136,10 +165,11 @@ async function generateMockItinerary(formData) {
   // Simulate API delay
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  // Return your existing Japan trip data
+  // Return your existing Japan trip data with events
   const mockItinerary = {
     days: mockDays,
     spots: mockSpots,
+    events: sampleEvents,
     hotels: {
       tokyo_akiba: HOTELS.tokyo_akiba,
       kyoto_rokujo: HOTELS.kyoto_rokujo,
@@ -147,7 +177,7 @@ async function generateMockItinerary(formData) {
     },
   };
 
-  console.log("✅ Mock itinerary generated");
+  console.log("✅ Mock itinerary generated with events");
   return mockItinerary;
 }
 
