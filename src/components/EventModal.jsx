@@ -6,17 +6,18 @@ export default function EventModal({ event, isOpen, onClose }) {
     if (!event) return null;
 
     function getDefaultEventImage(category) {
+        // Use local images instead of URLs
         const defaults = {
-            'Food & Drink': 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800&q=80',
-            'Music & Dance': 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=800&q=80',
-            'Sports & Recreation': 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80',
-            'Arts & Culture': 'https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=800&q=80',
-            'Nightlife': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80',
-            'Festival': 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80',
-            'Market': 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800&q=80',
+            'Food & Drink': '/default-event.jpg',
+            'Music & Dance': '/default-event.jpg',
+            'Sports & Recreation': '/default-event.jpg',
+            'Arts & Culture': '/default-event.jpg',
+            'Nightlife': '/default-event.jpg',
+            'Festival': '/default-event.jpg',
+            'Market': '/default-event.jpg',
         };
 
-        return defaults[category] || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80';
+        return defaults[category] || '/default-event.jpg';
     }
     return (
         <AnimatePresence>
@@ -49,24 +50,34 @@ export default function EventModal({ event, isOpen, onClose }) {
                         </button>
 
                         {/* Event Image */}
-                        {event.image && (
-                            <div className="relative h-64 overflow-hidden rounded-t-2xl">
-                                <img
-                                    src={event.image || getDefaultEventImage(event.category)}
-                                    alt={event.title}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-
-                                {/* Category badge */}
-                                <div className="absolute top-4 left-4">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium text-gray-800">
-                                        <Tag size={14} />
-                                        {event.category}
-                                    </span>
+                        <div className="relative h-64 overflow-hidden rounded-t-2xl">
+                            {event.image ? (
+                                <>
+                                    <img
+                                        src={event.image}
+                                        alt={event.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                </>
+                            ) : (
+                                // Beautiful gradient placeholder
+                                <div className="w-full h-full bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center">
+                                    <div className="text-white text-center p-6">
+                                        <div className="text-6xl mb-3">🎉</div>
+                                        <p className="text-lg font-semibold opacity-90">Local Event</p>
+                                    </div>
                                 </div>
+                            )}
+
+                            {/* Category badge */}
+                            <div className="absolute top-4 left-4">
+                                <span className="inline-flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium text-gray-800">
+                                    <Tag size={14} />
+                                    {event.category}
+                                </span>
                             </div>
-                        )}
+                        </div>
 
                         {/* Content */}
                         <div className="p-6 space-y-6">
