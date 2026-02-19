@@ -12,7 +12,7 @@ export const sampleEvents = [
     website: "https://bogotafoodfestival.com",
     ticketLink: "https://ticketera.com/bogota-food-fest",
     category: "Food & Drink",
-    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=400",
+    image: null,
   },
   {
     id: "event_2",
@@ -27,7 +27,7 @@ export const sampleEvents = [
     website: "https://salsabogota.co",
     ticketLink: null,
     category: "Music & Dance",
-    image: "https://images.unsplash.com/photo-1504609773096-104ff2c73ba4?w=400",
+    image: null,
   },
   {
     id: "event_3",
