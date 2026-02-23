@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { gmaps } from "./utils/helpers";
 import SkyBackground from "./components/SkyBackground";
 import EventsPanel from "./components/EventsPanel";
-import { sampleEvents } from "./data/events";
+import FoodSpotsPanel from "./components/FoodSpotsPanel";
 
 export default function App() {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
@@ -229,30 +229,34 @@ export default function App() {
                 // Show Events Panel
                 <EventsPanel events={generatedTrip?.events || []}
                   theme={theme} />
-              ) : (
-                // Show Day View (existing code)
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
-                  {/* Map */}
-                  <div className="md:col-span-3">
-                    <DayMap
-                      items={mapItems}
-                      hotels={[]}
-                      theme={theme}
-                      themeKey="default"
-                    />
+              ) : section === "food" ? (
+                <FoodSpotsPanel foodSpots={generatedTrip?.foodSpots || []} theme={theme} />
+              ) :
+
+                (
+                  // Show Day View (existing code)
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
+                    {/* Map */}
+                    <div className="md:col-span-3">
+                      <DayMap
+                        items={mapItems}
+                        hotels={[]}
+                        theme={theme}
+                        themeKey="default"
+                      />
+                    </div>
+                    {/* Itinerary */}
+                    <div className="md:col-span-2">
+                      <ItineraryCard
+                        day={activeDay}
+                        spots={generatedTrip.spots}
+                        theme={theme}
+                        gmaps={gmaps}
+                        extraItems={[]}
+                      />
+                    </div>
                   </div>
-                  {/* Itinerary */}
-                  <div className="md:col-span-2">
-                    <ItineraryCard
-                      day={activeDay}
-                      spots={generatedTrip.spots}
-                      theme={theme}
-                      gmaps={gmaps}
-                      extraItems={[]}
-                    />
-                  </div>
-                </div>
-              )}
+                )}
             </motion.div>
           </AnimatePresence>
         </div>

@@ -2,6 +2,7 @@ import { days as mockDays } from "../data/days";
 import { spots as mockSpots } from "../data/spots";
 import { HOTELS } from "../data/hotels";
 import { sampleEvents } from "../data/events";
+import { sampleFoodSpots } from "../data/sampleFoodSpots";
 
 // Helper functions
 function calculateTotalDays(cities) {
@@ -41,82 +42,34 @@ function buildPrompt(formData) {
   const citiesInfo = formData.cities
     .map(
       (city, i) => `
-City ${i + 1}: ${city.name}
-- Dates: ${city.checkIn} to ${city.checkOut}
-- Hotel: ${city.hotel.name}, ${city.hotel.address}
+City ${i + 1}: ${city.name}, ${city.checkIn} to ${city.checkOut}
+Hotel: ${city.hotel.name}, ${city.hotel.address}
 `,
     )
     .join("\n");
 
   return `Create a ${numDays}-day travel itinerary for ${formData.country}.
 
-TRIP DETAILS:
 ${citiesInfo}
 
-PREFERENCES:
-- Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
-- Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
+Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
+Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
 
-Respond with ONLY valid JSON (no markdown):
+Return ONLY valid JSON (no markdown):
 
 {
-  "days": [
-    {
-      "key": "d1",
-      "date": "Day 1 (City)",
-      "title": "Day description",
-      "hotel": {
-        "name": "Hotel name",
-        "address": "Hotel address",
-        "coords": [lat, lon],
-        "key": "hotel_key"
-      },
-      "markers": ["spot1", "spot2"],
-      "notes": ["Tip 1", "Tip 2"]
-    }
-  ],
-  "spots": {
-    "spot1": {
-      "title": "Place Name",
-      "coords": [lat, lon],
-      "img": "https://via.placeholder.com/400x300",
-      "address": "Address",
-      "links": {
-        "youtube": "https://youtube.com/search?q=Place+Name",
-        "maps": "https://www.google.com/maps/search/?api=1&query=Place+Name"
-      }
-    }
-  },
-  "events": [
-    {
-      "id": "event_1",
-      "title": "Event Name",
-      "date": "Date range or specific date",
-      "time": "Event time (or 'Varies' if not specific)",
-      "location": "Venue name",
-      "address": "Full address",
-      "description": "What happens at this event",
-      "price": "Free|$10|$5-$20|null if unknown",
-      "website": "URL or null",
-      "ticketLink": "URL or null if no tickets needed",
-      "category": "Food & Drink|Music & Dance|Sports & Recreation|Arts & Culture|Nightlife|Festival|Market|Other",
-      "image": "https://via.placeholder.com/400x300"
-    }
-  ]
+  "days": [{"key": "d1", "date": "Day 1 (City)", "title": "Brief description", "hotel": {"name": "Hotel", "address": "Address", "coords": [lat, lon], "key": "hotel_1"}, "markers": ["spot1", "spot2"], "notes": ["Tip 1"]}],
+  "spots": {"spot1": {"title": "Place", "coords": [lat, lon], "img": null, "address": "Address", "links": {"youtube": "https://youtube.com/search?q=Place", "maps": "https://maps.google.com/?q=Place"}}},
+  "events": [{"id": "event_1", "title": "Event", "date": "Date", "time": "Time", "location": "Venue", "address": "Address", "description": "Description", "price": "Price or null", "website": "URL or null", "ticketLink": "URL or null", "category": "Category", "image": null}],
+  "foodSpots": [{"id": "food_1", "title": "Restaurant", "cuisine": "Type", "priceRange": "$", "rating": 4.5, "description": "Description", "address": "Address", "coords": [lat, lon], "hours": "Hours", "phone": "Phone or null", "website": "URL or null", "mustTry": ["Dish 1"], "dietaryOptions": ["Vegetarian"], "image": null, "googleMaps": "https://maps.google.com/?q=Restaurant"}]
 }
 
-EVENT REQUIREMENTS:
-- Include 3-5 LOCAL events happening during trip dates (${formData.cities[0].checkIn} to ${formData.cities[formData.cities.length - 1].checkOut})
-- Mix of ticketed and free events
-- Include festivals, markets, concerts, sports, cultural events, street fairs, etc.
-- If ticket info unavailable, use null for ticketLink and "Check website" or "Free" for price
-- If no official website exists, use null
-- Events should match ${formData.vacationType} vacation type
-
-ITINERARY REQUIREMENTS:
-- Include ${numDays} days with 3-5 activities per day
-- Use real GPS coordinates
-- Match travel style: ${formData.travelStyle}`;
+Requirements:
+- ${numDays} days, 3-5 activities per day
+- 3-5 events during ${formData.cities[0].checkIn} to ${formData.cities[formData.cities.length - 1].checkOut}
+- 5-10 top restaurants in ${formData.cities[0].name}
+- Real GPS coordinates
+- Match ${formData.travelStyle} and ${formData.vacationType}`;
 }
 
 function parseItineraryResponse(apiResponse) {
@@ -140,6 +93,10 @@ function parseItineraryResponse(apiResponse) {
     // Events are optional
     if (!itinerary.events) {
       itinerary.events = [];
+    }
+
+    if (!itinerary.foodSpots) {
+      itinerary.foodSpots = [];
     }
 
     itinerary.days = itinerary.days.map((day) => ({
@@ -170,6 +127,7 @@ async function generateMockItinerary(formData) {
     days: mockDays,
     spots: mockSpots,
     events: sampleEvents,
+    foodSpots: sampleFoodSpots,
     hotels: {
       tokyo_akiba: HOTELS.tokyo_akiba,
       kyoto_rokujo: HOTELS.kyoto_rokujo,
@@ -177,12 +135,12 @@ async function generateMockItinerary(formData) {
     },
   };
 
-  console.log("✅ Mock itinerary generated with events");
+  console.log("✅ Mock itinerary generated with events and food spots");
   return mockItinerary;
 }
 
 // Real AI itinerary generator
-async function generateRealItinerary(formData) {
+async function generateRealItinerary(formData, retryCount = 0) {
   const prompt = buildPrompt(formData);
 
   console.log("🤖 AI MODE: Calling Claude API");
@@ -203,6 +161,18 @@ async function generateRealItinerary(formData) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Backend error:", errorData);
+
+      // Retry if overloaded and we haven't retried 3 times yet
+      if (errorData.error === "Overloaded" && retryCount < 3) {
+        console.log(
+          `⏳ API overloaded, retrying in ${(retryCount + 1) * 2} seconds... (attempt ${retryCount + 1}/3)`,
+        );
+        await new Promise((resolve) =>
+          setTimeout(resolve, (retryCount + 1) * 2000),
+        );
+        return generateRealItinerary(formData, retryCount + 1);
+      }
+
       throw new Error(errorData.error || `Request failed: ${response.status}`);
     }
 
@@ -218,7 +188,6 @@ async function generateRealItinerary(formData) {
     throw error;
   }
 }
-
 // Main export - decides between mock and real based on environment
 export async function generateItinerary(formData, forceMock = false) {
   // Check environment variable to decide mock vs real
