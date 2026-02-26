@@ -88,27 +88,28 @@ export default function FoodSpotsPanel({ foodSpots, theme }) {
 
                             {/* Actions */}
                             <div className="flex gap-2">
-                                {spot.googleMaps && (<a
+                                {spot.googleMaps && (
 
-                                    href={spot.googleMaps}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                                >
-                                    <MapPin size={14} />
-                                    Directions
-                                </a>
+                                    <a href={spot.googleMaps}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                                    >
+                                        <MapPin size={14} />
+                                        Directions
+                                    </a>
                                 )}
-                                {spot.website && (<a
 
-                                    href={spot.website}
+                                {/* Always use Google search - reliable and finds website + reviews + menu */}
+
+                                <a href={`https://www.google.com/search?q=${encodeURIComponent(spot.title + ' restaurant')}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                                 >
                                     <ExternalLink size={14} />
+                                    More Info
                                 </a>
-                                )}
                             </div>
                             The missing parts were:
                         </motion.div>

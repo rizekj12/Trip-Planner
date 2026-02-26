@@ -61,7 +61,7 @@ Return ONLY valid JSON (no markdown):
   "days": [{"key": "d1", "date": "Day 1 (City)", "title": "Brief description", "hotel": {"name": "Hotel", "address": "Address", "coords": [lat, lon], "key": "hotel_1"}, "markers": ["spot1", "spot2"], "notes": ["Tip 1"]}],
   "spots": {"spot1": {"title": "Place", "coords": [lat, lon], "img": null, "address": "Address", "links": {"youtube": "https://youtube.com/search?q=Place", "maps": "https://maps.google.com/?q=Place"}}},
   "events": [{"id": "event_1", "title": "Event", "date": "Date", "time": "Time", "location": "Venue", "address": "Address", "description": "Description", "price": "Price or null", "website": "URL or null", "ticketLink": "URL or null", "category": "Category", "image": null}],
-  "foodSpots": [{"id": "food_1", "title": "Restaurant", "cuisine": "Type", "priceRange": "$", "rating": 4.5, "description": "Description", "address": "Address", "coords": [lat, lon], "hours": "Hours", "phone": "Phone or null", "website": "URL or null", "mustTry": ["Dish 1"], "dietaryOptions": ["Vegetarian"], "image": null, "googleMaps": "https://maps.google.com/?q=Restaurant"}]
+  "foodSpots": [{"id": "food_1", "title": "Restaurant", "cuisine": "Type", "priceRange": "$", "rating": 4.5, "description": "Description", "address": "Address", "coords": [lat, lon], "hours": "Hours", "phone": "Phone or null", "mustTry": ["Dish 1"], "dietaryOptions": ["Vegetarian"], "image": null, "googleMaps": "https://maps.google.com/?q=Restaurant"}]
 }
 
 Requirements:
