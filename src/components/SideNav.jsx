@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Utensils, MapPin, Martini, PartyPopper, CloudSun } from "lucide-react";
+import { CalendarDays, Utensils, MapPin, Martini, PartyPopper } from "lucide-react";
 
 export default function SideNav({
   open,
@@ -80,15 +80,6 @@ export default function SideNav({
               <div className={`rounded-xl p-3 ${th.card} space-y-2`}>
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-600/90">Explore</div>
 
-                {/* <button
-                  onClick={() => onSelectSection("events")}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${currentSection === "events"
-                    ? "bg-white/20 text-white font-semibold"
-                    : "text-black/80 hover:bg-white/10"
-                    }`}
-                >
-                  📅 Local Events
-                </button> */}
 
                 <button
                   className={baseBtn}
@@ -106,31 +97,9 @@ export default function SideNav({
                   <Utensils size={18} /> <span>Food Spots</span>
                 </button>
 
-                <button
-                  className={baseBtn}
-                  style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("currency")}
-                >
-                  <span className="inline-flex items-center gap-2">💱 <span>YEN → USD</span></span>
-                </button>
-
-                <button
-                  className={baseBtn + (currentSection === "clubs" ? activeClass : "")}
-                  style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("clubs")}
-                >
-                  <Martini size={18} /> <span>Clubs & Bars</span>
-                </button>
 
 
 
-                <button
-                  className={baseBtn + (currentSection === "weather" ? activeClass : "")}
-                  style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("weather")}
-                >
-                  <CloudSun size={18} /> <span>Weather</span>
-                </button>
               </div>
             </nav>
           </motion.aside>
