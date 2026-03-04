@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import TripQuestionnaire from "./components/trip-generator/TripQuestionnaire";
 import { generateItinerary } from "./utils/aiService";
 import DayMap from "./components/DayMap";
@@ -10,8 +10,9 @@ import { gmaps } from "./utils/helpers";
 import SkyBackground from "./components/SkyBackground";
 import EventsPanel from "./components/EventsPanel";
 import FoodSpotsPanel from "./components/FoodSpotsPanel";
+import { supabase } from './utils/supabase';
 
-export default function App() {
+export default function App({ existingTrip, onBackToDashboard }) {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
   const [showQuestionnaire, setShowQuestionnaire] = useState(true);
   const [generatedTrip, setGeneratedTrip] = useState(null);
@@ -27,6 +28,22 @@ export default function App() {
     () => generatedTrip?.days.find(d => d.key === tab) || null,
     [tab, generatedTrip]
   );
+
+  useEffect(() => {
+    if (existingTrip?.itinerary_data) {
+      setGeneratedTrip(existingTrip.itinerary_data);
+      setShowQuestionnaire(false);
+      setTab(existingTrip.itinerary_data.days[0].key);
+
+      // Reconstruct form data from trip
+      setTripFormData({
+        country: existingTrip.destination,
+        cities: existingTrip.cities?.map(name => ({ name })) || [],
+        travelStyle: existingTrip.travel_style,
+        vacationType: existingTrip.vacation_type
+      });
+    }
+  }, [existingTrip]);
 
 
   function getCountryFlag(countryName) {
@@ -120,23 +137,82 @@ export default function App() {
     sub: "bg-gray-50 text-gray-800"
   };
 
+  async function saveTrip(formData, itinerary) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.log('No user found, skipping trip save');
+        return;
+      }
+
+      const tripData = {
+        user_id: user.id,
+        destination: formData.country,
+        cities: formData.cities.map(c => c.name),
+        duration: calculateTotalDays(formData.cities),
+        travel_style: formData.travelStyle,
+        vacation_type: formData.vacationType,
+        itinerary_data: itinerary,
+      };
+
+      const { data, error } = await supabase
+        .from('trips')
+        .insert([tripData])
+        .select();
+
+      if (error) {
+        console.error('Error saving trip:', error);
+        // Don't throw - failing to save shouldn't break the app
+      } else {
+        console.log('Trip saved successfully:', data);
+      }
+    } catch (err) {
+      console.error('Error saving trip:', err);
+    }
+  }
+
+  // Helper function (add this near the top with other helpers)
+  function calculateTotalDays(cities) {
+    if (!cities || cities.length === 0) return 0;
+
+    const firstCheckIn = new Date(cities[0].checkIn);
+    const lastCheckOut = new Date(cities[cities.length - 1].checkOut);
+
+    const diffTime = Math.abs(lastCheckOut - firstCheckIn);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays;
+  }
+
   // EVENT HANDLERS
-  const handleTripComplete = async (formData, useMock = false) => {
+  const handleTripComplete = async (formData) => {
     console.log('Form Data:', formData);
     setIsGenerating(true);
-    setTripFormData(formData);
     setError(null);
+    setTripFormData(formData);
 
     try {
-      // Pass useMock flag to force mock data
-      const itinerary = await generateItinerary(formData, useMock);
+      const itinerary = await generateItinerary(formData);
       console.log('Generated Itinerary:', itinerary);
       setGeneratedTrip(itinerary);
       setShowQuestionnaire(false);
       setTab(itinerary.days[0].key);
+
+      // Save trip to Supabase
+      await saveTrip(formData, itinerary);
     } catch (err) {
       console.error('Generation error:', err);
-      setError(err.message || 'Failed to generate itinerary. Please try again.');
+
+      let errorMessage = 'Failed to generate itinerary. Please try again.';
+
+      if (err.message === 'Overloaded') {
+        errorMessage = 'Claude API is busy right now. Please wait a moment and try again, or use mock data mode.';
+      } else if (err.message.includes('credit balance')) {
+        errorMessage = 'API credits are low. Please add credits or use mock data mode.';
+      }
+
+      setError(errorMessage);
       setIsGenerating(false);
     }
   };
@@ -283,6 +359,15 @@ export default function App() {
         />
 
         {/* New Trip Button */}
+
+        {onBackToDashboard && (
+          <button
+            onClick={onBackToDashboard}
+            className="px-6 py-3 bg-white text-gray-900 rounded-xl hover:shadow-lg transition-all font-semibold"
+          >
+            ← Back to Dashboard
+          </button>
+        )}
         <button
           onClick={handleNewTrip}
           className="fixed bottom-8 right-8 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold z-40"
