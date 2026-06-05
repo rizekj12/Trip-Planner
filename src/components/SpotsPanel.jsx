@@ -9,8 +9,6 @@ import { useCatalog } from "../hooks/useCatalog";
 import { updateCatalogSpot, deleteCatalogSpot } from "../utils/db";
 import { supabase } from "../utils/supabase";
 import { FiTrash2 } from "react-icons/fi";
-import { HOTELS } from "../data/hotels";
-
 
 export default function SpotsPanel({ items = [], theme, title = "List", category, themeKey, hotel, hotels, showMap = true }) {
     // ---- Auth/session (for creator-only delete) ----

@@ -1,19 +1,21 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import TripQuestionnaire from "./components/trip-generator/TripQuestionnaire";
 import { generateItinerary } from "./utils/aiService";
 import DayMap from "./components/DayMap";
 import ItineraryCard from "./components/ItineraryCard";
-import { Menu as MenuIcon } from "lucide-react";
+import { Menu as MenuIcon, ArrowLeft } from "lucide-react";
 import SideNav from "./components/SideNav";
 import { AnimatePresence, motion } from "framer-motion";
 import { gmaps } from "./utils/helpers";
 import SkyBackground from "./components/SkyBackground";
 import EventsPanel from "./components/EventsPanel";
-import { sampleEvents } from "./data/events";
+import TripsDashboard from "./components/TripsDashboard";
+import { saveTrip, fetchTrip } from "./utils/trips";
+import { getCountryFlag } from "./utils/countryFlags";
 
 export default function App() {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
-  const [showQuestionnaire, setShowQuestionnaire] = useState(true);
+  const [view, setView] = useState("dashboard"); // "dashboard" | "questionnaire" | "trip"
   const [generatedTrip, setGeneratedTrip] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
@@ -22,6 +24,16 @@ export default function App() {
   const [tripFormData, setTripFormData] = useState(null);
   const [section, setSection] = useState("days");
 
+  // Push a history entry when entering a non-dashboard view so browser back works
+  useEffect(() => {
+    if (view !== "dashboard") {
+      history.pushState({ view }, "");
+    }
+    const onPop = () => setView("dashboard");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [view]);
+
   // ALL useMemo hooks at the top (they'll return null if generatedTrip is null)
   const activeDay = useMemo(
     () => generatedTrip?.days.find(d => d.key === tab) || null,
@@ -29,51 +41,6 @@ export default function App() {
   );
 
 
-  function getCountryFlag(countryName) {
-    // Map of country names to ISO 2-letter codes
-    const countryMap = {
-      'afghanistan': 'AF', 'albania': 'AL', 'algeria': 'DZ', 'argentina': 'AR',
-      'australia': 'AU', 'austria': 'AT', 'bahamas': 'BS', 'bahrain': 'BH',
-      'bangladesh': 'BD', 'belgium': 'BE', 'bolivia': 'BO', 'brazil': 'BR',
-      'canada': 'CA', 'chile': 'CL', 'china': 'CN', 'colombia': 'CO',
-      'costa rica': 'CR', 'croatia': 'HR', 'cuba': 'CU', 'czech republic': 'CZ',
-      'denmark': 'DK', 'dominican republic': 'DO', 'ecuador': 'EC', 'egypt': 'EG',
-      'ethiopia': 'ET', 'finland': 'FI', 'france': 'FR', 'germany': 'DE',
-      'ghana': 'GH', 'greece': 'GR', 'guatemala': 'GT', 'honduras': 'HN',
-      'hungary': 'HU', 'iceland': 'IS', 'india': 'IN', 'indonesia': 'ID',
-      'iran': 'IR', 'iraq': 'IQ', 'ireland': 'IE', 'israel': 'IL',
-      'italy': 'IT', 'jamaica': 'JM', 'japan': 'JP', 'jordan': 'JO',
-      'kenya': 'KE', 'kuwait': 'KW', 'lebanon': 'LB', 'malaysia': 'MY',
-      'maldives': 'MV', 'mexico': 'MX', 'morocco': 'MA', 'netherlands': 'NL',
-      'new zealand': 'NZ', 'nicaragua': 'NI', 'nigeria': 'NG', 'norway': 'NO',
-      'pakistan': 'PK', 'panama': 'PA', 'paraguay': 'PY', 'peru': 'PE',
-      'philippines': 'PH', 'poland': 'PL', 'portugal': 'PT', 'puerto rico': 'PR',
-      'qatar': 'QA', 'romania': 'RO', 'russia': 'RU', 'saudi arabia': 'SA',
-      'senegal': 'SN', 'singapore': 'SG', 'south africa': 'ZA', 'south korea': 'KR',
-      'spain': 'ES', 'sri lanka': 'LK', 'sweden': 'SE', 'switzerland': 'CH',
-      'taiwan': 'TW', 'thailand': 'TH', 'turkey': 'TR', 'ukraine': 'UA',
-      'united arab emirates': 'AE', 'united kingdom': 'GB', 'uk': 'GB',
-      'united states': 'US', 'usa': 'US', 'uruguay': 'UY', 'venezuela': 'VE',
-      'vietnam': 'VN', 'zimbabwe': 'ZW'
-    };
-
-    if (!countryName) return '✈️';
-
-    // Look up the country code
-    const code = countryMap[countryName.toLowerCase().trim()];
-
-    if (!code) return '✈️'; // Default to plane if not found
-
-    // Convert country code to flag emoji
-    // Each letter becomes a regional indicator symbol
-    const flag = code
-      .toUpperCase()
-      .split('')
-      .map(char => String.fromCodePoint(127397 + char.charCodeAt(0)))
-      .join('');
-
-    return `${flag} ✈️`;
-  }
   const toMarker = (it, idx) =>
     it && it.coords
       ? { id: `m-${idx}`, title: it.title, coords: it.coords }
@@ -128,12 +95,13 @@ export default function App() {
     setError(null);
 
     try {
-      // Pass useMock flag to force mock data
       const itinerary = await generateItinerary(formData, useMock);
       console.log('Generated Itinerary:', itinerary);
       setGeneratedTrip(itinerary);
-      setShowQuestionnaire(false);
       setTab(itinerary.days[0].key);
+      setView("trip");
+      // Save to Supabase in background (non-blocking)
+      saveTrip({ country: formData.country, formData, itinerary }).catch(console.error);
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.message || 'Failed to generate itinerary. Please try again.');
@@ -141,14 +109,38 @@ export default function App() {
     }
   };
 
+  const handleOpenTrip = async (id) => {
+    try {
+      const saved = await fetchTrip(id);
+      const { _form_data, ...itinerary } = saved.itinerary_data;
+      setGeneratedTrip(itinerary);
+      setTripFormData(_form_data || { country: saved.destination, cities: [] });
+      setTab(itinerary.days[0].key);
+      setView("trip");
+    } catch (err) {
+      console.error("Failed to load trip:", err);
+    }
+  };
+
   const handleNewTrip = () => {
     setGeneratedTrip(null);
-    setShowQuestionnaire(true);
+    setTab("d1");
+    setView("questionnaire");
+  };
+
+  const handleBackToDashboard = () => {
+    setView("dashboard");
+    setGeneratedTrip(null);
     setTab("d1");
   };
 
+  // RENDER: Dashboard
+  if (view === "dashboard") {
+    return <TripsDashboard onNewTrip={handleNewTrip} onOpenTrip={handleOpenTrip} />;
+  }
+
   // RENDER: Show questionnaire
-  if (showQuestionnaire && !generatedTrip) {
+  if (view === "questionnaire") {
     return (
       <div>
         <TripQuestionnaire
@@ -173,7 +165,7 @@ export default function App() {
   }
 
   // RENDER: Show generated itinerary
-  if (generatedTrip && activeDay) {
+  if (view === "trip" && generatedTrip && activeDay) {
     return (
       <div
         className="min-h-screen text-white relative"
@@ -181,7 +173,16 @@ export default function App() {
         <SkyBackground />
 
         {/* Header */}
-        <div className="px-6 py-12 md:px-12">
+        <div className="px-6 pt-6 pb-0 md:px-12">
+          <button
+            onClick={handleBackToDashboard}
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm mb-6"
+          >
+            <ArrowLeft size={16} />
+            My Trips
+          </button>
+        </div>
+        <div className="px-6 pb-12 md:px-12">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -278,13 +279,21 @@ export default function App() {
           theme={theme}
         />
 
-        {/* New Trip Button */}
-        <button
-          onClick={handleNewTrip}
-          className="fixed bottom-8 right-8 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold z-40"
-        >
-          Create New Trip
-        </button>
+        {/* Back / New Trip Buttons */}
+        <div className="fixed bottom-8 right-8 flex gap-3 z-40">
+          <button
+            onClick={handleBackToDashboard}
+            className="px-5 py-3 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all font-semibold backdrop-blur"
+          >
+            My Trips
+          </button>
+          <button
+            onClick={handleNewTrip}
+            className="px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
+          >
+            New Trip
+          </button>
+        </div>
       </div>
     );
   }

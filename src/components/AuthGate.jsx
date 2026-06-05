@@ -1,11 +1,13 @@
 import React from 'react';
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabase";
-import LoginPassword from "./LoginPassword"; // ← NEW
+import LoginPassword from "./LoginPassword";
+import ResetPassword from "./ResetPassword";
 
 export default function AuthGate({ children }) {
     const [session, setSession] = useState(null);
     const [ready, setReady] = useState(false);
+    const [needsReset, setNeedsReset] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -14,7 +16,10 @@ export default function AuthGate({ children }) {
             setSession(data.session);
             setReady(true);
         });
-        const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+        const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+            if (event === "PASSWORD_RECOVERY") setNeedsReset(true);
+            setSession(s);
+        });
         return () => {
             mounted = false;
             sub.subscription.unsubscribe();
@@ -32,5 +37,6 @@ export default function AuthGate({ children }) {
     }, [session]);
 
     if (!ready) return null;
+    if (needsReset) return <ResetPassword onDone={() => setNeedsReset(false)} />;
     return session ? children : <LoginPassword />;
 }

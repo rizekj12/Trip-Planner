@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 // Countdown to Sep 24, 2025 @ 9:00 AM New York time (EDT).
 // Prefer local time instead? -> const TARGET = new Date("2025-09-24T09:00:00");
