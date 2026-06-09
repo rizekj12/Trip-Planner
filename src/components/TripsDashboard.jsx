@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, LogOut } from "lucide-react";
-import { supabase } from "../utils/supabase";
+import { Plus, Trash2, MapPin, Calendar } from "lucide-react";
 import { fetchTrips, deleteTrip } from "../utils/trips";
 import SkyBackground from "./SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
+import ProfileMenu from "./ProfileMenu";
 
 const CARD_GRADIENTS = [
   "from-indigo-500 to-purple-600",
@@ -32,7 +32,7 @@ function formatDateRange(itineraryData) {
 }
 
 
-export default function TripsDashboard({ onNewTrip, onOpenTrip }) {
+export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -54,14 +54,12 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip }) {
     }
   };
 
-  const handleSignOut = () => supabase.auth.signOut();
-
   return (
     <div className="min-h-screen text-white relative">
       <SkyBackground />
 
       {/* Header */}
-      <div className="relative px-6 pt-10 pb-4 md:px-12 flex items-end justify-between">
+      <div className="relative pl-6 pr-8 pt-10 pb-4 md:pl-12 md:pr-12 flex items-center justify-between">
         <div>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
@@ -82,16 +80,9 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip }) {
               : `${trips.length} trip${trips.length !== 1 ? "s" : ""} planned`}
           </motion.p>
         </div>
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          onClick={handleSignOut}
-          className="flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm"
-        >
-          <LogOut size={15} />
-          Sign out
-        </motion.button>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex-shrink-0">
+          <ProfileMenu onOpenProfile={onOpenProfile} />
+        </motion.div>
       </div>
 
       {/* Grid */}

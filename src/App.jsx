@@ -12,6 +12,8 @@ import EventsPanel from "./components/EventsPanel";
 import TripsDashboard from "./components/TripsDashboard";
 import { saveTrip, fetchTrip } from "./utils/trips";
 import { getCountryFlag } from "./utils/countryFlags";
+import ProfilePage from "./components/ProfilePage";
+import ProfileMenu from "./components/ProfileMenu";
 
 export default function App() {
   // ALL STATE AND HOOKS AT THE TOP (before any conditionals)
@@ -134,9 +136,14 @@ export default function App() {
     setTab("d1");
   };
 
+  // RENDER: Profile page
+  if (view === "profile") {
+    return <ProfilePage onBack={() => setView("dashboard")} />;
+  }
+
   // RENDER: Dashboard
   if (view === "dashboard") {
-    return <TripsDashboard onNewTrip={handleNewTrip} onOpenTrip={handleOpenTrip} />;
+    return <TripsDashboard onNewTrip={handleNewTrip} onOpenTrip={handleOpenTrip} onOpenProfile={() => setView("profile")} />;
   }
 
   // RENDER: Show questionnaire
@@ -173,14 +180,15 @@ export default function App() {
         <SkyBackground />
 
         {/* Header */}
-        <div className="px-6 pt-6 pb-0 md:px-12">
+        <div className="px-6 pt-6 pb-0 md:px-12 flex items-center justify-between mb-6">
           <button
             onClick={handleBackToDashboard}
-            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm mb-6"
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm"
           >
             <ArrowLeft size={16} />
             My Trips
           </button>
+          <ProfileMenu onOpenProfile={() => setView("profile")} />
         </div>
         <div className="px-6 pb-12 md:px-12">
           <motion.h1

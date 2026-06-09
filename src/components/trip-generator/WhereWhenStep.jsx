@@ -1,5 +1,68 @@
-import React from 'react';
-import { MapPin, Calendar, Plus, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MapPin, Calendar, Plus, X, ChevronDown } from 'lucide-react';
+import { COUNTRIES, CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
+
+function CityAutocomplete({ value, onChange, country, placeholder }) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState(value);
+    const containerRef = useRef(null);
+
+    const cities = country ? (CITIES_BY_COUNTRY[country] || []) : [];
+    const suggestions = query.length > 0
+        ? cities.filter(c => c.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+        : cities.slice(0, 8);
+
+    useEffect(() => { setQuery(value); }, [value]);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleSelect = (city) => {
+        setQuery(city);
+        onChange(city);
+        setOpen(false);
+    };
+
+    const handleChange = (e) => {
+        setQuery(e.target.value);
+        onChange(e.target.value);
+        setOpen(true);
+    };
+
+    return (
+        <div ref={containerRef} className="relative">
+            <input
+                type="text"
+                value={query}
+                onChange={handleChange}
+                onFocus={() => setOpen(true)}
+                placeholder={country ? placeholder : 'Select a country first'}
+                disabled={!country}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            {open && suggestions.length > 0 && (
+                <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                    {suggestions.map(city => (
+                        <li
+                            key={city}
+                            onMouseDown={() => handleSelect(city)}
+                            className="px-4 py-2 text-sm text-gray-800 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
+                        >
+                            {city}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+}
 
 export default function WhereWhenStep({ formData, updateFormData }) {
     const addCity = () => {
@@ -13,8 +76,7 @@ export default function WhereWhenStep({ formData, updateFormData }) {
 
     const removeCity = (index) => {
         if (formData.cities.length > 1) {
-            const newCities = formData.cities.filter((_, i) => i !== index);
-            updateFormData({ cities: newCities });
+            updateFormData({ cities: formData.cities.filter((_, i) => i !== index) });
         }
     };
 
@@ -22,11 +84,18 @@ export default function WhereWhenStep({ formData, updateFormData }) {
         const newCities = [...formData.cities];
         if (field.includes('.')) {
             const [parent, child] = field.split('.');
-            newCities[index][parent][child] = value;
+            newCities[index] = { ...newCities[index], [parent]: { ...newCities[index][parent], [child]: value } };
         } else {
-            newCities[index][field] = value;
+            newCities[index] = { ...newCities[index], [field]: value };
         }
         updateFormData({ cities: newCities });
+    };
+
+    const handleCountryChange = (country) => {
+        updateFormData({
+            country,
+            cities: formData.cities.map(c => ({ ...c, name: '' })),
+        });
     };
 
     return (
@@ -36,20 +105,24 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                 <p className="text-gray-600">Tell us about your trip destination and dates</p>
             </div>
 
-            {/* Country */}
+            {/* Country dropdown */}
             <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Country <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                    <MapPin className="absolute left-3 top-3 text-gray-400" size={20} />
-                    <input
-                        type="text"
+                    <MapPin className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={20} />
+                    <select
                         value={formData.country}
-                        onChange={(e) => updateFormData({ country: e.target.value })}
-                        placeholder="e.g., Japan"
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors"
-                    />
+                        onChange={(e) => handleCountryChange(e.target.value)}
+                        className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors appearance-none bg-white text-gray-900"
+                    >
+                        <option value="">Select a country…</option>
+                        {COUNTRIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
                 </div>
             </div>
 
@@ -71,12 +144,11 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                             )}
 
                             <div className="mb-3">
-                                <input
-                                    type="text"
+                                <CityAutocomplete
                                     value={city.name}
-                                    onChange={(e) => updateCity(index, 'name', e.target.value)}
+                                    onChange={(val) => updateCity(index, 'name', val)}
+                                    country={formData.country}
                                     placeholder="City name (e.g., Tokyo)"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
                                 />
                             </div>
 
