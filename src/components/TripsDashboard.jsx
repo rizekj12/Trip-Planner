@@ -1,10 +1,58 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye } from "lucide-react";
 import { fetchTrips, deleteTrip } from "../utils/trips";
 import SkyBackground from "./SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import ProfileMenu from "./ProfileMenu";
+
+function TripCardMenu({ onView, onDelete, deleting }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        disabled={deleting}
+        aria-label="Trip options"
+        className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/40 transition"
+      >
+        <MoreVertical size={16} className="text-white" />
+      </button>
+
+      {open && (
+        <div
+          className="absolute mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 text-sm"
+          style={{ right: 0 }}
+        >
+          <button
+            onClick={() => { setOpen(false); onView(); }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+          >
+            <Eye size={15} />
+            View Itinerary
+          </button>
+          <button
+            onClick={() => { setOpen(false); onDelete(); }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition"
+          >
+            <Trash2 size={15} />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CARD_GRADIENTS = [
   "from-indigo-500 to-purple-600",
@@ -43,8 +91,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile })
       .finally(() => setLoading(false));
   }, []);
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
+  const handleDelete = async (id) => {
     setDeletingId(id);
     try {
       await deleteTrip(id);
@@ -129,8 +176,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile })
                     key={trip.id}
                     variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    onClick={() => onOpenTrip(trip.id)}
-                    className={`relative h-44 rounded-2xl bg-gradient-to-br ${gradient} cursor-pointer shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden`}
+                    className={`relative h-44 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg hover:shadow-2xl transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden`}
                   >
                     {/* Background pattern */}
                     <div className="absolute inset-0 opacity-10"
@@ -140,15 +186,11 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile })
                       }}
                     />
 
-                    {/* Delete button */}
-                    <button
-                      onClick={(e) => handleDelete(e, trip.id)}
-                      disabled={deletingId === trip.id}
-                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/40 transition opacity-0 group-hover:opacity-100 z-10"
-                      style={{ opacity: deletingId === trip.id ? 1 : undefined }}
-                    >
-                      <Trash2 size={14} className="text-white" />
-                    </button>
+                    <TripCardMenu
+                      onView={() => onOpenTrip(trip.id)}
+                      onDelete={() => handleDelete(trip.id)}
+                      deleting={deletingId === trip.id}
+                    />
 
                     <div className="relative">
                       <div className="text-3xl mb-1">{flag}</div>
