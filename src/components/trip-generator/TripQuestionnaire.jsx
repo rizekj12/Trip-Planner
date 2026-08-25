@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Sparkles, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Sparkles, Loader2, Home } from 'lucide-react';
 
 import WhereWhenStep from './WhereWhenStep';
 import AccommodationStep from './AccommodationStep';
 import StyleStep from './StyleStep';
 import ReviewStep from './ReviewStep';
 
-export default function TripQuestionnaire({ onComplete, isGenerating }) {
+const BLANK_FORM_DATA = {
+    country: '',
+    cities: [
+        {
+            name: '', checkIn: '', checkOut: '',
+            homebaseType: null,
+            hotel: { name: '', address: '' },
+            customAddress: '',
+            hotelAddressStatus: 'idle',
+            customAddressStatus: 'idle',
+        }
+    ],
+    travelStyle: '',
+    vacationType: ''
+};
+
+export default function TripQuestionnaire({ onComplete, isGenerating, initialFormData, onHome }) {
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({
-        country: '',
-        cities: [
-            { name: '', checkIn: '', checkOut: '', hotel: { name: '', address: '' } }
-        ],
-        travelStyle: '',
-        vacationType: ''
-    });
+    const [formData, setFormData] = useState(() => initialFormData || BLANK_FORM_DATA);
 
     const totalSteps = 4;
 
@@ -41,7 +50,16 @@ export default function TripQuestionnaire({ onComplete, isGenerating }) {
             case 1:
                 return formData.country && formData.cities[0].name && formData.cities[0].checkIn && formData.cities[0].checkOut;
             case 2:
-                return formData.cities.every(city => city.hotel.name && city.hotel.address);
+                return formData.cities.every(city => {
+                    if (city.homebaseType === 'hotel') {
+                        return city.hotel.name && city.hotel.address && city.hotelAddressStatus === 'valid';
+                    }
+                    if (city.homebaseType === 'custom') {
+                        return !!city.customAddress && city.customAddressStatus === 'valid';
+                    }
+                    if (city.homebaseType === 'skip') return true;
+                    return false;
+                });
             case 3:
                 return formData.travelStyle && formData.vacationType;
             case 4:
@@ -53,6 +71,15 @@ export default function TripQuestionnaire({ onComplete, isGenerating }) {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 py-12 px-4">
+            <button
+                onClick={() => onHome(formData)}
+                disabled={isGenerating}
+                className="fixed top-6 left-6 z-50 inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 disabled:opacity-30 disabled:cursor-not-allowed transition text-sm"
+            >
+                <Home size={16} />
+                Home
+            </button>
+
             <div className="max-w-3xl mx-auto">
                 {/* Progress Bar */}
                 <div className="mb-8">

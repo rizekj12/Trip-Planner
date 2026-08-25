@@ -91,8 +91,23 @@ export default function ReviewStep({ formData, onEdit }) {
                 <div className="space-y-3">
                     {formData.cities.map((city, index) => (
                         <div key={index}>
-                            <p className="font-medium text-gray-800">{city.hotel.name}</p>
-                            <p className="text-sm text-gray-600">{city.hotel.address}</p>
+                            {city.homebaseType === 'hotel' && (
+                                <>
+                                    <p className="font-medium text-gray-800">{city.hotel.name}</p>
+                                    <p className="text-sm text-gray-600">{city.hotel.address}</p>
+                                </>
+                            )}
+                            {city.homebaseType === 'custom' && (
+                                <>
+                                    <p className="font-medium text-gray-800">Custom address</p>
+                                    <p className="text-sm text-gray-600">{city.customAddress}</p>
+                                </>
+                            )}
+                            {city.homebaseType === 'skip' && (
+                                <p className="text-sm text-gray-600 italic">
+                                    No homebase — generic itinerary for {city.name}
+                                </p>
+                            )}
                         </div>
                     ))}
                 </div>

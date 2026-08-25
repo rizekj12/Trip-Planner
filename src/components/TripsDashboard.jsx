@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye, PlayCircle } from "lucide-react";
 import { fetchTrips, deleteTrip } from "../utils/trips";
 import SkyBackground from "./SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import ProfileMenu from "./ProfileMenu";
 
-function TripCardMenu({ onView, onDelete, deleting }) {
+function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -34,13 +34,23 @@ function TripCardMenu({ onView, onDelete, deleting }) {
           className="absolute mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 text-sm"
           style={{ right: 0 }}
         >
-          <button
-            onClick={() => { setOpen(false); onView(); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
-          >
-            <Eye size={15} />
-            View Itinerary
-          </button>
+          {isDraft ? (
+            <button
+              onClick={() => { setOpen(false); onContinue(); }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+            >
+              <PlayCircle size={15} />
+              Continue
+            </button>
+          ) : (
+            <button
+              onClick={() => { setOpen(false); onView(); }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+            >
+              <Eye size={15} />
+              View Itinerary
+            </button>
+          )}
           <button
             onClick={() => { setOpen(false); onDelete(); }}
             className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition"
@@ -80,7 +90,7 @@ function formatDateRange(itineraryData) {
 }
 
 
-export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile }) {
+export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft, onOpenProfile }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -165,11 +175,46 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile })
             {/* Trip cards */}
             <AnimatePresence>
               {trips.map((trip, idx) => {
+                const isDraft = trip.itinerary_data?._draft === true;
                 const gradient = CARD_GRADIENTS[idx % CARD_GRADIENTS.length];
                 const dateRange = formatDateRange(trip.itinerary_data);
                 const days = trip.duration;
                 const flag = getCountryFlagOnly(trip.destination);
                 const cities = trip.cities || [];
+
+                if (isDraft) {
+                  return (
+                    <motion.div
+                      key={trip.id}
+                      variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="relative h-44 rounded-2xl bg-white/10 border-2 border-dashed border-white/25 shadow-lg hover:bg-white/15 transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden opacity-80"
+                    >
+                      <TripCardMenu
+                        isDraft
+                        onContinue={() => onContinueDraft(trip.id)}
+                        onDelete={() => handleDelete(trip.id)}
+                        deleting={deletingId === trip.id}
+                      />
+
+                      <div className="relative">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-white/20 text-white/90 text-[10px] font-bold uppercase tracking-wide mb-2">
+                          Draft
+                        </span>
+                        <h3 className="text-white font-bold text-lg leading-tight drop-shadow">
+                          {trip.destination || "Untitled Trip"}
+                        </h3>
+                        {cities.length > 0 && (
+                          <p className="text-white/60 text-sm">{cities.join(", ")}</p>
+                        )}
+                      </div>
+
+                      <div className="relative text-white/50 text-xs">
+                        Click ⋮ to continue planning
+                      </div>
+                    </motion.div>
+                  );
+                }
 
                 return (
                   <motion.div
@@ -195,9 +240,11 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onOpenProfile })
                     <div className="relative">
                       <div className="text-3xl mb-1">{flag}</div>
                       <h3 className="text-white font-bold text-lg leading-tight drop-shadow">
-                        {cities.length ? cities.join(", ") : trip.destination}
+                        {trip.destination}
                       </h3>
-                      <p className="text-white/80 text-sm">{trip.destination}</p>
+                      {cities.length > 0 && (
+                        <p className="text-white/80 text-sm">{cities.join(", ")}</p>
+                      )}
                     </div>
 
                     <div className="relative flex items-center gap-4 text-white/80 text-xs">

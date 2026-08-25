@@ -10,7 +10,7 @@ import { gmaps } from "./utils/helpers";
 import SkyBackground from "./components/SkyBackground";
 import EventsPanel from "./components/EventsPanel";
 import TripsDashboard from "./components/TripsDashboard";
-import { saveTrip, fetchTrip } from "./utils/trips";
+import { saveTrip, saveDraft, fetchTrip } from "./utils/trips";
 import { getCountryFlag } from "./utils/countryFlags";
 import ProfilePage from "./components/ProfilePage";
 import ProfileMenu from "./components/ProfileMenu";
@@ -25,6 +25,8 @@ export default function App() {
   const [navOpen, setNavOpen] = useState(false);
   const [tripFormData, setTripFormData] = useState(null);
   const [section, setSection] = useState("days");
+  const [draftTripId, setDraftTripId] = useState(null);
+  const [continueFormData, setContinueFormData] = useState(null);
 
   // Push a history entry when entering a non-dashboard view so browser back works
   useEffect(() => {
@@ -102,8 +104,10 @@ export default function App() {
       setGeneratedTrip(itinerary);
       setTab(itinerary.days[0].key);
       setView("trip");
-      // Save to Supabase in background (non-blocking)
-      saveTrip({ country: formData.country, formData, itinerary }).catch(console.error);
+      // Save to Supabase in background (non-blocking); completes the draft row if we started from one
+      saveTrip({ id: draftTripId, country: formData.country, formData, itinerary }).catch(console.error);
+      setDraftTripId(null);
+      setContinueFormData(null);
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.message || 'Failed to generate itinerary. Please try again.');
@@ -127,7 +131,38 @@ export default function App() {
   const handleNewTrip = () => {
     setGeneratedTrip(null);
     setTab("d1");
+    setDraftTripId(null);
+    setContinueFormData(null);
     setView("questionnaire");
+  };
+
+  const handleContinueDraft = async (id) => {
+    try {
+      const draft = await fetchTrip(id);
+      setContinueFormData(draft.itinerary_data?._form_data || null);
+      setDraftTripId(id);
+      setGeneratedTrip(null);
+      setTab("d1");
+      setView("questionnaire");
+    } catch (err) {
+      console.error("Failed to load draft:", err);
+    }
+  };
+
+  const handleSaveDraftAndExit = async (formData) => {
+    const hasProgress = formData.country
+      || (formData.cities || []).some(c => c.name || c.checkIn || c.checkOut);
+
+    if (hasProgress) {
+      try {
+        await saveDraft({ id: draftTripId, formData });
+      } catch (err) {
+        console.error("Failed to save draft:", err);
+      }
+    }
+    setDraftTripId(null);
+    setContinueFormData(null);
+    setView("dashboard");
   };
 
   const handleBackToDashboard = () => {
@@ -143,7 +178,14 @@ export default function App() {
 
   // RENDER: Dashboard
   if (view === "dashboard") {
-    return <TripsDashboard onNewTrip={handleNewTrip} onOpenTrip={handleOpenTrip} onOpenProfile={() => setView("profile")} />;
+    return (
+      <TripsDashboard
+        onNewTrip={handleNewTrip}
+        onOpenTrip={handleOpenTrip}
+        onContinueDraft={handleContinueDraft}
+        onOpenProfile={() => setView("profile")}
+      />
+    );
   }
 
   // RENDER: Show questionnaire
@@ -153,6 +195,8 @@ export default function App() {
         <TripQuestionnaire
           onComplete={handleTripComplete}
           isGenerating={isGenerating}
+          initialFormData={continueFormData}
+          onHome={handleSaveDraftAndExit}
         />
 
         {error && (

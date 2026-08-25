@@ -39,13 +39,20 @@ function buildPrompt(formData) {
   const numDays = calculateTotalDays(formData.cities);
 
   const citiesInfo = formData.cities
-    .map(
-      (city, i) => `
+    .map((city, i) => {
+      let homebaseLine = "- Homebase: none provided, plan a general itinerary for the city";
+      if (city.homebaseType === "hotel") {
+        homebaseLine = `- Hotel: ${city.hotel.name}, ${city.hotel.address}`;
+      } else if (city.homebaseType === "custom") {
+        homebaseLine = `- Homebase (not a hotel): ${city.customAddress}`;
+      }
+
+      return `
 City ${i + 1}: ${city.name}
 - Dates: ${city.checkIn} to ${city.checkOut}
-- Hotel: ${city.hotel.name}, ${city.hotel.address}
-`,
-    )
+${homebaseLine}
+`;
+    })
     .join("\n");
 
   return `Create a ${numDays}-day travel itinerary for ${formData.country}.
@@ -121,8 +128,11 @@ ITINERARY REQUIREMENTS:
 
 function parseItineraryResponse(apiResponse) {
   try {
-    const textContent = apiResponse.content[0].text;
-    const cleanedText = textContent
+    const textBlock = apiResponse.content?.find((block) => block.type === "text");
+    if (!textBlock) {
+      throw new Error("No text content in AI response");
+    }
+    const cleanedText = textBlock.text
       .replace(/```json\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();

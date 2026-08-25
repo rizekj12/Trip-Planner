@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MapPin, Calendar, Plus, X, ChevronDown } from 'lucide-react';
 import { COUNTRIES, CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
 
+function getTodayStr() {
+    const now = new Date();
+    const offset = now.getTimezoneOffset();
+    return new Date(now.getTime() - offset * 60000).toISOString().split('T')[0];
+}
+
 function CityAutocomplete({ value, onChange, country, placeholder }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState(value);
@@ -65,11 +71,20 @@ function CityAutocomplete({ value, onChange, country, placeholder }) {
 }
 
 export default function WhereWhenStep({ formData, updateFormData }) {
+    const todayStr = getTodayStr();
+
     const addCity = () => {
         updateFormData({
             cities: [
                 ...formData.cities,
-                { name: '', checkIn: '', checkOut: '', hotel: { name: '', address: '' } }
+                {
+                    name: '', checkIn: '', checkOut: '',
+                    homebaseType: null,
+                    hotel: { name: '', address: '' },
+                    customAddress: '',
+                    hotelAddressStatus: 'idle',
+                    customAddressStatus: 'idle',
+                }
             ]
         });
     };
@@ -158,6 +173,7 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                                     <input
                                         type="date"
                                         value={city.checkIn}
+                                        min={todayStr}
                                         onChange={(e) => updateCity(index, 'checkIn', e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
                                     />
@@ -167,6 +183,7 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                                     <input
                                         type="date"
                                         value={city.checkOut}
+                                        min={city.checkIn || todayStr}
                                         onChange={(e) => updateCity(index, 'checkOut', e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
                                     />
