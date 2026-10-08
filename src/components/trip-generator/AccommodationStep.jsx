@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Hotel, MapPinned, SkipForward, AlertTriangle, Search, Loader2 } from 'lucide-react';
 import HotelSearchModal from './HotelSearchModal';
+import Modal from '../Modal';
 import { validateAddress } from '../../utils/addressValidation';
 
 const HOMEBASE_OPTIONS = [
@@ -218,70 +218,49 @@ export default function AccommodationStep({ formData, updateFormData }) {
             </div>
 
             {/* Skip confirmation modal */}
-            <AnimatePresence>
-                {skipConfirmIndex !== null && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4"
+            <Modal open={skipConfirmIndex !== null} onClose={() => setSkipConfirmIndex(null)} className="max-w-sm p-6">
+                <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle className="text-amber-600" size={20} />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">Skip your homebase?</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-6">
+                    Without a homebase, we can't plan each day's route around where you're staying —
+                    you'll get a general itinerary for the city instead of one built around your
+                    location. You can always add it back later.
+                </p>
+                <div className="flex gap-3">
+                    <button
                         onClick={() => setSkipConfirmIndex(null)}
+                        className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                     >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
-                        >
-                            <div className="flex items-center gap-3 mb-3">
-                                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                    <AlertTriangle className="text-amber-600" size={20} />
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">Skip your homebase?</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-6">
-                                Without a homebase, we can't plan each day's route around where you're staying —
-                                you'll get a general itinerary for the city instead of one built around your
-                                location. You can always add it back later.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setSkipConfirmIndex(null)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-                                >
-                                    Go back
-                                </button>
-                                <button
-                                    onClick={confirmSkip}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
-                                >
-                                    Skip it
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        Go back
+                    </button>
+                    <button
+                        onClick={confirmSkip}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
+                    >
+                        Skip it
+                    </button>
+                </div>
+            </Modal>
 
             {/* Hotel search modal */}
-            <AnimatePresence>
-                {hotelSearchIndex !== null && (
-                    <HotelSearchModal
-                        city={formData.cities[hotelSearchIndex].name}
-                        country={formData.country}
-                        onClose={() => setHotelSearchIndex(null)}
-                        onSelect={(hotel) => {
-                            patchCity(hotelSearchIndex, {
-                                hotel: { name: hotel.name, address: hotel.address },
-                                hotelAddressStatus: 'valid',
-                            });
-                            setLastChecked((prev) => ({ ...prev, [`${hotelSearchIndex}-hotel`]: hotel.address }));
-                            setHotelSearchIndex(null);
-                        }}
-                    />
-                )}
-            </AnimatePresence>
+            <HotelSearchModal
+                open={hotelSearchIndex !== null}
+                city={formData.cities[hotelSearchIndex]?.name}
+                country={formData.country}
+                onClose={() => setHotelSearchIndex(null)}
+                onSelect={(hotel) => {
+                    patchCity(hotelSearchIndex, {
+                        hotel: { name: hotel.name, address: hotel.address },
+                        hotelAddressStatus: 'valid',
+                    });
+                    setLastChecked((prev) => ({ ...prev, [`${hotelSearchIndex}-hotel`]: hotel.address }));
+                    setHotelSearchIndex(null);
+                }}
+            />
         </div>
     );
 }

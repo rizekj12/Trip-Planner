@@ -1,23 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye, PlayCircle } from "lucide-react";
 import { useTrips, useDeleteTrip } from "../hooks/useTrips";
+import { useClickOutside } from "../hooks/useClickOutside";
 import SkyBackground from "../components/SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import ProfileMenu from "../components/ProfileMenu";
 
 function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  const ref = useClickOutside(() => setOpen(false));
 
   return (
     <div ref={ref} className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>

@@ -1,20 +1,10 @@
 import React, { useState } from 'react';
 import { Calendar, MapPin, ExternalLink } from 'lucide-react';
 import EventModal from './EventModal';
+import { theme } from '../utils/theme';
 
-export default function EventsPanel({ events, theme }) {
+export default function EventsPanel({ events }) {
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const handleEventClick = (event) => {
-        setSelectedEvent(event);
-        setIsModalOpen(true);
-    };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setTimeout(() => setSelectedEvent(null), 300);
-    };
 
     return (
         <>
@@ -30,7 +20,7 @@ export default function EventsPanel({ events, theme }) {
                     {events.map((event) => (
                         <button
                             key={event.id}
-                            onClick={() => handleEventClick(event)}
+                            onClick={() => setSelectedEvent(event)}
                             className={`w-full text-left rounded-xl p-4 transition-all hover:shadow-md ${theme.sub} hover:scale-[1.02] group`}
                         >
                             <div className="flex gap-4">
@@ -90,11 +80,7 @@ export default function EventsPanel({ events, theme }) {
             </div>
 
             {/* Event Modal */}
-            <EventModal
-                event={selectedEvent}
-                isOpen={isModalOpen}
-                onClose={closeModal}
-            />
+            <EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />
         </>
     );
 }

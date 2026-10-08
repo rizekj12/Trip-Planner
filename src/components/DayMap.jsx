@@ -1,17 +1,15 @@
-import React from 'react';
-
-// src/components/DayMap.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 
 import MarkerInfoModal from "./MarkerInfoModal";
 import HotelInfoModal from "./HotelInfoModal";
+import { theme } from "../utils/theme";
 
 import "leaflet/dist/leaflet.css";
 
 // ---------- Icon helpers ----------
-function numberIcon(n, color = "#7c3aed") {
+function numberIcon(n, color) {
   const html = `
     <div style="
       background:${color};
@@ -54,89 +52,59 @@ function hotelIcon() {
 }
 
 // ---------- Fit map to markers ----------
-function FitBounds({ items, defaultCenter }) {
+const WORLD_CENTER = [20, 0];
+
+function FitBounds({ items }) {
   const map = useMap();
   useEffect(() => {
-    if (!items?.length) {
-      if (defaultCenter) map.setView(defaultCenter, 12);
-      return;
-    }
     const pts = items
       .filter((s) => Array.isArray(s.coords) && s.coords.length === 2)
       .map((s) => L.latLng(s.coords[0], s.coords[1]));
     if (!pts.length) {
-      if (defaultCenter) map.setView(defaultCenter, 12);
+      map.setView(WORLD_CENTER, 2);
       return;
     }
     const bounds = L.latLngBounds(pts);
     map.fitBounds(bounds.pad(0.2), { animate: false });
-  }, [items, map, defaultCenter]);
+  }, [items, map]);
   return null;
 }
 
-/**
- * Props:
- * - items:  itinerary/other/food spots (non-hotel)
- * - hotel?: single hotel (optional)
- * - hotels?: array of hotels (optional)  ← we'll use this for "Other" and "Food"
- * - theme, themeKey
- */
-export default function DayMap({ items = [], hotel = null, hotels = [], theme, themeKey = "tokyo" }) {
+// items: the day's stops plus hotels (type: "hotel"), each with [lat, lng] coords
+export default function DayMap({ items = [] }) {
   const [active, setActive] = useState(null);
 
   const spots = useMemo(
-    () => (Array.isArray(items) ? items : []).filter((it) => it?.type !== "hotel" && Array.isArray(it?.coords)),
+    () => items.filter((it) => it?.type !== "hotel" && Array.isArray(it?.coords)),
     [items]
   );
 
-  const hotelsFromItems = useMemo(
-    () => (Array.isArray(items) ? items : []).filter((it) => it?.type === "hotel" && Array.isArray(it?.coords)),
+  const hotelList = useMemo(
+    () => items.filter((it) => it?.type === "hotel" && Array.isArray(it?.coords)),
     [items]
   );
 
-  const hotelList = useMemo(() => {
-    const list = [...hotelsFromItems];
-    if (hotel && Array.isArray(hotel.coords)) list.push({ ...hotel, type: "hotel" });
-    (Array.isArray(hotels) ? hotels : []).forEach((h) => {
-      if (Array.isArray(h?.coords)) list.push({ ...h, type: "hotel" });
-    });
-    // de-dup by title (case-insensitive)
-    const seen = new Set();
-    return list.filter((h) => {
-      const key = (h.title || "").toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [hotelsFromItems, hotel, hotels]);
-
-  const center = useMemo(
-    () => spots[0]?.coords || hotelList[0]?.coords || [35.681236, 139.767125],
-    [spots, hotelList]
-  );
-
-  const tileUrl = theme?.mapTileUrl || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-  const attribution =
-    theme?.mapAttribution || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
   const iconCache = useRef({});
   function getNumberIcon(n) {
-    const key = `${n}-${theme?.markerColor || "#7c3aed"}`;
-    if (!iconCache.current[key]) iconCache.current[key] = numberIcon(n, theme?.markerColor || "#7c3aed");
-    return iconCache.current[key];
+    if (!iconCache.current[n]) iconCache.current[n] = numberIcon(n, theme.markerColor);
+    return iconCache.current[n];
   }
   const hotelDivIcon = useMemo(() => hotelIcon(), []);
 
   return (
     <div className="relative">
       <MapContainer
-        center={center}
-        zoom={13}
+        center={WORLD_CENTER}
+        zoom={2}
         className="h-72 w-full rounded-2xl shadow-xl ring-1 ring-black/10"
         scrollWheelZoom={false}
       >
-        <TileLayer attribution={attribution} url={tileUrl} />
-        <FitBounds items={[...spots, ...hotelList]} defaultCenter={center} />
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <FitBounds items={items} />
 
         {/* Numbered spots */}
         {spots.map((spot, idx) => {
@@ -173,13 +141,8 @@ export default function DayMap({ items = [], hotel = null, hotels = [], theme, t
         })}
       </MapContainer>
 
-      {/* Conditional modals */}
-      {active &&
-        (active.type === "hotel" ? (
-          <HotelInfoModal open={!!active} onClose={() => setActive(null)} hotel={active} themeKey={themeKey} />
-        ) : (
-          <MarkerInfoModal open={!!active} onClose={() => setActive(null)} active={active} themeKey={themeKey} />
-        ))}
+      <HotelInfoModal hotel={active?.type === "hotel" ? active : null} onClose={() => setActive(null)} />
+      <MarkerInfoModal active={active?.type !== "hotel" ? active : null} onClose={() => setActive(null)} />
     </div>
   );
 }

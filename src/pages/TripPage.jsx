@@ -10,15 +10,7 @@ import EventsPanel from "../components/EventsPanel";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingScreen from "../components/LoadingScreen";
 import { useTrip } from "../hooks/useTrips";
-import { gmaps } from "../utils/helpers";
 import { getCountryFlag } from "../utils/countryFlags";
-
-// Simple theme
-const theme = {
-  card: "bg-white/95 backdrop-blur-sm text-gray-900",
-  header: "bg-indigo-100 text-indigo-900",
-  sub: "bg-gray-50 text-gray-800"
-};
 
 const toMarker = (it, idx) =>
   it && it.coords
@@ -129,27 +121,16 @@ function TripView({ itinerary, formData }) {
             transition={{ duration: 0.25 }}
           >
             {section === "events" ? (
-              <EventsPanel events={itinerary.events || []} theme={theme} />
+              <EventsPanel events={itinerary.events || []} />
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                 {/* Map */}
                 <div className="md:col-span-3">
-                  <DayMap
-                    items={mapItems}
-                    hotels={[]}
-                    theme={theme}
-                    themeKey="default"
-                  />
+                  <DayMap items={mapItems} />
                 </div>
                 {/* Itinerary */}
                 <div className="md:col-span-2">
-                  <ItineraryCard
-                    day={activeDay}
-                    spots={itinerary.spots}
-                    theme={theme}
-                    gmaps={gmaps}
-                    extraItems={[]}
-                  />
+                  <ItineraryCard day={activeDay} spots={itinerary.spots} />
                 </div>
               </div>
             )}
@@ -174,7 +155,6 @@ function TripView({ itinerary, formData }) {
           setNavOpen(false);
         }}
         currentSection={section}
-        theme={theme}
       />
 
       {/* Back / New Trip Buttons */}

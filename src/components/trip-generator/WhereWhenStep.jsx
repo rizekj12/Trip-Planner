@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Calendar, Plus, X, ChevronDown } from 'lucide-react';
 import { COUNTRIES, CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
+import { useClickOutside } from '../../hooks/useClickOutside';
 
 function getTodayStr() {
     const now = new Date();
@@ -11,7 +12,7 @@ function getTodayStr() {
 function CityAutocomplete({ value, onChange, country, placeholder }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState(value);
-    const containerRef = useRef(null);
+    const containerRef = useClickOutside(() => setOpen(false));
 
     const cities = country ? (CITIES_BY_COUNTRY[country] || []) : [];
     const suggestions = query.length > 0
@@ -19,16 +20,6 @@ function CityAutocomplete({ value, onChange, country, placeholder }) {
         : cities.slice(0, 8);
 
     useEffect(() => { setQuery(value); }, [value]);
-
-    useEffect(() => {
-        const handler = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
 
     const handleSelect = (city) => {
         setQuery(city);
@@ -148,14 +139,22 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                 </label>
                 <div className="space-y-4">
                     {formData.cities.map((city, index) => (
-                        <div key={index} className="border-2 border-gray-200 rounded-xl p-4 relative">
+                        <div key={index} className="border-2 border-gray-200 rounded-xl p-4">
                             {formData.cities.length > 1 && (
-                                <button
-                                    onClick={() => removeCity(index)}
-                                    className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                >
-                                    <X size={20} />
-                                </button>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        City {index + 1}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeCity(index)}
+                                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                        aria-label={`Remove city ${index + 1}`}
+                                    >
+                                        <X size={16} />
+                                        Remove
+                                    </button>
+                                </div>
                             )}
 
                             <div className="mb-3">

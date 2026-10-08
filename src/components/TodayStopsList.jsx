@@ -1,8 +1,7 @@
 import React from 'react';
+import { theme } from "../utils/theme";
 
-
-// src/components/TodayStopsList.jsx
-export default function TodayStopsList({ items, theme, showRegion = false }) {
+export default function TodayStopsList({ items }) {
   return (
     <div className={`rounded-xl p-3 ${theme.sub}`}>
       <div className="mb-2 font-medium">Today’s Stops</div>
@@ -17,11 +16,7 @@ export default function TodayStopsList({ items, theme, showRegion = false }) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium">{spot.title}</div>
-              {showRegion && spot.region && (
-                <div className="text-xs opacity-70">{spot.region}</div>
-              )}
             </div>
-
           </li>
         ))}
       </ul>

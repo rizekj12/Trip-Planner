@@ -32,7 +32,6 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-        VITE_ANTHROPIC_API_KEY: ${VITE_ANTHROPIC_API_KEY} # ← Add API key
     container_name: trip-planner-prod
     ports:
       - "3002:3000" # ← Changed from 3001 to avoid conflict with dev backend

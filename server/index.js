@@ -1,9 +1,12 @@
 console.log("=== BACKEND STARTING ===");
 console.log("Environment:", process.env.NODE_ENV);
-console.log("API Key exists:", !!process.env.VITE_ANTHROPIC_API_KEY);
+// VITE_ANTHROPIC_API_KEY is the legacy name, still accepted until every environment is renamed
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
+console.log("API Key exists:", !!ANTHROPIC_API_KEY);
 // server/index.js
 import express from "express";
 import cors from "cors";
+import Anthropic from "@anthropic-ai/sdk";
 
 const app = express();
 const PORT = 3001;
@@ -25,7 +28,7 @@ app.get("/health", (req, res) => {
 // Generate itinerary endpoint
 app.post("/api/generate-itinerary", async (req, res) => {
   const { prompt } = req.body;
-  const apiKey = process.env.VITE_ANTHROPIC_API_KEY;
+  const apiKey = ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({
@@ -42,40 +45,32 @@ app.post("/api/generate-itinerary", async (req, res) => {
   try {
     console.log("Calling Anthropic API...");
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
+    const client = new Anthropic({ apiKey });
+    // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count
+    // against max_tokens, so leave plenty of room for a multi-day itinerary.
+    const message = await client.messages
+      .stream({
         model: "claude-sonnet-5",
-        max_tokens: 8000,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
-    });
+        max_tokens: 64000,
+        messages: [{ role: "user", content: prompt }],
+      })
+      .finalMessage();
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Anthropic API error:", errorData);
-      return res.status(response.status).json({
-        error: errorData.error?.message || "API request failed",
+    console.log("API response received:", message.stop_reason, message.usage);
+
+    if (message.stop_reason === "max_tokens") {
+      return res.status(502).json({
+        error: "The itinerary was too long and got cut off. Try a shorter trip or fewer cities.",
       });
     }
+    if (message.stop_reason === "refusal") {
+      return res.status(502).json({ error: "The AI declined to generate this itinerary." });
+    }
 
-    const data = await response.json();
-    console.log("API response received successfully");
-
-    res.json(data);
+    res.json(message);
   } catch (error) {
-    console.error("Server error:", error);
-    res.status(500).json({
+    console.error("Anthropic API error:", error);
+    res.status(error instanceof Anthropic.APIError ? error.status ?? 500 : 500).json({
       error: error.message || "Internal server error",
     });
   }

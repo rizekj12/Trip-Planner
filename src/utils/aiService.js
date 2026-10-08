@@ -128,16 +128,19 @@ ITINERARY REQUIREMENTS:
 
 function parseItineraryResponse(apiResponse) {
   try {
-    const textBlock = apiResponse.content?.find((block) => block.type === "text");
-    if (!textBlock) {
-      throw new Error("No text content in AI response");
+    // Skip thinking blocks; join text in case the reply was split across blocks
+    const text = (apiResponse.content || [])
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+    // Ignore any prose or ``` fences around the JSON object
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start === -1 || end <= start) {
+      throw new Error("No JSON object in AI response");
     }
-    const cleanedText = textBlock.text
-      .replace(/```json\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
 
-    const itinerary = JSON.parse(cleanedText);
+    const itinerary = JSON.parse(text.slice(start, end + 1));
 
     if (!itinerary.days || !Array.isArray(itinerary.days)) {
       throw new Error("Invalid itinerary structure: missing days array");

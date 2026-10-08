@@ -13,6 +13,7 @@
     "build:tailwind": "tailwindcss -i ./src/index.css -o ./src/tailwind-output.css --content './src/**/*.{js,jsx,ts,tsx}' --minify"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.1",
     "@supabase/supabase-js": "^2.56.0",
     "@tanstack/react-query": "^5.104.1",
     "cors": "^2.8.6",
