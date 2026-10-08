@@ -1,8 +1,6 @@
 import React from 'react';
 // src/components/HotelInfoModal.jsx
-import { FaYoutube } from "react-icons/fa";
-import { SiGooglemaps } from "react-icons/si";
-import { FiX, FiGlobe, FiPhone, FiCalendar } from "react-icons/fi";
+import { X, Globe, Phone, Calendar, MapPin, Youtube } from "lucide-react";
 
 /**
  * Props:
@@ -60,7 +58,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                         aria-label="Close"
                         title="Close"
                     >
-                        <FiX size={18} />
+                        <X size={18} />
                     </button>
                 </div>
 
@@ -86,7 +84,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 <span
                                     className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium shadow-sm ${chip}`}
                                 >
-                                    <FiCalendar className="opacity-80" />
+                                    <Calendar size={16} className="opacity-80" />
                                     {hotel.checkIn && hotel.checkOut ? (
                                         <span className="truncate">
                                             {hotel.checkIn} → {hotel.checkOut}
@@ -119,7 +117,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                                 title={`Call ${hotel.phone}`}
                             >
-                                <FiPhone />
+                                <Phone size={16} />
                                 Call
                             </a>
                         )}
@@ -131,7 +129,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                                 title="Open in Google Maps"
                             >
-                                <SiGooglemaps size={18} />
+                                <MapPin size={18} />
                                 Maps
                             </a>
                         )}
@@ -143,7 +141,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                                 title="Open website"
                             >
-                                <FiGlobe size={18} />
+                                <Globe size={18} />
                                 Website
                             </a>
                         )}
@@ -159,7 +157,7 @@ export default function HotelInfoModal({ open, onClose, hotel, themeKey = "tokyo
                                 className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                                 title="Watch on YouTube"
                             >
-                                <FaYoutube size={18} />
+                                <Youtube size={18} />
                                 YouTube
                             </a>
                         </div>

@@ -4,7 +4,6 @@ console.log("API Key exists:", !!process.env.VITE_ANTHROPIC_API_KEY);
 // server/index.js
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
 
 const app = express();
 const PORT = 3001;

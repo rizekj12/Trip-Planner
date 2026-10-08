@@ -1,6 +1,4 @@
 // central image registry (swap URLs freely)
-export const FALLBACK_IMG = "https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg";
-
 export const spotImage = {
   akihabara: "https://upload.wikimedia.org/wikipedia/commons/2/2e/Akihabara_Electric_Town.jpg",
   pokemonDX: "https://upload.wikimedia.org/wikipedia/commons/3/33/Pokemon_Center_Mega_Tokyo.jpg",

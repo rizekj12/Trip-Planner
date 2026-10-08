@@ -37,7 +37,8 @@ export default defineConfig({
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        navigateFallback: "/offline.html",
+        // SPA: serve the app shell for every route (/trip/:id etc.); the router takes it from there
+        navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,jpeg,webp}"],
         additionalManifestEntries: [{ url: "/offline.html", revision: null }],
         runtimeCaching: [

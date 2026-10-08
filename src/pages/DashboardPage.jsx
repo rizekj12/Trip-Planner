@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye, PlayCircle } from "lucide-react";
-import { fetchTrips, deleteTrip } from "../utils/trips";
-import SkyBackground from "./SkyBackground";
+import { useTrips, useDeleteTrip } from "../hooks/useTrips";
+import SkyBackground from "../components/SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
-import ProfileMenu from "./ProfileMenu";
+import ProfileMenu from "../components/ProfileMenu";
 
 function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
   const [open, setOpen] = useState(false);
@@ -90,26 +91,13 @@ function formatDateRange(itineraryData) {
 }
 
 
-export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft, onOpenProfile }) {
-  const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
+export default function DashboardPage() {
+  const navigate = useNavigate();
+  const { data: trips = [], isLoading: loading } = useTrips();
+  const deleteMutation = useDeleteTrip();
+  const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
 
-  useEffect(() => {
-    fetchTrips()
-      .then(setTrips)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleDelete = async (id) => {
-    setDeletingId(id);
-    try {
-      await deleteTrip(id);
-      setTrips((prev) => prev.filter((t) => t.id !== id));
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const handleDelete = (id) => deleteMutation.mutate(id);
 
   return (
     <div className="min-h-screen text-white relative">
@@ -138,7 +126,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft,
           </motion.p>
         </div>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex-shrink-0">
-          <ProfileMenu onOpenProfile={onOpenProfile} />
+          <ProfileMenu />
         </motion.div>
       </div>
 
@@ -163,7 +151,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft,
             {/* New Trip card */}
             <motion.button
               variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              onClick={onNewTrip}
+              onClick={() => navigate("/new")}
               className="h-44 rounded-2xl border-2 border-dashed border-white/30 bg-white/10 backdrop-blur flex flex-col items-center justify-center gap-2 hover:bg-white/20 hover:border-white/50 transition group"
             >
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
@@ -192,7 +180,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft,
                     >
                       <TripCardMenu
                         isDraft
-                        onContinue={() => onContinueDraft(trip.id)}
+                        onContinue={() => navigate(`/drafts/${trip.id}`)}
                         onDelete={() => handleDelete(trip.id)}
                         deleting={deletingId === trip.id}
                       />
@@ -232,7 +220,7 @@ export default function TripsDashboard({ onNewTrip, onOpenTrip, onContinueDraft,
                     />
 
                     <TripCardMenu
-                      onView={() => onOpenTrip(trip.id)}
+                      onView={() => navigate(`/trip/${trip.id}`)}
                       onDelete={() => handleDelete(trip.id)}
                       deleting={deletingId === trip.id}
                     />

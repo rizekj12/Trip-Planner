@@ -1,25 +1,19 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
 import { supabase } from "../utils/supabase";
-import SkyBackground from "./SkyBackground";
+import { useAuth } from "../context/AuthContext";
+import SkyBackground from "../components/SkyBackground";
 
-export default function ProfilePage({ onBack }) {
-  const [user, setUser] = useState(null);
-  const [fullName, setFullName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(null);
+export default function ProfilePage() {
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState(user?.user_metadata?.full_name ?? "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
   const fileRef = useRef(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      setUser(data.user);
-      setFullName(data.user.user_metadata?.full_name ?? "");
-      setAvatarUrl(data.user.user_metadata?.avatar_url ?? null);
-    });
-  }, []);
+  // updateUser fires USER_UPDATED, so the context user (and ProfileMenu) refresh on their own
+  const avatarUrl = user?.user_metadata?.avatar_url ?? null;
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -50,7 +44,6 @@ export default function ProfilePage({ onBack }) {
     if (updateError) {
       setMsg({ type: "error", text: "Failed to save avatar." });
     } else {
-      setAvatarUrl(url);
       setMsg({ type: "success", text: "Profile picture updated." });
     }
     setUploading(false);
@@ -75,13 +68,13 @@ export default function ProfilePage({ onBack }) {
 
       {/* Back button — top left */}
       <div className="relative px-6 pt-14 md:px-12">
-        <button
-          onClick={onBack}
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm"
         >
           <ArrowLeft size={16} />
           Back
-        </button>
+        </Link>
       </div>
 
       {/* Centered card */}

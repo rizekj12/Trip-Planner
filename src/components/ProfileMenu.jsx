@@ -1,19 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { LogOut, User, ChevronDown } from "lucide-react";
 import { supabase } from "../utils/supabase";
+import { useAuth } from "../context/AuthContext";
 
-export default function ProfileMenu({ onOpenProfile }) {
-  const [user, setUser] = useState(null);
+export default function ProfileMenu() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -54,7 +49,7 @@ export default function ProfileMenu({ onOpenProfile }) {
             </div>
           )}
           <button
-            onClick={() => { setOpen(false); onOpenProfile(); }}
+            onClick={() => { setOpen(false); navigate("/profile"); }}
             className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
           >
             <User size={15} />
