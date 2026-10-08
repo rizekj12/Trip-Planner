@@ -31,11 +31,42 @@ async function upsertTrip(id, formData, extra) {
   return data;
 }
 
+// A pending trip older than this is treated as failed (e.g. the server restarted mid-generation)
+const PENDING_TIMEOUT_MS = 10 * 60 * 1000;
+
+// "draft" | "pending" | "ready" | "failed" — stored inside itinerary_data so no schema change is needed.
+// Rows saved before statuses existed have no _status and count as ready.
+export function tripStatus(trip) {
+  const data = trip?.itinerary_data || {};
+  if (data._draft) return "draft";
+  if (data._status === "failed") return "failed";
+  if (data._status === "pending") {
+    const age = Date.now() - new Date(data._started_at).getTime();
+    return age > PENDING_TIMEOUT_MS ? "failed" : "pending";
+  }
+  return "ready";
+}
+
 export function saveTrip({ id, country, formData, itinerary }) {
   return upsertTrip(id, formData, {
     destination: country,
     // store form_data nested so we can read dates back on the dashboard
-    itinerary_data: { ...itinerary, _form_data: formData },
+    itinerary_data: { ...itinerary, _form_data: formData, _status: "ready" },
+  });
+}
+
+export function saveFailed({ id, formData, error }) {
+  return upsertTrip(id, formData, {
+    destination: formData.country || null,
+    itinerary_data: { _form_data: formData, _status: "failed", _error: error },
+  });
+}
+
+// Marks a trip as generating; the server (or mock mode) fills in the itinerary later.
+export function savePending({ id, formData }) {
+  return upsertTrip(id, formData, {
+    destination: formData.country || null,
+    itinerary_data: { _form_data: formData, _status: "pending", _started_at: new Date().toISOString() },
   });
 }
 

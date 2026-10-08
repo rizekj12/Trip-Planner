@@ -3,7 +3,8 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.jsx";
-import "./tailwind-output.css";
+// Tailwind is compiled by Vite via PostCSS (postcss.config.cjs), so new classes show up on save
+import "./index.css";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import AuthGate from "./components/AuthGate.jsx";
 

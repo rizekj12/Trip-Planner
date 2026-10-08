@@ -163,7 +163,7 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                             {isGenerating ? (
                                 <>
                                     <Loader2 size={20} className="animate-spin" />
-                                    Generating...
+                                    Starting...
                                 </>
                             ) : (
                                 <>
@@ -174,22 +174,6 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                         </button>
                     )}
                 </div>
-
-                {/* Generating Message */}
-                {isGenerating && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-6 text-center"
-                    >
-                        <p className="text-white text-sm">
-                            ✨ Claude is crafting your perfect itinerary...
-                        </p>
-                        <p className="text-white/60 text-xs mt-1">
-                            This usually takes 10-20 seconds
-                        </p>
-                    </motion.div>
-                )}
             </div>
         </div>
     );

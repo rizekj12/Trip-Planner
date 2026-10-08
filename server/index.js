@@ -3,18 +3,16 @@ console.log("Environment:", process.env.NODE_ENV);
 // VITE_ANTHROPIC_API_KEY is the legacy name, still accepted until every environment is renamed
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
 console.log("API Key exists:", !!ANTHROPIC_API_KEY);
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 // server/index.js
 import express from "express";
 import cors from "cors";
-import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@supabase/supabase-js";
+import { generateItinerary } from "./itinerary.js";
 
 const app = express();
 const PORT = 3001;
-
-app.listen(PORT, () => {
-  console.log(`=== Backend server running on port ${PORT} ===`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
 
 // Middleware
 app.use(cors());
@@ -25,56 +23,63 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Generate itinerary endpoint
+// Generate itinerary endpoint.
+// The client saves the trip as pending first, then calls this with its id. We reply
+// 202 right away and generate in the background, writing the result back to the trip
+// row — so the itinerary still lands on the dashboard if the user leaves the page.
 app.post("/api/generate-itinerary", async (req, res) => {
-  const { prompt } = req.body;
-  const apiKey = ANTHROPIC_API_KEY;
+  const { tripId } = req.body;
+  const token = req.headers.authorization?.replace(/^Bearer /, "");
 
-  if (!apiKey) {
-    return res.status(500).json({
-      error: "API key not configured on server",
-    });
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: "API key not configured on server" });
+  }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(500).json({ error: "Supabase not configured on server" });
+  }
+  if (!tripId || !token) {
+    return res.status(400).json({ error: "tripId and an auth token are required" });
   }
 
-  if (!prompt) {
-    return res.status(400).json({
-      error: "Prompt is required",
-    });
+  // Act as the signed-in user so Supabase row-level security still applies
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false },
+  });
+
+  const { data: trip, error } = await supabase
+    .from("trips")
+    .select("id, itinerary_data")
+    .eq("id", tripId)
+    .single();
+
+  const formData = trip?.itinerary_data?._form_data;
+  if (error || !formData) {
+    return res.status(404).json({ error: "Trip not found" });
   }
+
+  res.status(202).json({ status: "pending" });
 
   try {
-    console.log("Calling Anthropic API...");
-
-    const client = new Anthropic({ apiKey });
-    // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count
-    // against max_tokens, so leave plenty of room for a multi-day itinerary.
-    const message = await client.messages
-      .stream({
-        model: "claude-sonnet-5",
-        max_tokens: 64000,
-        messages: [{ role: "user", content: prompt }],
-      })
-      .finalMessage();
-
-    console.log("API response received:", message.stop_reason, message.usage);
-
-    if (message.stop_reason === "max_tokens") {
-      return res.status(502).json({
-        error: "The itinerary was too long and got cut off. Try a shorter trip or fewer cities.",
-      });
-    }
-    if (message.stop_reason === "refusal") {
-      return res.status(502).json({ error: "The AI declined to generate this itinerary." });
-    }
-
-    res.json(message);
-  } catch (error) {
-    console.error("Anthropic API error:", error);
-    res.status(error instanceof Anthropic.APIError ? error.status ?? 500 : 500).json({
-      error: error.message || "Internal server error",
+    const itinerary = await generateItinerary(formData, ANTHROPIC_API_KEY);
+    await saveItineraryData(supabase, tripId, { ...itinerary, _form_data: formData, _status: "ready" });
+  } catch (err) {
+    console.error("Itinerary generation failed:", err);
+    await saveItineraryData(supabase, tripId, {
+      _form_data: formData,
+      _status: "failed",
+      _error: err.message || "Generation failed",
     });
   }
 });
+
+async function saveItineraryData(supabase, tripId, itineraryData) {
+  const { error } = await supabase
+    .from("trips")
+    .update({ itinerary_data: itineraryData })
+    .eq("id", tripId);
+  if (error) console.error("Failed to save itinerary for trip", tripId, error);
+}
 
 // Hotel search endpoint
 app.get("/api/search-hotels", async (req, res) => {
@@ -186,5 +191,6 @@ app.get("/api/validate-address", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend server running on port ${PORT}`);
+  console.log(`=== Backend server running on port ${PORT} ===`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, MapPin, ExternalLink } from 'lucide-react';
 import EventModal from './EventModal';
+import EventImage from './EventImage';
 import { theme } from '../utils/theme';
 
 export default function EventsPanel({ events }) {
@@ -25,15 +26,9 @@ export default function EventsPanel({ events }) {
                         >
                             <div className="flex gap-4">
                                 {/* Event Image Thumbnail */}
-                                {event.image && (
-                                    <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-200">
-                                        <img
-                                            src={event.image}
-                                            alt={event.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    </div>
-                                )}
+                                <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden">
+                                    <EventImage event={event} />
+                                </div>
 
                                 {/* Event Details */}
                                 <div className="flex-1 min-w-0">

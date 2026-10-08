@@ -19,7 +19,7 @@ services:
       - ./server:/app/server # ← Add backend code mounting
       - ./index.html:/app/index.html
       - /app/node_modules
-    command: sh -c "npm run build:tailwind && (node server/index.js &) && npx vite --host 0.0.0.0 --port 3000"
+    command: sh -c "(node server/index.js &) && npx vite --host 0.0.0.0 --port 3000"
     restart: unless-stopped
     networks:
       - trip-planner-network

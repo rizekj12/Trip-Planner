@@ -2,34 +2,29 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TripQuestionnaire from "../components/trip-generator/TripQuestionnaire";
 import LoadingScreen from "../components/LoadingScreen";
-import { generateItinerary } from "../utils/aiService";
-import { useTrip, useSaveTrip, useSaveDraft } from "../hooks/useTrips";
+import { useTrip, useStartGeneration, useSaveDraft } from "../hooks/useTrips";
 
 // Handles both /new and /drafts/:draftId (continuing a saved questionnaire)
 export default function NewTripPage() {
   const { draftId } = useParams();
   const navigate = useNavigate();
   const draft = useTrip(draftId);
-  const saveTrip = useSaveTrip();
+  const startGeneration = useStartGeneration();
   const saveDraft = useSaveDraft();
-  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
 
   if (draftId && draft.isLoading) return <LoadingScreen />;
 
-  const handleComplete = async (formData, useMock = false) => {
-    setIsGenerating(true);
+  // Saves the trip as pending (reusing the draft row if we started from one) and
+  // jumps to its page, which shows the loading screen until the itinerary is ready
+  const handleComplete = async (formData) => {
     setError(null);
-
     try {
-      const itinerary = await generateItinerary(formData, useMock);
-      // Completes the draft row if we started from one
-      const row = await saveTrip.mutateAsync({ id: draftId, country: formData.country, formData, itinerary });
+      const row = await startGeneration.mutateAsync({ id: draftId, formData });
       navigate(`/trip/${row.id}`, { replace: true });
     } catch (err) {
-      console.error('Generation error:', err);
-      setError(err.message || 'Failed to generate itinerary. Please try again.');
-      setIsGenerating(false);
+      console.error('Failed to save trip:', err);
+      setError(err.message || 'Failed to save your trip. Please try again.');
     }
   };
 
@@ -52,7 +47,7 @@ export default function NewTripPage() {
       <TripQuestionnaire
         key={draftId ?? "new"}
         onComplete={handleComplete}
-        isGenerating={isGenerating}
+        isGenerating={startGeneration.isPending}
         initialFormData={draft.data?.itinerary_data?._form_data || null}
         onHome={handleSaveDraftAndExit}
       />

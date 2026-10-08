@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu as MenuIcon, ArrowLeft } from "lucide-react";
+import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
 import DayMap from "../components/DayMap";
 import ItineraryCard from "../components/ItineraryCard";
 import SideNav from "../components/SideNav";
@@ -9,7 +9,9 @@ import SkyBackground from "../components/SkyBackground";
 import EventsPanel from "../components/EventsPanel";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingScreen from "../components/LoadingScreen";
-import { useTrip } from "../hooks/useTrips";
+import GeneratingScreen from "../components/GeneratingScreen";
+import { useTrip, useStartGeneration } from "../hooks/useTrips";
+import { tripStatus } from "../utils/trips";
 import { getCountryFlag } from "../utils/countryFlags";
 
 const toMarker = (it, idx) =>
@@ -19,20 +21,60 @@ const toMarker = (it, idx) =>
 
 export default function TripPage() {
   const { tripId } = useParams();
+  // useTrip re-checks every few seconds while pending, so this flips to the itinerary on its own
   const { data: trip, isLoading, error } = useTrip(tripId);
 
   if (isLoading) return <LoadingScreen />;
   if (error || !trip) return <LoadingScreen message="Trip not found." />;
 
-  const { _form_data, _draft, ...itinerary } = trip.itinerary_data || {};
-  if (_draft) return <Navigate to={`/drafts/${tripId}`} replace />;
+  const { _form_data, _draft, _status, _started_at, _error, ...itinerary } = trip.itinerary_data || {};
+  const formData = _form_data || { country: trip.destination, cities: [] };
+
+  switch (tripStatus(trip)) {
+    case "draft":
+      return <Navigate to={`/drafts/${tripId}`} replace />;
+    case "pending":
+      return <GeneratingScreen formData={formData} />;
+    case "failed":
+      return <FailedScreen tripId={tripId} formData={formData} error={_error} />;
+  }
+
   if (!itinerary.days?.length) return <LoadingScreen message="This trip has no itinerary." />;
+  return <TripView itinerary={itinerary} formData={formData} />;
+}
+
+function FailedScreen({ tripId, formData, error }) {
+  const retry = useStartGeneration();
 
   return (
-    <TripView
-      itinerary={itinerary}
-      formData={_form_data || { country: trip.destination, cities: [] }}
-    />
+    <div className="min-h-screen text-white relative flex flex-col items-center justify-center px-6 text-center">
+      <SkyBackground />
+      <div className="w-full max-w-md rounded-3xl bg-white/15 p-8 ring-1 ring-white/25 backdrop-blur-md shadow-2xl">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/30">
+          <AlertTriangle size={28} />
+        </div>
+        <h1 className="text-2xl font-extrabold drop-shadow">We couldn't create this itinerary</h1>
+        <p className="mt-2 text-sm text-white/80">
+          {error || "Something went wrong while generating your trip."}
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Link
+            to="/"
+            className="flex-1 rounded-xl bg-white/20 px-4 py-3 font-semibold hover:bg-white/30 transition"
+          >
+            My Trips
+          </Link>
+          <button
+            onClick={() => retry.mutate({ id: tripId, formData })}
+            disabled={retry.isPending}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-3 font-semibold hover:shadow-lg transition disabled:opacity-60"
+          >
+            {retry.isPending ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
+            Try again
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

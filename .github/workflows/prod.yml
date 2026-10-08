@@ -31,7 +31,7 @@ jobs:
         continue-on-error: true
 
       - name: Build application
-        run: npm run build:tailwind && npm run build
+        run: npm run build
 
   # Job 2: Build Production Docker Image
   build-production:

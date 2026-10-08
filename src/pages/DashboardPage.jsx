@@ -1,14 +1,17 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, MoreVertical, Eye, PlayCircle } from "lucide-react";
-import { useTrips, useDeleteTrip } from "../hooks/useTrips";
+import { Plus, Trash2, MapPin, Calendar, MoreVertical, RotateCcw } from "lucide-react";
+import { useTrips, useDeleteTrip, useStartGeneration } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
 import SkyBackground from "../components/SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import ProfileMenu from "../components/ProfileMenu";
+import StatusBadge from "../components/StatusBadge";
+import { tripStatus } from "../utils/trips";
 
-function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
+// ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }
+function TripCardMenu({ actions, disabled }) {
   const [open, setOpen] = useState(false);
   const ref = useClickOutside(() => setOpen(false));
 
@@ -16,7 +19,7 @@ function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
     <div ref={ref} className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen((o) => !o)}
-        disabled={deleting}
+        disabled={disabled}
         aria-label="Trip options"
         className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/40 transition"
       >
@@ -28,30 +31,16 @@ function TripCardMenu({ isDraft, onView, onContinue, onDelete, deleting }) {
           className="absolute mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 text-sm"
           style={{ right: 0 }}
         >
-          {isDraft ? (
+          {actions.map(({ label, icon: Icon, onClick, danger }) => (
             <button
-              onClick={() => { setOpen(false); onContinue(); }}
-              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+              key={label}
+              onClick={() => { setOpen(false); onClick(); }}
+              className={`w-full flex items-center gap-2 px-4 py-2 text-gray-700 transition ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-indigo-50 hover:text-indigo-700"}`}
             >
-              <PlayCircle size={15} />
-              Continue
+              <Icon size={15} />
+              {label}
             </button>
-          ) : (
-            <button
-              onClick={() => { setOpen(false); onView(); }}
-              className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
-            >
-              <Eye size={15} />
-              View Itinerary
-            </button>
-          )}
-          <button
-            onClick={() => { setOpen(false); onDelete(); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition"
-          >
-            <Trash2 size={15} />
-            Delete
-          </button>
+          ))}
         </div>
       )}
     </div>
@@ -89,8 +78,35 @@ export default function DashboardPage() {
   const { data: trips = [], isLoading: loading } = useTrips();
   const deleteMutation = useDeleteTrip();
   const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
+  const retry = useStartGeneration();
 
-  const handleDelete = (id) => deleteMutation.mutate(id);
+  const deleteAction = (trip) => ({
+    label: "Delete", icon: Trash2, danger: true, onClick: () => deleteMutation.mutate(trip.id),
+  });
+  // Opening is done by clicking the card, so the menu only holds actions
+  const menuActions = (trip, status) => [
+    ...(status === "failed"
+      ? [{ label: "Retry", icon: RotateCcw, onClick: () => retry.mutate({ id: trip.id, formData: trip.itinerary_data?._form_data }) }]
+      : []),
+    deleteAction(trip),
+  ];
+
+  // Clicking a card opens it: drafts go back to the questionnaire, everything else to the
+  // trip page (which shows the itinerary, the loading screen, or the failed screen)
+  const cardProps = (trip, status) => {
+    const open = () => navigate(status === "draft" ? `/drafts/${trip.id}` : `/trip/${trip.id}`);
+    return {
+      role: "button",
+      tabIndex: 0,
+      onClick: open,
+      onKeyDown: (e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          open();
+        }
+      },
+    };
+  };
 
   return (
     <div className="min-h-screen text-white relative">
@@ -156,32 +172,28 @@ export default function DashboardPage() {
             {/* Trip cards */}
             <AnimatePresence>
               {trips.map((trip, idx) => {
-                const isDraft = trip.itinerary_data?._draft === true;
+                const status = tripStatus(trip);
                 const gradient = CARD_GRADIENTS[idx % CARD_GRADIENTS.length];
                 const dateRange = formatDateRange(trip.itinerary_data);
                 const days = trip.duration;
                 const flag = getCountryFlagOnly(trip.destination);
                 const cities = trip.cities || [];
 
-                if (isDraft) {
+                if (status === "draft") {
                   return (
                     <motion.div
                       key={trip.id}
+                      {...cardProps(trip, status)}
                       variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                       exit={{ opacity: 0, scale: 0.95 }}
-                      className="relative h-44 rounded-2xl bg-white/10 border-2 border-dashed border-white/25 shadow-lg hover:bg-white/15 transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden opacity-80"
+                      className="relative h-44 cursor-pointer rounded-2xl bg-white/10 border-2 border-dashed border-white/25 shadow-lg hover:bg-white/15 transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden opacity-80"
                     >
-                      <TripCardMenu
-                        isDraft
-                        onContinue={() => navigate(`/drafts/${trip.id}`)}
-                        onDelete={() => handleDelete(trip.id)}
-                        deleting={deletingId === trip.id}
-                      />
+                      <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} />
+                      <div className="absolute bottom-3 right-3">
+                        <StatusBadge status={status} />
+                      </div>
 
                       <div className="relative">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-white/20 text-white/90 text-[10px] font-bold uppercase tracking-wide mb-2">
-                          Draft
-                        </span>
                         <h3 className="text-white font-bold text-lg leading-tight drop-shadow">
                           {trip.destination || "Untitled Trip"}
                         </h3>
@@ -190,8 +202,8 @@ export default function DashboardPage() {
                         )}
                       </div>
 
-                      <div className="relative text-white/50 text-xs">
-                        Click ⋮ to continue planning
+                      <div className="relative pr-24 text-white/50 text-xs">
+                        Click to continue planning
                       </div>
                     </motion.div>
                   );
@@ -200,9 +212,10 @@ export default function DashboardPage() {
                 return (
                   <motion.div
                     key={trip.id}
+                    {...cardProps(trip, status)}
                     variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className={`relative h-44 rounded-2xl bg-gradient-to-br ${gradient} shadow-lg hover:shadow-2xl transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden`}
+                    className={`relative h-44 cursor-pointer rounded-2xl bg-gradient-to-br ${gradient} shadow-lg hover:shadow-2xl transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden`}
                   >
                     {/* Background pattern */}
                     <div className="absolute inset-0 opacity-10"
@@ -212,11 +225,10 @@ export default function DashboardPage() {
                       }}
                     />
 
-                    <TripCardMenu
-                      onView={() => navigate(`/trip/${trip.id}`)}
-                      onDelete={() => handleDelete(trip.id)}
-                      deleting={deletingId === trip.id}
-                    />
+                    <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} />
+                    <div className="absolute bottom-3 right-3">
+                      <StatusBadge status={status} />
+                    </div>
 
                     <div className="relative">
                       <div className="text-3xl mb-1">{flag}</div>
@@ -228,7 +240,7 @@ export default function DashboardPage() {
                       )}
                     </div>
 
-                    <div className="relative flex items-center gap-4 text-white/80 text-xs">
+                    <div className="relative flex flex-wrap items-center gap-x-4 gap-y-1 pr-24 text-white/80 text-xs">
                       {dateRange && (
                         <span className="flex items-center gap-1">
                           <Calendar size={12} />

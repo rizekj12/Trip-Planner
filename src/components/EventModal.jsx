@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, Clock, MapPin, Tag, ExternalLink, Ticket } from 'lucide-react';
 import Modal from './Modal';
+import EventImage from './EventImage';
 
 export default function EventModal({ event, onClose }) {
     return (
@@ -18,24 +19,8 @@ export default function EventModal({ event, onClose }) {
 
                     {/* Event Image */}
                     <div className="relative h-64 overflow-hidden rounded-t-2xl">
-                        {event.image ? (
-                            <>
-                                <img
-                                    src={event.image}
-                                    alt={event.title}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                            </>
-                        ) : (
-                            // Beautiful gradient placeholder
-                            <div className="w-full h-full bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center">
-                                <div className="text-white text-center p-6">
-                                    <div className="text-6xl mb-3">🎉</div>
-                                    <p className="text-lg font-semibold opacity-90">Local Event</p>
-                                </div>
-                            </div>
-                        )}
+                        <EventImage event={event} size="banner" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
                         {/* Category badge */}
                         <div className="absolute top-4 left-4">
