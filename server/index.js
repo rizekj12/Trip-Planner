@@ -64,17 +64,15 @@ app.post("/api/generate-itinerary", async (req, res) => {
       foodSpotsForTrip(formData, { anthropicKey: ANTHROPIC_API_KEY, geoapifyKey }),
       homebasesForTrip(formData, geoapifyKey),
     ]);
-    await saveItineraryData(supabase, tripId, {
+    await patchItineraryData(supabase, tripId, {
       ...itinerary,
-      _form_data: formData,
       _status: "ready",
       _food_spots: foodSpots,
       _homebases: homebases,
     });
   } catch (err) {
     console.error("Itinerary generation failed:", err);
-    await saveItineraryData(supabase, tripId, {
-      _form_data: formData,
+    await patchItineraryData(supabase, tripId, {
       _status: "failed",
       _error: err.message || "Generation failed",
     });
@@ -95,12 +93,26 @@ function supabaseAsUser(token) {
   });
 }
 
-async function saveItineraryData(supabase, tripId, itineraryData) {
-  const { error } = await supabase
+// Merges `patch` into the trip's itinerary_data, re-reading the row right before writing so
+// changes made while we were working (e.g. the user editing reservations, which live in
+// _form_data) aren't overwritten. Returns the merged data, or null if it couldn't save.
+async function patchItineraryData(supabase, tripId, patch) {
+  const { data: row, error: readError } = await supabase
     .from("trips")
-    .update({ itinerary_data: itineraryData })
-    .eq("id", tripId);
-  if (error) console.error("Failed to save itinerary for trip", tripId, error);
+    .select("itinerary_data")
+    .eq("id", tripId)
+    .single();
+  if (readError) {
+    console.error("Failed to read trip", tripId, readError);
+    return null;
+  }
+  const merged = { ...row.itinerary_data, ...patch };
+  const { error } = await supabase.from("trips").update({ itinerary_data: merged }).eq("id", tripId);
+  if (error) {
+    console.error("Failed to save trip", tripId, error);
+    return null;
+  }
+  return merged;
 }
 
 // Food spots for one city of a trip. The first call returns 12 places; each later call
@@ -154,17 +166,10 @@ app.post("/api/food-spots", async (req, res) => {
       city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey).catch(() => undefined),
     ]);
 
-    const { error: saveError } = await supabase
-      .from("trips")
-      .update({
-        itinerary_data: {
-          ...data,
-          _food_spots: { ...data._food_spots, [city]: spots },
-          ...(homebase !== undefined && { _homebases: { ...homebases, [city]: homebase } }),
-        },
-      })
-      .eq("id", tripId);
-    if (saveError) console.error("Failed to save food spots for trip", tripId, saveError);
+    await patchItineraryData(supabase, tripId, {
+      _food_spots: { ...data._food_spots, [city]: spots },
+      ...(homebase !== undefined && { _homebases: { ...homebases, [city]: homebase } }),
+    });
 
     res.json({ spots, homebase: homebase ?? null });
   } catch (err) {
@@ -236,12 +241,8 @@ async function fillMissingFoodSpots(supabase, trip) {
   if (!tasks.length) return;
 
   await Promise.all(tasks);
-  trip.itinerary_data = { ...data, _food_spots: foodSpots, _homebases: homebases };
-  const { error } = await supabase
-    .from("trips")
-    .update({ itinerary_data: trip.itinerary_data })
-    .eq("id", trip.id);
-  if (error) console.error("Failed to save food spots for trip", trip.id, error);
+  const patch = { _food_spots: foodSpots, _homebases: homebases };
+  trip.itinerary_data = (await patchItineraryData(supabase, trip.id, patch)) || { ...data, ...patch };
 }
 
 // Hotel search endpoint

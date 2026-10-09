@@ -8,6 +8,7 @@ import SideNav from "../components/SideNav";
 import SkyBackground from "../components/SkyBackground";
 import EventsPanel from "../components/EventsPanel";
 import FoodSpotsPanel from "../components/FoodSpotsPanel";
+import ReservationsPanel from "../components/reservations/ReservationsPanel";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingScreen from "../components/LoadingScreen";
 import GeneratingScreen from "../components/GeneratingScreen";
@@ -189,6 +190,8 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
           >
             {section === "events" ? (
               <EventsPanel events={itinerary.events || []} />
+            ) : section === "reservations" ? (
+              <ReservationsPanel tripId={tripId} formData={formData} />
             ) : section === "food" ? (
               <FoodSpotsPanel
                 tripId={tripId}

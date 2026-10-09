@@ -46,6 +46,27 @@ function formatDistance([lat1, lng1], [lat2, lng2], miles) {
   return km < 1 ? `${Math.max(50, Math.round((km * 1000) / 50) * 50)} m` : `${km.toFixed(1)} km`;
 }
 
+// Flights and hotels with confirmation codes, mirroring src/utils/reservations.js:
+// questionnaire hotels (per city) plus anything added in the Reservations tab
+function reservationsFor(form) {
+  const flights = [...(form.reservations?.flights || [])].sort((a, b) =>
+    `${a.date || "9999"} ${a.time || ""}`.localeCompare(`${b.date || "9999"} ${b.time || ""}`)
+  );
+  const hotels = [
+    ...(form.cities || [])
+      .filter((c) => c.homebaseType === "hotel" && c.hotel?.name)
+      .map((c) => ({ ...c.hotel, checkIn: c.checkIn, checkOut: c.checkOut })),
+    ...(form.reservations?.hotels || []),
+  ];
+  return { flights, hotels };
+}
+
+function formatTime(hhmm) {
+  if (!hhmm) return "";
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
 // Stops (numbered) and hotel for one day, in the shape staticMapImage expects
 function dayMarkers(day, spots) {
   const stops = (day.markers || []).map((key) => spots[key]).filter(Boolean);
@@ -140,11 +161,67 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
 
   label("Contents");
   doc.moveDown(0.3);
+  const { flights, hotels } = reservationsFor(form);
+  if (flights.length || hotels.length) body("Reservations and confirmation codes");
   body(`Day-by-day plan with maps (${days.length} days)`);
   if (itinerary.events?.length) body(`Local events (${Math.min(itinerary.events.length, MAX_EVENTS)})`);
   if (Object.keys(foodSpots).length) body("Food spots");
   doc.moveDown(1);
   muted("Saved for offline use. Map pins match the numbered stops on each day.");
+
+  // ---- Reservations
+  // One reservation: bold title, detail lines, and the confirmation code (if any) in large type
+  const reservation = (title, lines, code) => {
+    ensureSpace(60);
+    doc.font("Helvetica-Bold").fontSize(11).fillColor(COLORS.text).text(clean(title));
+    for (const line of lines) if (clean(line)) muted(line);
+    if (code) {
+      doc.moveDown(0.15);
+      doc.font("Helvetica").fontSize(8).fillColor(COLORS.muted).text("CONFIRMATION CODE", { characterSpacing: 0.5 });
+      doc.font("Courier-Bold").fontSize(15).fillColor(COLORS.accent).text(clean(code).toUpperCase(), { characterSpacing: 1 });
+    }
+    doc.moveDown(0.8);
+  };
+
+  if (flights.length || hotels.length) {
+    doc.addPage();
+    heading("Reservations");
+    muted("Flight and hotel details with confirmation codes");
+    doc.moveDown(0.8);
+
+    if (flights.length) {
+      label("Flights");
+      doc.moveDown(0.4);
+      for (const f of flights) {
+        reservation(
+          [f.airline, f.flightNumber].filter(Boolean).join(" ") || "Flight",
+          [
+            (f.from || f.to) && `${f.from || "?"} -> ${f.to || "?"}`,
+            [formatDate(f.date), formatTime(f.time)].filter(Boolean).join("  |  "),
+            f.notes,
+          ],
+          f.confirmationCode
+        );
+      }
+    }
+
+    if (hotels.length) {
+      if (flights.length) doc.moveDown(0.4);
+      label("Hotels");
+      doc.moveDown(0.4);
+      for (const h of hotels) {
+        reservation(
+          h.name || "Hotel",
+          [
+            h.address,
+            (h.checkIn || h.checkOut) && `${formatDate(h.checkIn) || "?"} - ${formatDate(h.checkOut) || "?"}`,
+            h.notes,
+          ],
+          h.confirmationCode
+        );
+      }
+    }
+  }
 
   // ---- Days
   days.forEach((day, i) => {

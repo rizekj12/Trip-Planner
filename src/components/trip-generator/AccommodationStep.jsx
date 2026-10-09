@@ -170,6 +170,22 @@ export default function AccommodationStep({ formData, updateFormData }) {
                                     )}
                                 </div>
 
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Confirmation Code <span className="font-normal text-gray-400">(optional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={city.hotel.confirmationCode || ''}
+                                        onChange={(e) => updateHotel(index, { confirmationCode: e.target.value })}
+                                        placeholder="e.g., 84720193"
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none font-mono uppercase"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Don't have it yet? You can add it later from the Reservations tab.
+                                    </p>
+                                </div>
+
                                 <div className="text-xs text-gray-500 mt-2">
                                     💡 Tip: We'll use this to calculate directions for each day
                                 </div>

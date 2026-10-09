@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus } from "../utils/trips";
+import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData } from "../utils/trips";
 import { startGeneration, loadMoreFoodSpots, downloadTripPdf } from "../utils/aiService";
 
 // How often to re-check while an itinerary is being generated
@@ -80,6 +80,16 @@ export function useDownloadPdf() {
 function pdfFilename(destination) {
   const name = (destination || "trip").trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
   return `${name || "trip"}-itinerary.pdf`;
+}
+
+// Edits a trip's reservations. Call mutate(update) with update(formData) => newFormData,
+// e.g. one of the updaters in utils/reservations.js.
+export function useUpdateReservations(tripId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (update) => updateTripFormData(tripId, update),
+    onSuccess: (row) => qc.setQueryData(["trip", tripId], row),
+  });
 }
 
 export function useSaveDraft() {

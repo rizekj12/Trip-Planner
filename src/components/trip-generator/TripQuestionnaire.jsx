@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Sparkles, Loader2, Home } from 'lucide-react';
 
 import WhereWhenStep from './WhereWhenStep';
+import FlightsStep from './FlightsStep';
 import AccommodationStep from './AccommodationStep';
 import StyleStep from './StyleStep';
 import ReviewStep from './ReviewStep';
+import { hasDetails } from '../../utils/reservations';
 
 const BLANK_FORM_DATA = {
     country: '',
@@ -20,14 +22,15 @@ const BLANK_FORM_DATA = {
         }
     ],
     travelStyle: '',
-    vacationType: ''
+    vacationType: '',
+    reservations: { flights: [], hotels: [] },
 };
 
 export default function TripQuestionnaire({ onComplete, isGenerating, initialFormData, onHome }) {
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState(() => initialFormData || BLANK_FORM_DATA);
 
-    const totalSteps = 4;
+    const totalSteps = 5;
 
     const updateFormData = (updates) => {
         setFormData(prev => ({ ...prev, ...updates }));
@@ -42,7 +45,12 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
     };
 
     const handleSubmit = () => {
-        onComplete(formData);
+        // Drop flights that were added but never filled in
+        const reservations = { flights: [], hotels: [], ...formData.reservations };
+        onComplete({
+            ...formData,
+            reservations: { ...reservations, flights: reservations.flights.filter(hasDetails) },
+        });
     };
 
     const canProceed = () => {
@@ -50,6 +58,8 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
             case 1:
                 return formData.country && formData.cities[0].name && formData.cities[0].checkIn && formData.cities[0].checkOut;
             case 2:
+                return true; // flights are optional
+            case 3:
                 return formData.cities.every(city => {
                     if (city.homebaseType === 'hotel') {
                         return city.hotel.name && city.hotel.address && city.hotelAddressStatus === 'valid';
@@ -60,9 +70,9 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                     if (city.homebaseType === 'skip') return true;
                     return false;
                 });
-            case 3:
-                return formData.travelStyle && formData.vacationType;
             case 4:
+                return formData.travelStyle && formData.vacationType;
+            case 5:
                 return true;
             default:
                 return false;
@@ -114,18 +124,24 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                             />
                         )}
                         {step === 2 && (
-                            <AccommodationStep
+                            <FlightsStep
                                 formData={formData}
                                 updateFormData={updateFormData}
                             />
                         )}
                         {step === 3 && (
-                            <StyleStep
+                            <AccommodationStep
                                 formData={formData}
                                 updateFormData={updateFormData}
                             />
                         )}
                         {step === 4 && (
+                            <StyleStep
+                                formData={formData}
+                                updateFormData={updateFormData}
+                            />
+                        )}
+                        {step === 5 && (
                             <ReviewStep
                                 formData={formData}
                                 onEdit={(stepNum) => setStep(stepNum)}

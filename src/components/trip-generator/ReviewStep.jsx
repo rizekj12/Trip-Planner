@@ -1,5 +1,6 @@
 import React from 'react';
-import { MapPin, Calendar, Hotel, User, Edit2 } from 'lucide-react';
+import { MapPin, Calendar, Hotel, User, Edit2, Plane } from 'lucide-react';
+import { getFlights, hasDetails } from '../../utils/reservations';
 
 export default function ReviewStep({ formData, onEdit }) {
     const formatDate = (dateStr) => {
@@ -73,6 +74,40 @@ export default function ReviewStep({ formData, onEdit }) {
                 </div>
             </div>
 
+            {/* Flights */}
+            <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2">
+                        <Plane className="text-indigo-600" size={20} />
+                        <h3 className="font-semibold text-gray-900">Flights</h3>
+                    </div>
+                    <button
+                        onClick={() => onEdit(2)}
+                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                    >
+                        <Edit2 size={16} />
+                        Edit
+                    </button>
+                </div>
+                {getFlights(formData).some(hasDetails) ? (
+                    <div className="space-y-2">
+                        {getFlights(formData).filter(hasDetails).map((f) => (
+                            <div key={f.id} className="flex justify-between items-center gap-3">
+                                <span className="font-medium text-gray-800">
+                                    {[f.airline, f.flightNumber].filter(Boolean).join(' ') || 'Flight'}
+                                    {(f.from || f.to) && <span className="font-normal text-gray-600"> · {f.from || '?'} → {f.to || '?'}</span>}
+                                </span>
+                                <span className="text-sm text-gray-600">
+                                    {f.confirmationCode ? <span className="font-mono">{f.confirmationCode.toUpperCase()}</span> : formatDate(f.date)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-600 italic">None added — you can add them later from the Reservations tab</p>
+                )}
+            </div>
+
             {/* Hotels */}
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
@@ -81,7 +116,7 @@ export default function ReviewStep({ formData, onEdit }) {
                         <h3 className="font-semibold text-gray-900">Accommodation</h3>
                     </div>
                     <button
-                        onClick={() => onEdit(2)}
+                        onClick={() => onEdit(3)}
                         className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
@@ -95,6 +130,11 @@ export default function ReviewStep({ formData, onEdit }) {
                                 <>
                                     <p className="font-medium text-gray-800">{city.hotel.name}</p>
                                     <p className="text-sm text-gray-600">{city.hotel.address}</p>
+                                    {city.hotel.confirmationCode && (
+                                        <p className="text-sm text-gray-600">
+                                            Confirmation: <span className="font-mono">{city.hotel.confirmationCode.toUpperCase()}</span>
+                                        </p>
+                                    )}
                                 </>
                             )}
                             {city.homebaseType === 'custom' && (
@@ -121,7 +161,7 @@ export default function ReviewStep({ formData, onEdit }) {
                         <h3 className="font-semibold text-gray-900">Your Style</h3>
                     </div>
                     <button
-                        onClick={() => onEdit(3)}
+                        onClick={() => onEdit(4)}
                         className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
