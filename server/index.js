@@ -10,6 +10,9 @@ import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { generateItinerary } from "./itinerary.js";
+import { addFoodSpots, foodSpotsForTrip } from "./foodSpots.js";
+import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
+import { buildTripPdf } from "./pdf.js";
 
 const app = express();
 const PORT = 3001;
@@ -31,21 +34,13 @@ app.post("/api/generate-itinerary", async (req, res) => {
   const { tripId } = req.body;
   const token = req.headers.authorization?.replace(/^Bearer /, "");
 
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "API key not configured on server" });
-  }
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return res.status(500).json({ error: "Supabase not configured on server" });
-  }
+  const configError = checkAiConfig();
+  if (configError) return res.status(500).json({ error: configError });
   if (!tripId || !token) {
     return res.status(400).json({ error: "tripId and an auth token are required" });
   }
 
-  // Act as the signed-in user so Supabase row-level security still applies
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { persistSession: false },
-  });
+  const supabase = supabaseAsUser(token);
 
   const { data: trip, error } = await supabase
     .from("trips")
@@ -61,8 +56,21 @@ app.post("/api/generate-itinerary", async (req, res) => {
   res.status(202).json({ status: "pending" });
 
   try {
-    const itinerary = await generateItinerary(formData, ANTHROPIC_API_KEY);
-    await saveItineraryData(supabase, tripId, { ...itinerary, _form_data: formData, _status: "ready" });
+    // Food spots and homebase locations are prepared alongside the itinerary, so the
+    // Food Spots tab (list, distances, map) is ready when the trip is
+    const geoapifyKey = process.env.GEOAPIFY_API_KEY;
+    const [itinerary, foodSpots, homebases] = await Promise.all([
+      generateItinerary(formData, ANTHROPIC_API_KEY),
+      foodSpotsForTrip(formData, { anthropicKey: ANTHROPIC_API_KEY, geoapifyKey }),
+      homebasesForTrip(formData, geoapifyKey),
+    ]);
+    await saveItineraryData(supabase, tripId, {
+      ...itinerary,
+      _form_data: formData,
+      _status: "ready",
+      _food_spots: foodSpots,
+      _homebases: homebases,
+    });
   } catch (err) {
     console.error("Itinerary generation failed:", err);
     await saveItineraryData(supabase, tripId, {
@@ -73,12 +81,167 @@ app.post("/api/generate-itinerary", async (req, res) => {
   }
 });
 
+function checkAiConfig() {
+  if (!ANTHROPIC_API_KEY) return "API key not configured on server";
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return "Supabase not configured on server";
+  return null;
+}
+
+// Supabase client that acts as the signed-in user, so row-level security still applies
+function supabaseAsUser(token) {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false },
+  });
+}
+
 async function saveItineraryData(supabase, tripId, itineraryData) {
   const { error } = await supabase
     .from("trips")
     .update({ itinerary_data: itineraryData })
     .eq("id", tripId);
   if (error) console.error("Failed to save itinerary for trip", tripId, error);
+}
+
+// Food spots for one city of a trip. The first call returns 12 places; each later call
+// adds 10 more, skipping ones already listed. Also looks up the city's homebase location
+// if it hasn't been yet. Results are saved on the trip (itinerary_data._food_spots[city],
+// _homebases[city]) so each is only fetched once. `homebaseOnly: true` skips the new spots,
+// for trips whose spots were saved before homebases were tracked.
+app.post("/api/food-spots", async (req, res) => {
+  const { tripId, city, homebaseOnly } = req.body;
+  const token = req.headers.authorization?.replace(/^Bearer /, "");
+
+  const configError = checkAiConfig();
+  if (configError) return res.status(500).json({ error: configError });
+  if (!tripId || !city || !token) {
+    return res.status(400).json({ error: "tripId, city and an auth token are required" });
+  }
+
+  const supabase = supabaseAsUser(token);
+  const { data: trip, error } = await supabase
+    .from("trips")
+    .select("id, itinerary_data")
+    .eq("id", tripId)
+    .single();
+
+  const data = trip?.itinerary_data;
+  if (error || !data) return res.status(404).json({ error: "Trip not found" });
+
+  // Only cities in this trip, so the endpoint can't be used for arbitrary prompts
+  const tripCities = (data._form_data?.cities || []).map((c) => c.name).filter(Boolean);
+  if (!tripCities.includes(city)) {
+    return res.status(400).json({ error: "That city isn't part of this trip" });
+  }
+
+  const existing = data._food_spots?.[city] || [];
+  const homebases = data._homebases || {};
+  const geoapifyKey = process.env.GEOAPIFY_API_KEY;
+  const cityForm = data._form_data.cities.find((c) => c.name === city);
+
+  try {
+    const [spots, homebase] = await Promise.all([
+      homebaseOnly
+        ? existing
+        : addFoodSpots({
+            city,
+            country: data._form_data?.country,
+            existing,
+            anthropicKey: ANTHROPIC_API_KEY,
+            geoapifyKey,
+          }),
+      // undefined = lookup failed, try again next time; null = nothing to pin
+      city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey).catch(() => undefined),
+    ]);
+
+    const { error: saveError } = await supabase
+      .from("trips")
+      .update({
+        itinerary_data: {
+          ...data,
+          _food_spots: { ...data._food_spots, [city]: spots },
+          ...(homebase !== undefined && { _homebases: { ...homebases, [city]: homebase } }),
+        },
+      })
+      .eq("id", tripId);
+    if (saveError) console.error("Failed to save food spots for trip", tripId, saveError);
+
+    res.json({ spots, homebase: homebase ?? null });
+  } catch (err) {
+    console.error("Food spots failed:", err);
+    res.status(502).json({ error: err.message || "Couldn't load food spots" });
+  }
+});
+
+// Offline PDF of a ready trip: day-by-day maps, stops and tips, plus local events and
+// food spots. Responds with the PDF file; `miles` picks the distance units.
+app.post("/api/trip-pdf", async (req, res) => {
+  const { tripId, miles } = req.body;
+  const token = req.headers.authorization?.replace(/^Bearer /, "");
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(500).json({ error: "Supabase not configured on server" });
+  }
+  if (!tripId || !token) {
+    return res.status(400).json({ error: "tripId and an auth token are required" });
+  }
+
+  const supabase = supabaseAsUser(token);
+  const { data: trip, error } = await supabase
+    .from("trips")
+    .select("id, destination, itinerary_data")
+    .eq("id", tripId)
+    .single();
+  if (error || !trip) return res.status(404).json({ error: "Trip not found" });
+  if (!trip.itinerary_data?.days?.length) {
+    return res.status(400).json({ error: "This trip doesn't have an itinerary yet" });
+  }
+
+  try {
+    await fillMissingFoodSpots(supabase, trip);
+    const doc = await buildTripPdf(trip, { geoapifyKey: process.env.GEOAPIFY_API_KEY, miles: !!miles });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="trip-${tripId}.pdf"`);
+    doc.pipe(res);
+    doc.end();
+  } catch (err) {
+    console.error("PDF generation failed:", err);
+    res.status(500).json({ error: "Couldn't create the PDF" });
+  }
+});
+
+// Older trips (made before food spots came with the itinerary) may be missing food spots
+// or homebase locations for some cities. Fetch those now, in parallel, and save them on the
+// trip so the PDF and the Food Spots tab both have them. Updates `trip` in place; a city
+// that fails is simply left out.
+async function fillMissingFoodSpots(supabase, trip) {
+  const data = trip.itinerary_data;
+  const form = data._form_data || {};
+  const foodSpots = { ...data._food_spots };
+  const homebases = { ...data._homebases };
+  const geoapifyKey = process.env.GEOAPIFY_API_KEY;
+
+  const tasks = (form.cities || [])
+    .filter((c) => c.name)
+    .flatMap((c) => [
+      ANTHROPIC_API_KEY && !foodSpots[c.name]?.length &&
+        addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey })
+          .then((spots) => { foodSpots[c.name] = spots; })
+          .catch((err) => console.error(`Food spots for ${c.name} failed:`, err.message)),
+      !(c.name in homebases) &&
+        locateHomebase(c, geoapifyKey)
+          .then((homebase) => { homebases[c.name] = homebase; })
+          .catch(() => {}),
+    ])
+    .filter(Boolean);
+  if (!tasks.length) return;
+
+  await Promise.all(tasks);
+  trip.itinerary_data = { ...data, _food_spots: foodSpots, _homebases: homebases };
+  const { error } = await supabase
+    .from("trips")
+    .update({ itinerary_data: trip.itinerary_data })
+    .eq("id", trip.id);
+  if (error) console.error("Failed to save food spots for trip", trip.id, error);
 }
 
 // Hotel search endpoint
@@ -99,13 +262,7 @@ app.get("/api/search-hotels", async (req, res) => {
   }
 
   try {
-    const geocodeUrl = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(
-      [city, country].filter(Boolean).join(", "),
-    )}&type=city&format=json&apiKey=${apiKey}`;
-
-    const geocodeResponse = await fetch(geocodeUrl);
-    const geocodeData = await geocodeResponse.json();
-    const location = geocodeData.results?.[0];
+    const location = await geocodeCity(city, country, apiKey);
 
     if (!location) {
       return res.json({ hotels: [] });

@@ -70,8 +70,10 @@ function FitBounds({ items }) {
   return null;
 }
 
-// items: the day's stops plus hotels (type: "hotel"), each with [lat, lng] coords
-export default function DayMap({ items = [] }) {
+// items: stops plus hotels (type: "hotel"), each with [lat, lng] coords.
+// A stop's pin shows its `number` if set (to match a list), otherwise its position.
+// clickable: false turns off the details popup on pin click (the hover tooltip stays).
+export default function DayMap({ items = [], clickable = true }) {
   const [active, setActive] = useState(null);
 
   const spots = useMemo(
@@ -93,7 +95,8 @@ export default function DayMap({ items = [] }) {
   const hotelDivIcon = useMemo(() => hotelIcon(), []);
 
   return (
-    <div className="relative">
+    // Without popups, show the map's grab cursor on pins instead of a pointer
+    <div className={clickable ? "relative" : "relative [&_.leaflet-marker-icon]:cursor-grab"}>
       <MapContainer
         center={WORLD_CENTER}
         zoom={2}
@@ -113,8 +116,8 @@ export default function DayMap({ items = [] }) {
             <Marker
               key={`${spot.title}-${idx}`}
               position={[lat, lng]}
-              icon={getNumberIcon(idx + 1)}
-              eventHandlers={{ click: () => setActive(spot) }}
+              icon={getNumberIcon(spot.number ?? idx + 1)}
+              eventHandlers={clickable ? { click: () => setActive(spot) } : {}}
             >
               <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
                 {spot.title}
@@ -131,7 +134,7 @@ export default function DayMap({ items = [] }) {
               key={`hotel-${i}-${h.title}`}
               position={[lat, lng]}
               icon={hotelDivIcon}
-              eventHandlers={{ click: () => setActive(h) }}
+              eventHandlers={clickable ? { click: () => setActive(h) } : {}}
             >
               <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
                 {h.title || "Hotel"}

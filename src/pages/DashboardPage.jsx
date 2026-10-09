@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, MoreVertical, RotateCcw } from "lucide-react";
-import { useTrips, useDeleteTrip, useStartGeneration } from "../hooks/useTrips";
+import { Plus, Trash2, MapPin, Calendar, MoreVertical, RotateCcw, Download, Loader2 } from "lucide-react";
+import { useTrips, useDeleteTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
 import SkyBackground from "../components/SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
@@ -10,8 +10,9 @@ import ProfileMenu from "../components/ProfileMenu";
 import StatusBadge from "../components/StatusBadge";
 import { tripStatus } from "../utils/trips";
 
-// ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }
-function TripCardMenu({ actions, disabled }) {
+// ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }. `busy` swaps the
+// dots for a spinner (e.g. while a PDF is being prepared).
+function TripCardMenu({ actions, disabled, busy }) {
   const [open, setOpen] = useState(false);
   const ref = useClickOutside(() => setOpen(false));
 
@@ -19,11 +20,11 @@ function TripCardMenu({ actions, disabled }) {
     <div ref={ref} className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen((o) => !o)}
-        disabled={disabled}
-        aria-label="Trip options"
+        disabled={disabled || busy}
+        aria-label={busy ? "Preparing PDF" : "Trip options"}
         className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/40 transition"
       >
-        <MoreVertical size={16} className="text-white" />
+        {busy ? <Loader2 size={16} className="text-white animate-spin" /> : <MoreVertical size={16} className="text-white" />}
       </button>
 
       {open && (
@@ -79,12 +80,17 @@ export default function DashboardPage() {
   const deleteMutation = useDeleteTrip();
   const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
   const retry = useStartGeneration();
+  const pdf = useDownloadPdf();
+  const pdfTripId = pdf.isPending ? pdf.variables?.id : null;
 
   const deleteAction = (trip) => ({
     label: "Delete", icon: Trash2, danger: true, onClick: () => deleteMutation.mutate(trip.id),
   });
   // Opening is done by clicking the card, so the menu only holds actions
   const menuActions = (trip, status) => [
+    ...(status === "ready"
+      ? [{ label: "Download PDF", icon: Download, onClick: () => pdf.mutate(trip) }]
+      : []),
     ...(status === "failed"
       ? [{ label: "Retry", icon: RotateCcw, onClick: () => retry.mutate({ id: trip.id, formData: trip.itinerary_data?._form_data }) }]
       : []),
@@ -188,7 +194,7 @@ export default function DashboardPage() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       className="relative h-44 cursor-pointer rounded-2xl bg-white/10 border-2 border-dashed border-white/25 shadow-lg hover:bg-white/15 transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden opacity-80"
                     >
-                      <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} />
+                      <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} />
                       <div className="absolute bottom-3 right-3">
                         <StatusBadge status={status} />
                       </div>
@@ -225,7 +231,7 @@ export default function DashboardPage() {
                       }}
                     />
 
-                    <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} />
+                    <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} />
                     <div className="absolute bottom-3 right-3">
                       <StatusBadge status={status} />
                     </div>
@@ -261,6 +267,13 @@ export default function DashboardPage() {
           </motion.div>
         )}
       </div>
+
+      {pdf.isError && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-red-500 px-4 py-3 text-sm text-white shadow-2xl">
+          <span>Couldn't create the PDF: {pdf.error.message}</span>
+          <button onClick={() => pdf.reset()} className="font-semibold underline">Dismiss</button>
+        </div>
+      )}
     </div>
   );
 }

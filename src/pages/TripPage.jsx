@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
+import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2, Download } from "lucide-react";
 import DayMap from "../components/DayMap";
 import ItineraryCard from "../components/ItineraryCard";
 import SideNav from "../components/SideNav";
 import SkyBackground from "../components/SkyBackground";
 import EventsPanel from "../components/EventsPanel";
+import FoodSpotsPanel from "../components/FoodSpotsPanel";
 import ProfileMenu from "../components/ProfileMenu";
 import LoadingScreen from "../components/LoadingScreen";
 import GeneratingScreen from "../components/GeneratingScreen";
-import { useTrip, useStartGeneration } from "../hooks/useTrips";
+import { useTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
 import { getCountryFlag } from "../utils/countryFlags";
 
@@ -27,7 +28,7 @@ export default function TripPage() {
   if (isLoading) return <LoadingScreen />;
   if (error || !trip) return <LoadingScreen message="Trip not found." />;
 
-  const { _form_data, _draft, _status, _started_at, _error, ...itinerary } = trip.itinerary_data || {};
+  const { _form_data, _draft, _status, _started_at, _error, _food_spots, _homebases, ...itinerary } = trip.itinerary_data || {};
   const formData = _form_data || { country: trip.destination, cities: [] };
 
   switch (tripStatus(trip)) {
@@ -40,7 +41,15 @@ export default function TripPage() {
   }
 
   if (!itinerary.days?.length) return <LoadingScreen message="This trip has no itinerary." />;
-  return <TripView itinerary={itinerary} formData={formData} />;
+  return (
+    <TripView
+      tripId={tripId}
+      itinerary={itinerary}
+      formData={formData}
+      foodSpots={_food_spots || {}}
+      homebases={_homebases || {}}
+    />
+  );
 }
 
 function FailedScreen({ tripId, formData, error }) {
@@ -78,9 +87,10 @@ function FailedScreen({ tripId, formData, error }) {
   );
 }
 
-function TripView({ itinerary, formData }) {
+function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
   const [tab, setTab] = useState(itinerary.days[0].key);
   const [navOpen, setNavOpen] = useState(false);
+  const pdf = useDownloadPdf();
   const [section, setSection] = useState("days");
 
   const activeDay = useMemo(
@@ -137,8 +147,8 @@ function TripView({ itinerary, formData }) {
         </motion.p>
       </div>
 
-      {/* Menu Button */}
-      <div className="mb-3 ml-4 flex">
+      {/* Menu + Download buttons */}
+      <div className="mb-3 ml-4 mr-4 flex flex-wrap items-center gap-2">
         <button
           onClick={() => setNavOpen(true)}
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2
@@ -150,13 +160,28 @@ function TripView({ itinerary, formData }) {
           <MenuIcon size={18} className="opacity-90" />
           <span className="text-sm font-medium">Menu</span>
         </button>
+        <button
+          onClick={() => pdf.mutate({ id: tripId, destination: formData.country })}
+          disabled={pdf.isPending}
+          className="inline-flex items-center gap-2 rounded-xl px-3 py-2
+               bg-white/15 text-white backdrop-blur
+               ring-1 ring-white/20 hover:bg-white/25 active:bg-white/20
+               shadow-sm transition disabled:opacity-70"
+          title="Save this itinerary as a PDF for offline use"
+        >
+          {pdf.isPending ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="opacity-90" />}
+          <span className="text-sm font-medium">{pdf.isPending ? "Preparing PDF…" : "Download PDF"}</span>
+        </button>
+        {pdf.isError && (
+          <span className="rounded-lg bg-red-500/80 px-3 py-1.5 text-sm text-white">{pdf.error.message}</span>
+        )}
       </div>
 
       {/* Main Content */}
       <div className="mx-auto max-w-7xl px-4 pb-16">
         <AnimatePresence mode="wait">
           <motion.div
-            key={section === "events" ? "events" : tab}
+            key={section === "days" ? tab : section}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
@@ -164,6 +189,13 @@ function TripView({ itinerary, formData }) {
           >
             {section === "events" ? (
               <EventsPanel events={itinerary.events || []} />
+            ) : section === "food" ? (
+              <FoodSpotsPanel
+                tripId={tripId}
+                cities={(formData.cities || []).map((c) => c.name).filter(Boolean)}
+                foodSpots={foodSpots}
+                homebases={homebases}
+              />
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
                 {/* Map */}
