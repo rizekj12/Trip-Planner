@@ -4,6 +4,7 @@ import { HOTELS } from "../data/hotels";
 import { sampleEvents } from "../data/events";
 import { supabase } from "./supabase";
 import { savePending, saveTrip, saveFailed } from "./trips";
+import { usesMiles } from "./helpers";
 
 // Mock itinerary generator
 async function generateMockItinerary(formData) {
@@ -53,19 +54,54 @@ export async function startGeneration({ id, formData }) {
   }
 }
 
-async function requestGeneration(tripId) {
+function requestGeneration(tripId) {
+  return postToServer("/api/generate-itinerary", { tripId });
+}
+
+// Returns { spots, homebase } for a city on this trip. spots is the full list: the first
+// call generates 12, each later call adds 10 more. homebase is the hotel/address location
+// ({ type, name, coords }) or null. homebaseOnly skips new spots and just fills in the
+// homebase. The server saves both on the trip.
+export function loadMoreFoodSpots({ tripId, city, homebaseOnly = false }) {
+  return postToServer("/api/food-spots", { tripId, city, homebaseOnly });
+}
+
+// Downloads an offline PDF of a ready trip (day maps, stops, events, food spots)
+export async function downloadTripPdf({ tripId, filename }) {
+  const response = await authedPost("/api/trip-pdf", { tripId, miles: usesMiles() });
+  const blob = await response.blob();
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// POSTs JSON to our Express API and returns the parsed JSON reply
+async function postToServer(path, body) {
+  const response = await authedPost(path, body);
+  return response.json().catch(() => ({}));
+}
+
+// POSTs to our Express API with the user's login token. Returns the Response if it
+// succeeded; otherwise throws with the server's error message.
+async function authedPost(path, body) {
   const { data: { session } } = await supabase.auth.getSession();
   const backendUrl = import.meta.env.DEV ? "http://localhost:3001" : "";
 
   let response;
   try {
-    response = await fetch(`${backendUrl}/api/generate-itinerary`, {
+    response = await fetch(`${backendUrl}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session?.access_token}`,
       },
-      body: JSON.stringify({ tripId }),
+      body: JSON.stringify(body),
     });
   } catch {
     throw new Error("Couldn't reach the server. Is the backend running?");
@@ -73,6 +109,7 @@ async function requestGeneration(tripId) {
 
   if (!response.ok) {
     const { error } = await response.json().catch(() => ({}));
-    throw new Error(error || `Couldn't start generation (${response.status})`);
+    throw new Error(error || `Request failed (${response.status})`);
   }
+  return response;
 }

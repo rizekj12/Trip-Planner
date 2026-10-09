@@ -34,8 +34,24 @@ function getVacationTypeDescription(type) {
   return descriptions[type] || type;
 }
 
+// Flight timing for pacing the first and last days. Only route, date and departure time are
+// sent — never confirmation codes, flight numbers or notes. Empty string if there are none.
+function buildFlightsBlock(formData) {
+  const lines = (formData.reservations?.flights || [])
+    .filter((f) => f.date && (f.from || f.to))
+    .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`))
+    .map((f) => `- ${f.from || "?"} to ${f.to || "?"}, departing ${f.date}${f.time ? ` at ${f.time}` : ""} (local time)`);
+  if (!lines.length) return "";
+
+  return `
+FLIGHTS:
+${lines.join("\n")}
+`;
+}
+
 function buildPrompt(formData) {
   const numDays = calculateTotalDays(formData.cities);
+  const flightsBlock = buildFlightsBlock(formData);
 
   const citiesInfo = formData.cities
     .map((city, i) => {
@@ -57,8 +73,7 @@ ${homebaseLine}
   return `Create a ${numDays}-day travel itinerary for ${formData.country}.
 
 TRIP DETAILS:
-${citiesInfo}
-
+${citiesInfo}${flightsBlock}
 PREFERENCES:
 - Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
 - Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
@@ -123,7 +138,14 @@ EVENT REQUIREMENTS:
 ITINERARY REQUIREMENTS:
 - Include ${numDays} days with 3-5 activities per day
 - Use real GPS coordinates
-- Match travel style: ${formData.travelStyle}`;
+- Match travel style: ${formData.travelStyle}${
+    flightsBlock
+      ? `
+- Use the flights to pace the trip: estimate when they land from the departure time and route,
+  keep the arrival day light (nothing before they could reach the homebase), and on a departure
+  day leave enough time to get to the airport (about 3 hours early for international flights)`
+      : ""
+  }`;
 }
 
 function parseItineraryResponse(message) {

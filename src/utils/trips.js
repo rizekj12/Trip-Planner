@@ -102,3 +102,19 @@ export async function deleteTrip(id) {
   const { error } = await supabase.from("trips").delete().eq("id", id);
   if (error) throw error;
 }
+
+// Applies `update(formData) => newFormData` to a trip's saved questionnaire answers (where
+// reservations live). Re-reads the row first so it builds on the latest saved version.
+export async function updateTripFormData(id, update) {
+  const trip = await fetchTrip(id);
+  const data = trip.itinerary_data || {};
+  const itinerary_data = { ...data, _form_data: update(data._form_data || {}) };
+  const { data: row, error } = await supabase
+    .from("trips")
+    .update({ itinerary_data })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return row;
+}

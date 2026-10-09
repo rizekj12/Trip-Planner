@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Utensils, PartyPopper } from "lucide-react";
+import { CalendarDays, Utensils, PartyPopper, Ticket } from "lucide-react";
 import { theme as th } from "../utils/theme";
 
 export default function SideNav({
@@ -93,6 +93,14 @@ export default function SideNav({
                   onClick={() => onSelectSection("food")}
                 >
                   <Utensils size={18} /> <span>Food Spots</span>
+                </button>
+
+                <button
+                  className={baseBtn + (currentSection === "reservations" ? activeClass : "")}
+                  style={{ borderColor: th.markerColor }}
+                  onClick={() => onSelectSection("reservations")}
+                >
+                  <Ticket size={18} /> <span>Reservations</span>
                 </button>
               </div>
             </nav>
