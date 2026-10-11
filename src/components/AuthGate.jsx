@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../context/AuthContext";
-import LoginPassword from "./LoginPassword";
-import ResetPassword from "./ResetPassword";
+import AuthScreen from "./auth/AuthScreen";
+import ResetPassword from "./auth/ResetPassword";
 
 export default function AuthGate({ children }) {
     const { user, ready, needsReset, clearNeedsReset } = useAuth();
@@ -15,5 +15,5 @@ export default function AuthGate({ children }) {
 
     if (!ready) return null;
     if (needsReset) return <ResetPassword onDone={clearNeedsReset} />;
-    return user ? children : <LoginPassword />;
+    return user ? children : <AuthScreen />;
 }
