@@ -11,6 +11,7 @@ services:
       - "3001:3001" # ← Add backend port
     environment:
       - NODE_ENV=development
+      - PORT=3001 # API port; overrides PORT in .env.development (Vite uses 3000)
     env_file:
       - .env.development
     volumes:

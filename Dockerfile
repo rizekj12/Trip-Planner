@@ -1,51 +1,41 @@
-# Multi-stage build for optimized production image
-FROM node:18-alpine AS builder
+# Multi-stage build: compile the frontend, then run one Node server that serves both
+# the built app and the /api routes on a single port (Railway sets PORT).
+FROM node:22-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Install ALL dependencies (including devDependencies for the build)
 COPY package*.json ./
-
-# Install ALL dependencies (including devDependencies for build)
 RUN npm ci
 
-# Copy source code
 COPY . .
 
+# Vite bakes VITE_* values into the frontend at build time, so they're needed here.
+# (On Railway, service variables are passed in as these build args automatically.)
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
-
+ARG VITE_USE_MOCK_DATA
 ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+ENV VITE_USE_MOCK_DATA=$VITE_USE_MOCK_DATA
 
-# Build the application
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
-
-# Copy package files from builder
-COPY --from=builder /app/package*.json ./
-
-# Install ALL dependencies (need sirv-cli which might be in devDependencies)
-RUN npm ci
-
-# Copy built files from builder
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/public ./public
-
-# Copy backend server
-COPY --from=builder /app/server ./server
-
-# Set environment to production
 ENV NODE_ENV=production
 
-# Expose ports
-EXPOSE 3000
-EXPOSE 3001
+# Runtime dependencies only (express, Anthropic SDK, Supabase, pdfkit, ...)
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Start BOTH backend and frontend
-CMD node server/index.js & npx sirv dist --host 0.0.0.0 --port 3000 --single
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server ./server
+
+# Local default; hosts like Railway override it with their own PORT
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["node", "server/index.js"]
