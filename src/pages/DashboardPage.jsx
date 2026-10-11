@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, MoreVertical, RotateCcw, Download, Loader2 } from "lucide-react";
+import { Plus, Trash2, MapPin, Calendar, CalendarDays, MoreVertical, RotateCcw, Download, Loader2 } from "lucide-react";
 import { useTrips, useDeleteTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
 import SkyBackground from "../components/SkyBackground";
@@ -140,7 +140,15 @@ export default function DashboardPage() {
               : `${trips.length} trip${trips.length !== 1 ? "s" : ""} planned`}
           </motion.p>
         </div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex-shrink-0">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-shrink-0 items-center gap-3">
+          <button
+            onClick={() => navigate("/calendar")}
+            className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25"
+          >
+            <CalendarDays size={16} />
+            <span className="hidden sm:inline">My Trips Calendar</span>
+            <span className="sm:hidden">Calendar</span>
+          </button>
           <ProfileMenu />
         </motion.div>
       </div>

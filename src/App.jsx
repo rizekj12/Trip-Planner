@@ -4,6 +4,7 @@ import DashboardPage from "./pages/DashboardPage";
 import ProfilePage from "./pages/ProfilePage";
 import NewTripPage from "./pages/NewTripPage";
 import TripPage from "./pages/TripPage";
+import CalendarPage from "./pages/CalendarPage";
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
       <Route path="/new" element={<NewTripPage />} />
       <Route path="/drafts/:draftId" element={<NewTripPage />} />
       <Route path="/trip/:tripId" element={<TripPage />} />
+      <Route path="/calendar" element={<CalendarPage />} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
