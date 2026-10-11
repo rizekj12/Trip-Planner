@@ -213,3 +213,28 @@ export const CITIES_BY_COUNTRY = {
   "Zambia": ["Lusaka","Livingstone","Victoria Falls","South Luangwa","Kafue"],
   "Zimbabwe": ["Harare","Bulawayo","Victoria Falls","Hwange","Matobo Hills"],
 };
+
+// Other names people type for a destination (matched without accents or periods)
+export const DESTINATION_ALIASES = {
+  "United States": ["USA", "US", "America", "United States of America", "Hawaii", "Alaska"],
+  "United Kingdom": ["UK", "England", "Scotland", "Wales", "Northern Ireland", "Britain", "Great Britain"],
+  "Netherlands": ["Holland"],
+  "United Arab Emirates": ["UAE", "Dubai", "Abu Dhabi"],
+  "South Korea": ["Korea"],
+  "Czech Republic": ["Czechia"],
+  "Myanmar": ["Burma"],
+  "Turkey": ["Türkiye", "Turkiye"],
+  "Indonesia": ["Bali"],
+  "Eswatini": ["Swaziland"],
+  "Timor-Leste": ["East Timor"],
+  "Cape Verde": ["Cabo Verde"],
+  "North Macedonia": ["Macedonia"],
+  "Vatican City": ["Holy See", "Vatican"],
+  "U.S. Virgin Islands": ["USVI", "US Virgin Islands", "St Thomas", "St John", "St Croix"],
+  "British Virgin Islands": ["BVI", "Tortola"],
+  "French Polynesia": ["Tahiti", "Bora Bora"],
+  "Turks and Caicos Islands": ["Turks and Caicos", "TCI"],
+  "Sint Maarten": ["St Maarten", "Saint Martin", "St Martin"],
+  "Bonaire": ["Caribbean Netherlands"],
+  "Puerto Rico": ["PR"],
+};

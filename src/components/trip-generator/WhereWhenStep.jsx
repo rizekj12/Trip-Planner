@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Calendar, Plus, X, ChevronDown } from 'lucide-react';
-import { COUNTRIES, CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
+import { Plus, X } from 'lucide-react';
+import { CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
+import DestinationPicker from './DestinationPicker';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
 function getTodayStr() {
@@ -111,25 +112,12 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                 <p className="text-gray-600">Tell us about your trip destination and dates</p>
             </div>
 
-            {/* Country dropdown */}
+            {/* Destination: type to search, must pick from the list */}
             <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Country / territory <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                    <MapPin className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={20} />
-                    <select
-                        value={formData.country}
-                        onChange={(e) => handleCountryChange(e.target.value)}
-                        className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors appearance-none bg-white text-gray-900"
-                    >
-                        <option value="">Select a destination…</option>
-                        {COUNTRIES.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" size={18} />
-                </div>
+                <DestinationPicker value={formData.country} onChange={handleCountryChange} />
             </div>
 
             {/* Cities */}
