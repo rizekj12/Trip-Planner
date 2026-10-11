@@ -40,7 +40,7 @@ function CityAutocomplete({ value, onChange, country, placeholder }) {
                 value={query}
                 onChange={handleChange}
                 onFocus={() => setOpen(true)}
-                placeholder={country ? placeholder : 'Select a country first'}
+                placeholder={country ? placeholder : 'Select a destination first'}
                 disabled={!country}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
             />
@@ -114,7 +114,7 @@ export default function WhereWhenStep({ formData, updateFormData }) {
             {/* Country dropdown */}
             <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Country <span className="text-red-500">*</span>
+                    Country / territory <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                     <MapPin className="absolute left-3 top-3 text-gray-400 pointer-events-none" size={20} />
@@ -123,7 +123,7 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                         onChange={(e) => handleCountryChange(e.target.value)}
                         className="w-full pl-10 pr-10 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors appearance-none bg-white text-gray-900"
                     >
-                        <option value="">Select a country…</option>
+                        <option value="">Select a destination…</option>
                         {COUNTRIES.map(c => (
                             <option key={c} value={c}>{c}</option>
                         ))}

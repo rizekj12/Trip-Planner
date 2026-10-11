@@ -22,6 +22,14 @@ const COUNTRY_CODES = {
   "united arab emirates": "AE", "united kingdom": "GB", uk: "GB",
   "united states": "US", usa: "US", uruguay: "UY", venezuela: "VE",
   vietnam: "VN", zimbabwe: "ZW",
+  // Territories
+  "u.s. virgin islands": "VI", guam: "GU", "northern mariana islands": "MP",
+  "american samoa": "AS", anguilla: "AI", aruba: "AW", bermuda: "BM", bonaire: "BQ",
+  "british virgin islands": "VG", "cayman islands": "KY", "curaçao": "CW",
+  "faroe islands": "FO", "french polynesia": "PF", gibraltar: "GI", greenland: "GL",
+  guadeloupe: "GP", "hong kong": "HK", macau: "MO", martinique: "MQ",
+  "new caledonia": "NC", "réunion": "RE", "sint maarten": "SX",
+  "turks and caicos islands": "TC",
 };
 
 export function getCountryFlag(countryName) {
