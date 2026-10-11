@@ -6,6 +6,9 @@ console.log("API Key exists:", !!ANTHROPIC_API_KEY);
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 // server/index.js
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -15,7 +18,10 @@ import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 
 const app = express();
-const PORT = 3001;
+// Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
+const PORT = process.env.PORT || 3001;
+// The built frontend (npm run build). Served by this server in production.
+const DIST_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
 
 // Middleware
 app.use(cors());
@@ -347,6 +353,30 @@ app.get("/api/validate-address", async (req, res) => {
     });
   }
 });
+
+// In production, also serve the built React app, so the whole site runs on one port.
+// Any other GET (e.g. /trip/123) gets index.html and React Router takes it from there.
+if (fs.existsSync(path.join(DIST_DIR, "index.html"))) {
+  app.use(
+    express.static(DIST_DIR, {
+      index: false,
+      setHeaders: (res, filePath) => {
+        // Hashed build assets never change; the service worker and manifest must always be fresh
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    })
+  );
+  app.use((req, res, next) => {
+    if (!["GET", "HEAD"].includes(req.method) || req.path.startsWith("/api/")) return next();
+    res.setHeader("Cache-Control", "no-cache");
+    res.sendFile(path.join(DIST_DIR, "index.html"));
+  });
+  console.log("Serving frontend from", DIST_DIR);
+}
 
 app.listen(PORT, () => {
   console.log(`=== Backend server running on port ${PORT} ===`);
