@@ -1,4 +1,5 @@
-export const COUNTRIES = [
+// Independent countries
+const SOVEREIGN_COUNTRIES = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda",
   "Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain",
   "Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia",
@@ -28,7 +29,45 @@ export const COUNTRIES = [
   "Venezuela","Vietnam","Yemen","Zambia","Zimbabwe",
 ];
 
+// Territories that travelers treat as their own destination (US ones first)
+const TERRITORIES = [
+  "Puerto Rico","U.S. Virgin Islands","Guam","Northern Mariana Islands","American Samoa",
+  "Anguilla","Aruba","Bermuda","Bonaire","British Virgin Islands","Cayman Islands",
+  "Curaçao","Faroe Islands","French Polynesia","Gibraltar","Greenland","Guadeloupe",
+  "Hong Kong","Macau","Martinique","New Caledonia","Réunion","Sint Maarten",
+  "Turks and Caicos Islands",
+];
+
+// What the destination dropdown shows: countries and territories, alphabetical
+export const COUNTRIES = [...SOVEREIGN_COUNTRIES, ...TERRITORIES].sort((a, b) => a.localeCompare(b));
+
 export const CITIES_BY_COUNTRY = {
+  // US territories
+  "Puerto Rico": ["San Juan","Old San Juan","Condado","Rincón","Ponce","Vieques","Culebra","Fajardo","Isabela","Arecibo","Dorado","Luquillo","El Yunque"],
+  "U.S. Virgin Islands": ["St. Thomas","Charlotte Amalie","St. John","Cruz Bay","St. Croix","Christiansted","Frederiksted"],
+  "Guam": ["Tumon","Hagåtña","Tamuning","Inarajan"],
+  "Northern Mariana Islands": ["Saipan","Tinian","Rota"],
+  "American Samoa": ["Pago Pago","Ofu","Ta'ū"],
+  // Other territories
+  "Anguilla": ["The Valley","Meads Bay","Shoal Bay","Rendezvous Bay"],
+  "Aruba": ["Oranjestad","Palm Beach","Eagle Beach","San Nicolas","Noord"],
+  "Bermuda": ["Hamilton","St. George's","Dockyard","Southampton"],
+  "Bonaire": ["Kralendijk","Rincon","Sorobon"],
+  "British Virgin Islands": ["Tortola","Road Town","Virgin Gorda","Jost Van Dyke","Anegada"],
+  "Cayman Islands": ["George Town","Seven Mile Beach","West Bay","Cayman Brac","Little Cayman"],
+  "Curaçao": ["Willemstad","Westpunt","Jan Thiel","Sint Willibrordus"],
+  "Faroe Islands": ["Tórshavn","Klaksvík","Gásadalur","Vágar"],
+  "French Polynesia": ["Papeete","Tahiti","Bora Bora","Moorea","Rangiroa","Huahine"],
+  "Gibraltar": ["Gibraltar"],
+  "Greenland": ["Nuuk","Ilulissat","Kangerlussuaq","Tasiilaq","Sisimiut"],
+  "Guadeloupe": ["Pointe-à-Pitre","Sainte-Anne","Deshaies","Le Gosier","Basse-Terre"],
+  "Hong Kong": ["Hong Kong Island","Kowloon","Lantau Island","Central","Tsim Sha Tsui","Sai Kung"],
+  "Macau": ["Macau Peninsula","Taipa","Cotai","Coloane"],
+  "Martinique": ["Fort-de-France","Les Trois-Îlets","Sainte-Anne","Saint-Pierre"],
+  "New Caledonia": ["Nouméa","Isle of Pines","Lifou","Ouvéa"],
+  "Réunion": ["Saint-Denis","Saint-Gilles","Saint-Pierre","Cilaos"],
+  "Sint Maarten": ["Philipsburg","Simpson Bay","Maho Beach","Marigot"],
+  "Turks and Caicos Islands": ["Providenciales","Grace Bay","Grand Turk","North Caicos","Middle Caicos"],
   "Afghanistan": ["Kabul","Kandahar","Herat","Mazar-i-Sharif"],
   "Albania": ["Tirana","Durrës","Vlorë","Shkodër","Berat","Gjirokastër"],
   "Algeria": ["Algiers","Oran","Constantine","Annaba","Tlemcen"],
@@ -151,7 +190,22 @@ export const CITIES_BY_COUNTRY = {
   "Ukraine": ["Kyiv","Lviv","Odesa","Kharkiv","Chernivtsi"],
   "United Arab Emirates": ["Dubai","Abu Dhabi","Sharjah","Ajman","Ras al-Khaimah","Fujairah"],
   "United Kingdom": ["London","Edinburgh","Manchester","Liverpool","Bath","Oxford","Cambridge","York","Brighton","Bristol","Glasgow","Cardiff","Belfast","Stonehenge","Cotswolds"],
-  "United States": ["New York","Los Angeles","Chicago","San Francisco","Miami","Las Vegas","New Orleans","Seattle","Boston","Washington D.C.","Nashville","Austin","Denver","Hawaii","Orlando","San Diego","Portland","Atlanta","Phoenix","Houston","Philadelphia","Savannah","Charleston","Napa Valley"],
+  // US cities include the state so places like Portland (OR vs ME) aren't ambiguous
+  "United States": [
+    "New York City, NY","Los Angeles, CA","Chicago, IL","San Francisco, CA","Miami, FL","Las Vegas, NV",
+    "New Orleans, LA","Seattle, WA","Boston, MA","Washington, DC","Nashville, TN","Austin, TX",
+    "Denver, CO","Orlando, FL","San Diego, CA","Portland, OR","Portland, ME","Atlanta, GA",
+    "Phoenix, AZ","Houston, TX","Dallas, TX","San Antonio, TX","Philadelphia, PA","Savannah, GA",
+    "Charleston, SC","Napa Valley, CA","Sonoma, CA","Palm Springs, CA","Santa Barbara, CA",
+    "Lake Tahoe, CA","Yosemite, CA","Sedona, AZ","Scottsdale, AZ","Grand Canyon, AZ","Santa Fe, NM",
+    "Salt Lake City, UT","Park City, UT","Moab, UT","Aspen, CO","Vail, CO","Jackson Hole, WY",
+    "Yellowstone, WY","Minneapolis, MN","Detroit, MI","Milwaukee, WI","St. Louis, MO",
+    "Kansas City, MO","Memphis, TN","Asheville, NC","Charlotte, NC","Key West, FL","Tampa, FL",
+    "Fort Lauderdale, FL","St. Augustine, FL","Miami Beach, FL","Honolulu, HI","Maui, HI",
+    "Kauai, HI","Big Island, HI","Anchorage, AK","Juneau, AK","Pittsburgh, PA","Baltimore, MD",
+    "Cape Cod, MA","Martha's Vineyard, MA","Newport, RI","Burlington, VT","Bar Harbor, ME",
+    "The Hamptons, NY","Niagara Falls, NY","Atlantic City, NJ","Myrtle Beach, SC","Outer Banks, NC",
+  ],
   "Uruguay": ["Montevideo","Punta del Este","Colonia del Sacramento","Punta Ballena"],
   "Uzbekistan": ["Tashkent","Samarkand","Bukhara","Khiva","Nukus"],
   "Venezuela": ["Caracas","Mérida","Angel Falls","Los Roques","Isla Margarita"],
