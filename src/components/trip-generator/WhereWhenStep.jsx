@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
 import DestinationPicker from './DestinationPicker';
+import { MAX_TRIP_DAYS, tripLengthDays, latestCheckOut } from '../../utils/tripLength';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
 function getTodayStr() {
@@ -64,6 +65,10 @@ function CityAutocomplete({ value, onChange, country, placeholder }) {
 
 export default function WhereWhenStep({ formData, updateFormData }) {
     const todayStr = getTodayStr();
+    const tripDays = tripLengthDays(formData.cities);
+    const tooLong = tripDays !== null && tripDays > MAX_TRIP_DAYS;
+    // Check-out dates can't go past the earliest check-in + MAX_TRIP_DAYS
+    const maxCheckOut = latestCheckOut(formData.cities) || undefined;
 
     const addCity = () => {
         updateFormData({
@@ -171,11 +176,15 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                                         type="date"
                                         value={city.checkOut}
                                         min={city.checkIn || todayStr}
+                                        max={maxCheckOut}
                                         onChange={(e) => updateCity(index, 'checkOut', e.target.value)}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none text-sm"
                                     />
                                 </div>
                             </div>
+                            {city.checkIn && city.checkOut && city.checkOut <= city.checkIn && (
+                                <p className="mt-2 text-xs text-red-600">Check-out must be after check-in.</p>
+                            )}
                         </div>
                     ))}
 
@@ -186,6 +195,14 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                         <Plus size={20} />
                         Add Another City
                     </button>
+
+                    {tripDays !== null && (
+                        <p className={`text-sm ${tooLong ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                            {tooLong
+                                ? `Your trip is ${tripDays} days. Trips can be up to ${MAX_TRIP_DAYS} days — please shorten your dates.`
+                                : `Trip length: ${tripDays} day${tripDays === 1 ? '' : 's'} (up to ${MAX_TRIP_DAYS})`}
+                        </p>
+                    )}
                 </div>
             </div>
         </div>

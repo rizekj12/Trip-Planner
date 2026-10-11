@@ -8,6 +8,7 @@ import AccommodationStep from './AccommodationStep';
 import StyleStep from './StyleStep';
 import ReviewStep from './ReviewStep';
 import { hasDetails } from '../../utils/reservations';
+import { MAX_TRIP_DAYS, tripLengthDays } from '../../utils/tripLength';
 
 const BLANK_FORM_DATA = {
     country: '',
@@ -55,8 +56,13 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
 
     const canProceed = () => {
         switch (step) {
-            case 1:
-                return formData.country && formData.cities[0].name && formData.cities[0].checkIn && formData.cities[0].checkOut;
+            case 1: {
+                // Every city needs a name and a check-out after its check-in; whole trip <= MAX_TRIP_DAYS
+                const citiesComplete = formData.cities.every(
+                    (c) => c.name && c.checkIn && c.checkOut && c.checkOut > c.checkIn
+                );
+                return formData.country && citiesComplete && tripLengthDays(formData.cities) <= MAX_TRIP_DAYS;
+            }
             case 2:
                 return true; // flights are optional
             case 3:
