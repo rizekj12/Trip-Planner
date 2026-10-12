@@ -82,7 +82,8 @@ export function saveDraft({ id, formData }) {
 export async function fetchTrips() {
   const { data, error } = await supabase
     .from("trips")
-    .select("id, destination, cities, duration, itinerary_data, created_at")
+    // user_id tells the dashboard which trips are shared with (not owned by) the user
+    .select("id, user_id, destination, cities, duration, itinerary_data, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data;
@@ -117,4 +118,23 @@ export async function updateTripFormData(id, update) {
     .single();
   if (error) throw error;
   return row;
+}
+
+// Merges `patch` into a trip's itinerary_data, re-reading the row first so it builds on the
+// latest saved version (the server may have written food spots etc. in the meantime)
+export async function patchItineraryData(id, patch) {
+  const trip = await fetchTrip(id);
+  const { data: row, error } = await supabase
+    .from("trips")
+    .update({ itinerary_data: { ...trip.itinerary_data, ...patch } })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return row;
+}
+
+// Remembered so the dashboard's "Before you go" checklist can tick it off
+export function markPdfDownloaded(id) {
+  return patchItineraryData(id, { _pdf_downloaded_at: new Date().toISOString() });
 }

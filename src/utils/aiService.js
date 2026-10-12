@@ -87,21 +87,41 @@ async function postToServer(path, body) {
   return response.json().catch(() => ({}));
 }
 
-// POSTs to our Express API with the user's login token. Returns the Response if it
-// succeeded; otherwise throws with the server's error message.
-async function authedPost(path, body) {
-  const { data: { session } } = await supabase.auth.getSession();
+const authedPost = (path, body) => apiRequest("POST", path, body, { auth: true });
+
+// ---- Travel Crew (server/crew.js) ----
+
+export const getCrew = (tripId) => apiJson("GET", `/api/trips/${tripId}/crew`, null, { auth: true });
+export const getInviteToken = (tripId, reset = false) =>
+  apiJson("POST", `/api/trips/${tripId}/invite`, { reset }, { auth: true });
+export const removeCrewMember = (tripId, memberId) =>
+  apiJson("DELETE", `/api/trips/${tripId}/crew/${memberId}`, null, { auth: true });
+// These work without signing in (the invite page and a guest's trip link)
+export const getInvite = (token) => apiJson("GET", `/api/invites/${token}`);
+export const joinTrip = (token, guest) => apiJson("POST", `/api/invites/${token}/join`, guest || {}, { auth: !guest });
+export const getGuestTrip = (guestToken) => apiJson("GET", `/api/guest/${guestToken}`);
+
+async function apiJson(method, path, body, options) {
+  const response = await apiRequest(method, path, body, options);
+  return response.json().catch(() => ({}));
+}
+
+// Calls our Express API, with the user's login token when `auth` is set. Returns the
+// Response if it succeeded; otherwise throws with the server's error message.
+async function apiRequest(method, path, body, { auth = false } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  }
   const backendUrl = import.meta.env.DEV ? "http://localhost:3001" : "";
 
   let response;
   try {
     response = await fetch(`${backendUrl}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.access_token}`,
-      },
-      body: JSON.stringify(body),
+      method,
+      headers,
+      body: body && method !== "GET" ? JSON.stringify(body) : undefined,
     });
   } catch {
     throw new Error("Couldn't reach the server. Is the backend running?");

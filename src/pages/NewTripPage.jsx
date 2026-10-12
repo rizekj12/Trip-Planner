@@ -1,12 +1,16 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import TripQuestionnaire from "../components/trip-generator/TripQuestionnaire";
 import LoadingScreen from "../components/LoadingScreen";
 import { useTrip, useStartGeneration, useSaveDraft } from "../hooks/useTrips";
+import { COUNTRIES } from "../data/countriesAndCities";
 
 // Handles both /new and /drafts/:draftId (continuing a saved questionnaire)
 export default function NewTripPage() {
   const { draftId } = useParams();
+  // /new?destination=Greece pre-fills the destination (from the dashboard's ideas)
+  const [searchParams] = useSearchParams();
+  const presetCountry = COUNTRIES.includes(searchParams.get("destination")) ? searchParams.get("destination") : "";
   const navigate = useNavigate();
   const draft = useTrip(draftId);
   const startGeneration = useStartGeneration();
@@ -49,6 +53,7 @@ export default function NewTripPage() {
         onComplete={handleComplete}
         isGenerating={startGeneration.isPending}
         initialFormData={draft.data?.itinerary_data?._form_data || null}
+        initialCountry={draftId ? "" : presetCountry}
         onHome={handleSaveDraftAndExit}
       />
 

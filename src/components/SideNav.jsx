@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarDays, Utensils, PartyPopper, Ticket } from "lucide-react";
+import { CalendarDays, Utensils, PartyPopper, Ticket, Users } from "lucide-react";
 import { theme as th } from "../utils/theme";
 
 export default function SideNav({
@@ -11,6 +11,8 @@ export default function SideNav({
   onSelectDay,
   onSelectSection,
   currentSection,
+  showReservations = true, // owner only: the codes are private
+  showCrew = true, // the Travel Crew tab
 }) {
   const [daysOpen, setDaysOpen] = useState(true);
 
@@ -95,13 +97,25 @@ export default function SideNav({
                   <Utensils size={18} /> <span>Food Spots</span>
                 </button>
 
-                <button
-                  className={baseBtn + (currentSection === "reservations" ? activeClass : "")}
-                  style={{ borderColor: th.markerColor }}
-                  onClick={() => onSelectSection("reservations")}
-                >
-                  <Ticket size={18} /> <span>Reservations</span>
-                </button>
+                {showReservations && (
+                  <button
+                    className={baseBtn + (currentSection === "reservations" ? activeClass : "")}
+                    style={{ borderColor: th.markerColor }}
+                    onClick={() => onSelectSection("reservations")}
+                  >
+                    <Ticket size={18} /> <span>Reservations</span>
+                  </button>
+                )}
+
+                {showCrew && (
+                  <button
+                    className={baseBtn + (currentSection === "crew" ? activeClass : "")}
+                    style={{ borderColor: th.markerColor }}
+                    onClick={() => onSelectSection("crew")}
+                  >
+                    <Users size={18} /> <span>Travel Crew</span>
+                  </button>
+                )}
               </div>
             </nav>
           </motion.aside>

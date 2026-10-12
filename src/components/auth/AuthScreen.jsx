@@ -90,7 +90,8 @@ export default function AuthScreen() {
         password,
         options: {
           data: { full_name: name.trim() },
-          emailRedirectTo: window.location.origin,
+          // Back to this page (e.g. an invite link) after confirming the email
+          emailRedirectTo: window.location.href,
         },
       });
       if (error) throw error;
@@ -105,7 +106,8 @@ export default function AuthScreen() {
     run(async () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.origin },
+        // Back to this page (e.g. an invite link) after signing in
+        options: { redirectTo: window.location.href },
       });
       if (error) throw error;
     });

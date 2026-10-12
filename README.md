@@ -6,15 +6,23 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
 
 ## What it does
 
-- **Plan a trip**: a five-step questionnaire collects the country and one or more cities with check-in/check-out dates; flight details (optional); where the traveler is staying (a hotel found through hotel search, a custom address, or none) with an optional hotel confirmation code; and their travel style and vacation type. Addresses are validated as they're entered.
+- **Plan a trip**: a five-step questionnaire collects the destination (type-to-search over 213 countries and territories, including Puerto Rico and the U.S. Virgin Islands, with nicknames like "USA" or "Bali") and one or more cities with check-in/check-out dates, up to 14 days in total; flight details (optional); where the traveler is staying (a hotel found through hotel search, a custom address, or none) with an optional hotel confirmation code; and their travel style and vacation type. Addresses are validated as they're entered.
 - **Background generation**: the trip is saved immediately as *pending*, and the server generates the itinerary with Claude. Flight times are used to keep arrival days light and leave time for the airport. The user sees an animated progress screen and can leave; the finished itinerary appears on their dashboard when it's ready.
-- **Dashboard**: every trip is a card with a status: *Draft* (questionnaire saved part-way), *Pending*, *Ready*, or *Failed* (with Retry). Cards update live while anything is generating; click a card to open it.
-- **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details. A side menu opens three more sections:
+- **Dashboard**: a "Welcome back" page built around the next trip:
+  - **Next-trip card** with a destination photo, a countdown ring ("22 days to go", or "Day 3 of 9" during the trip) and a **Before you go** checklist taken from the trip itself: itinerary ready, flights added, hotel confirmation saved, offline PDF downloaded. Each item links to the right place.
+  - **Upcoming trips** as a list with live badges (*In 22 days*, *Happening now*, *Generating…*, *Draft*, *Failed*), and **Past trips** as a separate photo grid. Trips shared with you are tagged *Shared*.
+  - A sidebar with a **mini calendar** of the next trip's month, **travel stats** (trips, countries, days away) and **ideas** that start a new trip with the destination filled in.
+  - New users see a "Where will your first trip take you?" welcome with popular destinations instead.
+  - On phones, a bottom tab bar (Trips · Calendar · New · Profile).
+- **Trips calendar**: a month view of every trip as colored bars, from the month the account was created to a year ahead, with Today, Previous trip and Next trip buttons.
+- **Travel Crew**: invite travel partners with a shareable link (copy, share sheet or email). Friends with an account join and see the trip on their dashboard; anyone else can join that one trip as a guest with just a name and email. Avatar bubbles show who's going. Partners and guests can view the trip but not change it, and never see the organizer's confirmation codes.
+- **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details, with an **Invite travel partner** button and who's-going bubbles. A side menu opens four more sections:
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
-  - **Reservations**: every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
+  - **Reservations** (organizer only): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
+  - **Travel Crew**: everyone on the trip with their photo and role; the organizer can invite and remove people, and partners can leave.
 - **Offline PDF**: "Download PDF" (on the itinerary page and in each trip's ⋮ menu) builds a PDF with the reservations and codes, a map and stop list for every day, 10 local events, and 10 food spots per city.
-- **Accounts**: email/password sign-in, password reset, and a profile page with name and avatar upload.
+- **Accounts**: sign up or sign in with email and password or with Google, password reset, a profile page with name and avatar upload, and a **home country** setting ("Based in", with flags) for future offers and rewards.
 - **Installable**: a Progressive Web App with offline caching of the app shell and map tiles.
 
 ## Technology
@@ -27,7 +35,7 @@ A single-page app in [`src/`](src/).
 |---|---|
 | React 18 | UI, function components and hooks |
 | Vite 5 | Dev server and production build; compiles Tailwind through PostCSS |
-| React Router 6 | Routes: `/`, `/new`, `/drafts/:id`, `/trip/:id`, `/profile` |
+| React Router 6 | Routes: `/`, `/new`, `/drafts/:id`, `/trip/:id`, `/calendar`, `/profile`, plus `/join/:token` and `/guest/:token`, which work without signing in |
 | TanStack Query 5 | Fetching, caching and saving trips; polls every 4 s while a trip is pending |
 | Tailwind CSS 3 | Styling; one shared theme in [`src/utils/theme.js`](src/utils/theme.js) |
 | Framer Motion | Animations: page transitions, modals, the loading screen's globe and plane |
@@ -39,22 +47,23 @@ A single-page app in [`src/`](src/).
 
 | Technology | Used for |
 |---|---|
-| Node.js + Express 5 | API server in [`server/`](server/) (port 3001): itinerary generation, food spots, PDF export, hotel search, address validation. Holds the secret API keys. |
+| Node.js + Express 5 | Server in [`server/`](server/): the API (itinerary generation, food spots, PDF export, hotel search, address validation) and, in production, the built frontend, all on one port. Holds the secret API keys. |
 | Anthropic SDK | Calls Claude (`claude-sonnet-5`): streams the itinerary as JSON, and picks food spots (at low effort, for speed) |
-| Supabase | Authentication, Postgres database (`trips`, `members`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user. |
+| Supabase | Authentication (email/password and Google), Postgres database (`trips`, `members`, `trip_members`, `trip_invites`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user or, for Travel Crew, with the service role key. |
 | Geoapify | Hotel search, address validation, map coordinates for food spots and homebases, and static map images for the PDF |
 | pdfkit | Builds the offline PDF on the server |
-| Docker + GitHub Actions | Multi-stage image (built frontend + server); CI builds and pushes the image |
+| Docker + Railway | Multi-stage image that runs one Node server. Deployed on Railway, which rebuilds on every push; GitHub Actions also builds the image in CI. |
 
 ### Server modules
 
 | File | What it does |
 |---|---|
-| [`server/index.js`](server/index.js) | Express routes; reads and writes trips as the signed-in user |
+| [`server/index.js`](server/index.js) | Express routes (reading and writing trips as the signed-in user), the 14-day trip limit, and serving the built frontend in production |
 | [`server/itinerary.js`](server/itinerary.js) | Builds the itinerary prompt, calls Claude, parses the JSON |
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
+| [`server/crew.js`](server/crew.js) | Travel Crew: invite links, joining as a member or guest, the crew list, the guest's view-only trip, and removing people |
 
 ## Architecture
 
@@ -91,6 +100,9 @@ Everything lives in the trip row's `itinerary_data` JSON, so no database schema 
 | `_status`, `_error` | `pending` / `ready` / `failed` (drafts are marked with `_draft`) |
 | `_food_spots` | Food spots per city, with coordinates |
 | `_homebases` | Each city's hotel or homebase location, for distances and the map |
+| `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
+
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. A user's home country is stored on their profile (`user_metadata.home_country`).
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -102,20 +114,29 @@ How the React components nest at runtime, starting from [`src/main.jsx`](src/mai
 main.jsx
 └── QueryClientProvider                server-data cache (TanStack Query)
     └── AuthProvider                   one Supabase auth subscription; useAuth()
-        └── AuthGate                   shows login until signed in
-            ├── LoginPassword          signed out
-            ├── ResetPassword          password-recovery link
-            └── BrowserRouter          signed in
-                └── App                <Routes>
+        └── BrowserRouter
+            └── App                    <Routes>
+                ├── JoinPage                               /join/:token (no sign-in needed)
+                │   └── AuthScreen                         when choosing to sign in first
+                ├── GuestTripPage                          /guest/:token (no sign-in needed)
+                │   └── TripView                           view-only, with the crew list
+                └── AuthGate                               everything else: login until signed in
+                    ├── AuthScreen                         signed out: sign in / create account / Google
+                    ├── ResetPassword                      password-recovery link
                     ├── DashboardPage                      /
-                    │   ├── SkyBackground
-                    │   ├── ProfileMenu
-                    │   ├── TripCardMenu (local)           Download PDF / Retry / Delete
-                    │   └── StatusBadge                    draft / pending / ready / failed
+                    │   ├── AppHeader                      logo · HomeCountryMenu · Calendar · ProfileMenu
+                    │   ├── NextTripCard                   photo, countdown ring, Before you go
+                    │   │   ├── TripThumb                  destination photo or flag tile
+                    │   │   └── CrewBubbles                invite button + who's going
+                    │   ├── TripCardMenu (local)           Download PDF / Retry / Delete / Leave
+                    │   ├── MiniCalendar, TravelStats, TripIdeas   sidebar
+                    │   ├── FirstTripHero                  no trips yet
+                    │   └── BottomTabBar                   phones
                     ├── NewTripPage                        /new, /drafts/:draftId
                     │   ├── LoadingScreen                  while a draft loads
                     │   └── TripQuestionnaire              5-step form
-                    │       ├── WhereWhenStep              country, cities, dates
+                    │       ├── WhereWhenStep              destination, cities, dates (≤ 14 days)
+                    │       │   ├── DestinationPicker      type-to-search destinations
                     │       │   └── CityAutocomplete (local)
                     │       ├── FlightsStep                optional flights
                     │       │   └── FlightFields
@@ -127,10 +148,12 @@ main.jsx
                     ├── TripPage                           /trip/:tripId (picks a view by status)
                     │   ├── GeneratingScreen               pending: globe + plane
                     │   ├── FailedScreen (local)           failed: error + Try again
-                    │   └── TripView (local)               ready; Download PDF button
-                    │       ├── SkyBackground
-                    │       ├── ProfileMenu
-                    │       ├── SideNav                    days, Local Events, Food Spots, Reservations
+                    │   └── TripView                       ready (owner or travel partner)
+                    │       ├── SkyBackground, ProfileMenu
+                    │       ├── CrewBubbles                invite button + who's going
+                    │       │   ├── InviteModal            link, email, share, reset
+                    │       │   └── Modal                  who's going list
+                    │       ├── SideNav                    days, Local Events, Food Spots, Reservations, Travel Crew
                     │       ├── DayMap                     Leaflet map of the day
                     │       │   ├── MarkerInfoModal        uses Modal
                     │       │   └── HotelInfoModal         uses Modal
@@ -141,12 +164,15 @@ main.jsx
                     │       │   └── EventModal             uses Modal + EventImage
                     │       ├── FoodSpotsPanel             Food Spots section
                     │       │   └── DayMap                 spots + hotel pins, no popups
-                    │       └── ReservationsPanel          Reservations section
-                    │           └── Modal                  add / edit form
-                    │               ├── FlightFields
-                    │               └── HotelFields
+                    │       ├── ReservationsPanel          Reservations section (owner only)
+                    │       │   └── Modal                  add / edit form: FlightFields, HotelFields
+                    │       └── CrewPanel                  Travel Crew section
+                    ├── CalendarPage                       /calendar
+                    │   ├── AppHeader
+                    │   └── BottomTabBar                   phones
                     └── ProfilePage                        /profile
-                        └── SkyBackground
+                        ├── SkyBackground
+                        └── HomeCountryMenu                "Based in"
 ```
 
 ## Running locally
@@ -158,17 +184,38 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 ANTHROPIC_API_KEY=...
 GEOAPIFY_API_KEY=...
+# Server only (Supabase → Project Settings → API → service_role). Never prefix with VITE_.
+SUPABASE_SERVICE_ROLE_KEY=...
 # Optional: use sample data instead of calling Claude
 # VITE_USE_MOCK_DATA=true
 ```
 
-Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql) once in Supabase's SQL Editor (it creates the Travel Crew tables and sharing rules). Then:
 
 ```bash
 npm install
 npm run dev:all   # Express API on :3001 (auto-restarts on save) + Vite on :3000
 ```
 
+## Deploying (Railway)
+
+In production one Node server serves both the API and the built app; it listens on Railway's `PORT`.
+
+1. **New Project → Deploy from GitHub repo**; Railway builds the [`Dockerfile`](Dockerfile).
+2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (the `VITE_` ones are also used at build time). Don't set `PORT`.
+3. **Settings**: Networking → Generate Domain; Deploy → Healthcheck Path `/health`.
+4. Add the Railway URL to Supabase (**Site URL** and **Redirect URLs**, e.g. `https://<app>.up.railway.app/**`) and to Google Cloud (**Authorized JavaScript origins**).
+
 ## Roadmap
 
+### Next features
+
+- **Notifications button on the dashboard**: e.g. an itinerary finished generating, someone joined your trip, a trip is coming up
+- **Gallery tab**: a shared photo and video gallery for each trip that the organizer, travel partners and guests can all add to
+- **Live location on the day-by-day maps**: let the site use the device's location to show where you are
+- **Invite emails (Travel Crew phase 2)**: send invites and trip notifications for guests by email from the app (needs an email service such as Resend)
+
+### Later
+
 - Edit a generated trip
+- Destination photos for every country (Unsplash API; today 9 destinations have photos, the rest show their flag)

@@ -10,7 +10,9 @@ import { theme } from "../utils/theme";
 // saved on the trip. `coords` comes from Geoapify; null means no confident match, so no pin.
 // homebases: { [cityName]: { type: "hotel" | "custom", name, coords } | null } — where the
 // traveler is staying, used for distances and a 🏨 pin.
-export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases }) {
+// readOnly (travel partners and guests): show saved spots only, never generate more,
+// since that runs on the trip owner's account
+export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, readOnly = false }) {
   const [city, setCity] = useState(cities[0]);
   const [closestFirst, setClosestFirst] = useState(false);
   const load = useLoadFoodSpots(tripId);
@@ -27,7 +29,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases })
   // First visit to a city: fetch its first batch. The ref stops a second request when
   // React StrictMode runs the effect twice, or when an earlier attempt failed.
   useEffect(() => {
-    if (!city || spots.length || requested.current.has(city)) return;
+    if (readOnly || !city || spots.length || requested.current.has(city)) return;
     requested.current.add(city);
     load.mutate({ city });
   }, [city, spots.length]);
@@ -35,7 +37,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases })
   // Trips whose spots were saved before homebases were tracked: look the homebase up once.
   // (A first batch returns the homebase too, so this only runs for those older trips.)
   useEffect(() => {
-    if (!city || !spots.length || city in homebases || requestedHomebase.current.has(city)) return;
+    if (readOnly || !city || !spots.length || city in homebases || requestedHomebase.current.has(city)) return;
     requestedHomebase.current.add(city);
     homebaseLookup.mutate({ city, homebaseOnly: true });
   }, [city, spots.length, homebases]);
@@ -193,8 +195,15 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases })
           </div>
         )}
 
+        {readOnly && spots.length === 0 && city && (
+          <div className="py-10 text-center text-gray-500">
+            <Utensils size={40} className="mx-auto mb-3 text-gray-300" />
+            No food spots saved for {city} yet.
+          </div>
+        )}
+
         {/* Load more */}
-        {spots.length > 0 && (
+        {spots.length > 0 && !readOnly && (
           <div className="mt-4 flex justify-center">
             <button
               onClick={loadMore}
