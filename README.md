@@ -6,15 +6,16 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
 
 ## What it does
 
-- **Plan a trip**: a five-step questionnaire collects the country and one or more cities with check-in/check-out dates; flight details (optional); where the traveler is staying (a hotel found through hotel search, a custom address, or none) with an optional hotel confirmation code; and their travel style and vacation type. Addresses are validated as they're entered.
+- **Plan a trip**: a five-step questionnaire collects the destination (type-to-search over 213 countries and territories, including Puerto Rico and the U.S. Virgin Islands, with nicknames like "USA" or "Bali") and one or more cities with check-in/check-out dates, up to 14 days in total; flight details (optional); where the traveler is staying (a hotel found through hotel search, a custom address, or none) with an optional hotel confirmation code; and their travel style and vacation type. Addresses are validated as they're entered.
 - **Background generation**: the trip is saved immediately as *pending*, and the server generates the itinerary with Claude. Flight times are used to keep arrival days light and leave time for the airport. The user sees an animated progress screen and can leave; the finished itinerary appears on their dashboard when it's ready.
 - **Dashboard**: every trip is a card with a status: *Draft* (questionnaire saved part-way), *Pending*, *Ready*, or *Failed* (with Retry). Cards update live while anything is generating; click a card to open it.
+- **Trips calendar**: a month view of every trip as colored bars, from the month the account was created to a year ahead, with Today, Previous trip and Next trip buttons.
 - **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details. A side menu opens three more sections:
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
   - **Reservations**: every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
 - **Offline PDF**: "Download PDF" (on the itinerary page and in each trip's ⋮ menu) builds a PDF with the reservations and codes, a map and stop list for every day, 10 local events, and 10 food spots per city.
-- **Accounts**: email/password sign-in, password reset, and a profile page with name and avatar upload.
+- **Accounts**: sign up or sign in with email and password or with Google, password reset, and a profile page with name and avatar upload.
 - **Installable**: a Progressive Web App with offline caching of the app shell and map tiles.
 
 ## Technology
@@ -27,7 +28,7 @@ A single-page app in [`src/`](src/).
 |---|---|
 | React 18 | UI, function components and hooks |
 | Vite 5 | Dev server and production build; compiles Tailwind through PostCSS |
-| React Router 6 | Routes: `/`, `/new`, `/drafts/:id`, `/trip/:id`, `/profile` |
+| React Router 6 | Routes: `/`, `/new`, `/drafts/:id`, `/trip/:id`, `/calendar`, `/profile` |
 | TanStack Query 5 | Fetching, caching and saving trips; polls every 4 s while a trip is pending |
 | Tailwind CSS 3 | Styling; one shared theme in [`src/utils/theme.js`](src/utils/theme.js) |
 | Framer Motion | Animations: page transitions, modals, the loading screen's globe and plane |
@@ -39,18 +40,18 @@ A single-page app in [`src/`](src/).
 
 | Technology | Used for |
 |---|---|
-| Node.js + Express 5 | API server in [`server/`](server/) (port 3001): itinerary generation, food spots, PDF export, hotel search, address validation. Holds the secret API keys. |
+| Node.js + Express 5 | Server in [`server/`](server/): the API (itinerary generation, food spots, PDF export, hotel search, address validation) and, in production, the built frontend, all on one port. Holds the secret API keys. |
 | Anthropic SDK | Calls Claude (`claude-sonnet-5`): streams the itinerary as JSON, and picks food spots (at low effort, for speed) |
-| Supabase | Authentication, Postgres database (`trips`, `members`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user. |
+| Supabase | Authentication (email/password and Google), Postgres database (`trips`, `members`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user. |
 | Geoapify | Hotel search, address validation, map coordinates for food spots and homebases, and static map images for the PDF |
 | pdfkit | Builds the offline PDF on the server |
-| Docker + GitHub Actions | Multi-stage image (built frontend + server); CI builds and pushes the image |
+| Docker + Railway | Multi-stage image that runs one Node server. Deployed on Railway, which rebuilds on every push; GitHub Actions also builds the image in CI. |
 
 ### Server modules
 
 | File | What it does |
 |---|---|
-| [`server/index.js`](server/index.js) | Express routes; reads and writes trips as the signed-in user |
+| [`server/index.js`](server/index.js) | Express routes (reading and writing trips as the signed-in user), the 14-day trip limit, and serving the built frontend in production |
 | [`server/itinerary.js`](server/itinerary.js) | Builds the itinerary prompt, calls Claude, parses the JSON |
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
@@ -103,7 +104,7 @@ main.jsx
 └── QueryClientProvider                server-data cache (TanStack Query)
     └── AuthProvider                   one Supabase auth subscription; useAuth()
         └── AuthGate                   shows login until signed in
-            ├── LoginPassword          signed out
+            ├── AuthScreen             signed out: sign in / create account / Google
             ├── ResetPassword          password-recovery link
             └── BrowserRouter          signed in
                 └── App                <Routes>
@@ -115,7 +116,8 @@ main.jsx
                     ├── NewTripPage                        /new, /drafts/:draftId
                     │   ├── LoadingScreen                  while a draft loads
                     │   └── TripQuestionnaire              5-step form
-                    │       ├── WhereWhenStep              country, cities, dates
+                    │       ├── WhereWhenStep              destination, cities, dates (≤ 14 days)
+                    │       │   ├── DestinationPicker      type-to-search destinations
                     │       │   └── CityAutocomplete (local)
                     │       ├── FlightsStep                optional flights
                     │       │   └── FlightFields
@@ -145,6 +147,9 @@ main.jsx
                     │           └── Modal                  add / edit form
                     │               ├── FlightFields
                     │               └── HotelFields
+                    ├── CalendarPage                       /calendar
+                    │   ├── SkyBackground
+                    │   └── ProfileMenu
                     └── ProfilePage                        /profile
                         └── SkyBackground
 ```
@@ -169,6 +174,24 @@ npm install
 npm run dev:all   # Express API on :3001 (auto-restarts on save) + Vite on :3000
 ```
 
+## Deploying (Railway)
+
+In production one Node server serves both the API and the built app; it listens on Railway's `PORT`.
+
+1. **New Project → Deploy from GitHub repo**; Railway builds the [`Dockerfile`](Dockerfile).
+2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY` (the `VITE_` ones are also used at build time). Don't set `PORT`.
+3. **Settings**: Networking → Generate Domain; Deploy → Healthcheck Path `/health`.
+4. Add the Railway URL to Supabase (**Site URL** and **Redirect URLs**, e.g. `https://<app>.up.railway.app/**`) and to Google Cloud (**Authorized JavaScript origins**).
+
 ## Roadmap
+
+### Next features
+
+- **Dashboard redesign** *(main focus)*: rethink how the dashboard is organized
+- **Countdowns** to upcoming trips
+- **Live location on the day-by-day maps**: let the site use the device's location to show where you are
+- **Invite friends on the trip** to view the itinerary
+
+### Later
 
 - Edit a generated trip

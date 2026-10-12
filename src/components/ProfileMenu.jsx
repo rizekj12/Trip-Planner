@@ -5,6 +5,15 @@ import { supabase } from "../utils/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useClickOutside } from "../hooks/useClickOutside";
 
+// "Joshua Rizek" -> "Joshua R."; Google accounts use `name`; falls back to the email's username
+function shortName(user) {
+  const full = (user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim();
+  if (!full) return user?.email?.split("@")[0] || "";
+  const [first, ...rest] = full.split(/\s+/);
+  const last = rest.at(-1);
+  return last ? `${first} ${last[0].toUpperCase()}.` : first;
+}
+
 export default function ProfileMenu() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -12,6 +21,7 @@ export default function ProfileMenu() {
   const ref = useClickOutside(() => setOpen(false));
 
   const avatarUrl = user?.user_metadata?.avatar_url;
+  const name = shortName(user);
 
   return (
     <div ref={ref} className="relative">
@@ -27,6 +37,9 @@ export default function ProfileMenu() {
             : <User size={20} className="text-white" />
           }
         </div>
+        {name && (
+          <span className="hidden max-w-[8rem] truncate text-sm font-semibold text-white drop-shadow sm:inline">{name}</span>
+        )}
         <ChevronDown size={14} className="text-white/70 group-hover:text-white transition" />
       </button>
 

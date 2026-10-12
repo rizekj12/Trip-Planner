@@ -42,6 +42,9 @@ export default defineConfig({
         // SPA: serve the app shell for every route (/trip/:id etc.); the router takes it from there
         navigateFallback: "/index.html",
         globPatterns: ["**/*.{js,css,html,svg,png,jpg,jpeg,webp}"],
+        // Destination photos load on demand (and are cached by the "images" rule below)
+        // instead of all being downloaded when the app is installed
+        globIgnores: ["**/destinations/**"],
         additionalManifestEntries: [{ url: "/offline.html", revision: null }],
         runtimeCaching: [
           {

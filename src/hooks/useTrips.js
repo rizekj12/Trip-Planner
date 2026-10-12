@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData } from "../utils/trips";
+import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData, markPdfDownloaded } from "../utils/trips";
 import { startGeneration, loadMoreFoodSpots, downloadTripPdf } from "../utils/aiService";
 
 // How often to re-check while an itinerary is being generated
@@ -70,10 +70,16 @@ export function useLoadFoodSpots(tripId) {
 export function useDownloadPdf() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (trip) =>
-      downloadTripPdf({ tripId: trip.id, filename: pdfFilename(trip.destination) }),
-    // The server may have filled in missing food spots while building it; pick them up
-    onSuccess: (_, trip) => qc.invalidateQueries({ queryKey: ["trip", trip.id] }),
+    mutationFn: async (trip) => {
+      await downloadTripPdf({ tripId: trip.id, filename: pdfFilename(trip.destination) });
+      // Not worth failing the download over
+      await markPdfDownloaded(trip.id).catch(console.error);
+    },
+    // Picks up the download mark, plus any food spots the server filled in while building it
+    onSuccess: (_, trip) => {
+      qc.invalidateQueries({ queryKey: ["trip", trip.id] });
+      qc.invalidateQueries({ queryKey: ["trips"] });
+    },
   });
 }
 

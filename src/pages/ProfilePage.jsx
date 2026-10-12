@@ -4,6 +4,7 @@ import { ArrowLeft, Camera, Loader2, User } from "lucide-react";
 import { supabase } from "../utils/supabase";
 import { useAuth } from "../context/AuthContext";
 import SkyBackground from "../components/SkyBackground";
+import HomeCountryMenu from "../components/HomeCountryMenu";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -133,6 +134,14 @@ export default function ProfilePage() {
                 disabled
                 className="w-full px-4 py-2.5 rounded-xl bg-white/20 text-white/50 text-sm cursor-not-allowed"
               />
+            </div>
+
+            <div>
+              <span className="block text-xs font-semibold text-white/70 uppercase tracking-wide mb-1.5">
+                Based in
+              </span>
+              {/* Saves as soon as a country is picked */}
+              <HomeCountryMenu fullWidth />
             </div>
 
             {msg && (

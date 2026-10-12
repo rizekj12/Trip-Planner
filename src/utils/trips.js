@@ -118,3 +118,22 @@ export async function updateTripFormData(id, update) {
   if (error) throw error;
   return row;
 }
+
+// Merges `patch` into a trip's itinerary_data, re-reading the row first so it builds on the
+// latest saved version (the server may have written food spots etc. in the meantime)
+export async function patchItineraryData(id, patch) {
+  const trip = await fetchTrip(id);
+  const { data: row, error } = await supabase
+    .from("trips")
+    .update({ itinerary_data: { ...trip.itinerary_data, ...patch } })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return row;
+}
+
+// Remembered so the dashboard's "Before you go" checklist can tick it off
+export function markPdfDownloaded(id) {
+  return patchItineraryData(id, { _pdf_downloaded_at: new Date().toISOString() });
+}

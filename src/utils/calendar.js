@@ -79,3 +79,9 @@ export function formatRange({ start, end }) {
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   return `${fmt(start, { month: "short", day: "numeric" })} – ${fmt(end, sameMonth ? { day: "numeric" } : { month: "short", day: "numeric" })}`;
 }
+
+// Whole days from one "YYYY-MM-DD" to another (negative if `to` is earlier)
+export function daysBetween(fromIso, toIso) {
+  const utc = (iso) => Date.parse(`${iso}T00:00:00Z`);
+  return Math.round((utc(toIso) - utc(fromIso)) / (24 * 60 * 60 * 1000));
+}

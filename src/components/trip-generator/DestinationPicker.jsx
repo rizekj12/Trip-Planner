@@ -1,54 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MapPin } from 'lucide-react';
-import { COUNTRIES, DESTINATION_ALIASES } from '../../data/countriesAndCities';
-import { getCountryFlagOnly } from '../../utils/countryFlags';
-
-const MAX_SUGGESTIONS = 8;
-
-// Lowercase, strip accents and periods: "Curaçao" -> "curacao", "U.S." -> "us"
-const normalize = (s) =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\./g, '').toLowerCase().trim();
-
-const SEARCHABLE = COUNTRIES.map((name) => ({
-    name,
-    terms: [normalize(name), ...(DESTINATION_ALIASES[name] || []).map(normalize)],
-}));
-
-// Best matches first: exact, then starts-with, then a word starts with it, then (for 3+
-// letters, so "pu" doesn't match "Republic") anywhere in the name
-function rank(terms, q) {
-    let best = Infinity;
-    for (const t of terms) {
-        if (t === q) best = Math.min(best, 0);
-        else if (t.startsWith(q)) best = Math.min(best, 1);
-        else if (t.split(/[\s-]+/).some((w) => w.startsWith(q))) best = Math.min(best, 2);
-        else if (q.length >= 3 && t.includes(q)) best = Math.min(best, 3);
-    }
-    return best;
-}
-
-function search(query) {
-    const q = normalize(query);
-    if (!q) return [];
-    return SEARCHABLE.map((d) => ({ name: d.name, score: rank(d.terms, q) }))
-        .filter((d) => d.score < Infinity)
-        .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name))
-        .slice(0, MAX_SUGGESTIONS)
-        .map((d) => d.name);
-}
-
-function exactMatch(query) {
-    const q = normalize(query);
-    return q ? SEARCHABLE.find((d) => d.terms.includes(q))?.name ?? null : null;
-}
-
-function Flag({ name }) {
-    const flag = getCountryFlagOnly(name);
-    // Countries without a known flag get a pin instead of the generic ✈️ fallback
-    return flag === '✈️'
-        ? <MapPin size={16} className="text-gray-400" />
-        : <span className="text-lg leading-none">{flag}</span>;
-}
+import CountryFlag from '../CountryFlag';
+import { normalize, searchDestinations as search, exactDestination as exactMatch } from '../../utils/destinationSearch';
 
 // Type-to-search destination field. Only destinations in the list can be chosen:
 // onChange is called with a destination name, and only when the choice changes.
@@ -99,7 +52,7 @@ export default function DestinationPicker({ value, onChange }) {
         <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 {value && normalize(query) === normalize(value)
-                    ? <Flag name={value} />
+                    ? <CountryFlag name={value} />
                     : <MapPin size={20} className="text-gray-400" />}
             </div>
             <input
@@ -137,7 +90,7 @@ export default function DestinationPicker({ value, onChange }) {
                                     i === highlight ? 'bg-indigo-50 text-indigo-700' : 'text-gray-800'
                                 }`}
                             >
-                                <span className="flex w-6 justify-center"><Flag name={name} /></span>
+                                <span className="flex w-6 justify-center"><CountryFlag name={name} /></span>
                                 {name}
                             </li>
                         ))

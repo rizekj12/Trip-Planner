@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft, ChevronRight, SkipBack, SkipForward } from "lucide-react";
 import SkyBackground from "../components/SkyBackground";
-import ProfileMenu from "../components/ProfileMenu";
+import AppHeader from "../components/AppHeader";
+import BottomTabBar from "../components/BottomTabBar";
 import { useAuth } from "../context/AuthContext";
 import { useTrips } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
@@ -29,7 +30,12 @@ export default function CalendarPage() {
   const { user } = useAuth();
   const { data: rawTrips = [], isLoading } = useTrips();
   const today = todayIso();
-  const [shown, setShown] = useState(() => monthOf(today));
+  // ?month=2026-11 opens on that month (the dashboard's mini calendar links here)
+  const [searchParams] = useSearchParams();
+  const [shown, setShown] = useState(() => {
+    const month = searchParams.get("month");
+    return /^\d{4}-\d{2}$/.test(month || "") ? monthOf(`${month}-01`) : monthOf(today);
+  });
 
   // Trips that have dates, oldest first, with their range and status
   const trips = useMemo(
@@ -82,17 +88,10 @@ export default function CalendarPage() {
     "inline-flex items-center gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <div className="relative min-h-screen pb-16 text-white">
+    <div className="relative min-h-screen pb-24 text-white sm:pb-16">
       <SkyBackground />
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 pt-6 md:px-12">
-        <Link to="/" className={navButton}>
-          <ArrowLeft size={16} />
-          My Trips
-        </Link>
-        <ProfileMenu />
-      </div>
+      <AppHeader />
 
       <div className="mx-auto mt-6 max-w-5xl px-4 md:px-8">
         <h1 className="text-3xl font-extrabold tracking-tight drop-shadow md:text-4xl">My Trips Calendar</h1>
@@ -219,6 +218,7 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+      <BottomTabBar />
     </div>
   );
 }

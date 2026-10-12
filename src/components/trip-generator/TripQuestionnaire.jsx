@@ -27,9 +27,9 @@ const BLANK_FORM_DATA = {
     reservations: { flights: [], hotels: [] },
 };
 
-export default function TripQuestionnaire({ onComplete, isGenerating, initialFormData, onHome }) {
+export default function TripQuestionnaire({ onComplete, isGenerating, initialFormData, initialCountry = "", onHome }) {
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState(() => initialFormData || BLANK_FORM_DATA);
+    const [formData, setFormData] = useState(() => initialFormData || { ...BLANK_FORM_DATA, country: initialCountry });
 
     const totalSteps = 5;
 

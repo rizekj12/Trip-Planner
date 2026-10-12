@@ -1,42 +1,53 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, MapPin, Calendar, CalendarDays, MoreVertical, RotateCcw, Download, Loader2 } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, Trash2, MoreVertical, RotateCcw, Download, Loader2, Compass } from "lucide-react";
 import { useTrips, useDeleteTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
-import SkyBackground from "../components/SkyBackground";
+import { useAuth } from "../context/AuthContext";
+import AppHeader from "../components/AppHeader";
+import BottomTabBar from "../components/BottomTabBar";
+import TripThumb from "../components/dashboard/TripThumb";
+import NextTripCard from "../components/dashboard/NextTripCard";
+import FirstTripHero from "../components/dashboard/FirstTripHero";
+import { MiniCalendar, TravelStats, TripIdeas } from "../components/dashboard/Sidebar";
 import { getCountryFlagOnly } from "../utils/countryFlags";
-import ProfileMenu from "../components/ProfileMenu";
-import StatusBadge from "../components/StatusBadge";
-import { tripStatus } from "../utils/trips";
+import { formatRange, monthOf, todayIso } from "../utils/calendar";
+import { describeTrips, tripBadge, travelStats, firstName } from "../utils/dashboard";
 
-// ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }. `busy` swaps the
-// dots for a spinner (e.g. while a PDF is being prepared).
-function TripCardMenu({ actions, disabled, busy }) {
+const BADGE_TONES = {
+  violet: "bg-violet-100 text-violet-800",
+  green: "bg-emerald-100 text-emerald-800",
+  amber: "bg-amber-100 text-amber-900",
+  red: "bg-red-100 text-red-800",
+  slate: "bg-slate-100 text-slate-700",
+};
+
+// ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }. `busy` swaps the dots
+// for a spinner (e.g. while a PDF is being prepared). `onPhoto` styles it for use over an image.
+function TripCardMenu({ actions, disabled, busy, onPhoto = false }) {
   const [open, setOpen] = useState(false);
   const ref = useClickOutside(() => setOpen(false));
 
   return (
-    <div ref={ref} className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+    <div ref={ref} className="relative" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={disabled || busy}
         aria-label={busy ? "Preparing PDF" : "Trip options"}
-        className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/40 transition"
+        className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+          onPhoto ? "bg-black/35 text-white hover:bg-black/55" : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+        }`}
       >
-        {busy ? <Loader2 size={16} className="text-white animate-spin" /> : <MoreVertical size={16} className="text-white" />}
+        {busy ? <Loader2 size={16} className="animate-spin" /> : <MoreVertical size={16} />}
       </button>
 
       {open && (
-        <div
-          className="absolute mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 text-sm"
-          style={{ right: 0 }}
-        >
+        <div className="absolute right-0 z-50 mt-1 w-44 rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl">
           {actions.map(({ label, icon: Icon, onClick, danger }) => (
             <button
               key={label}
               onClick={() => { setOpen(false); onClick(); }}
-              className={`w-full flex items-center gap-2 px-4 py-2 text-gray-700 transition ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-indigo-50 hover:text-indigo-700"}`}
+              className={`flex w-full items-center gap-2 px-4 py-2 text-gray-700 transition ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-indigo-50 hover:text-indigo-700"}`}
             >
               <Icon size={15} />
               {label}
@@ -48,34 +59,11 @@ function TripCardMenu({ actions, disabled, busy }) {
   );
 }
 
-const CARD_GRADIENTS = [
-  "from-indigo-500 to-purple-600",
-  "from-pink-500 to-rose-600",
-  "from-emerald-500 to-teal-600",
-  "from-orange-500 to-amber-600",
-  "from-cyan-500 to-blue-600",
-  "from-violet-500 to-fuchsia-600",
-  "from-lime-500 to-green-600",
-  "from-red-500 to-pink-600",
-];
-
-function formatDateRange(itineraryData) {
-  const formData = itineraryData?._form_data;
-  if (!formData?.cities?.length) return null;
-  const first = formData.cities[0];
-  const last = formData.cities[formData.cities.length - 1];
-  if (!first?.checkIn || !last?.checkOut) return null;
-  const fmt = (d) =>
-    new Date(d + "T00:00:00").toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  return `${fmt(first.checkIn)} – ${fmt(last.checkOut)}`;
-}
-
+const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] sm:p-6";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: trips = [], isLoading: loading } = useTrips();
   const deleteMutation = useDeleteTrip();
   const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
@@ -83,23 +71,24 @@ export default function DashboardPage() {
   const pdf = useDownloadPdf();
   const pdfTripId = pdf.isPending ? pdf.variables?.id : null;
 
-  const deleteAction = (trip) => ({
-    label: "Delete", icon: Trash2, danger: true, onClick: () => deleteMutation.mutate(trip.id),
-  });
-  // Opening is done by clicking the card, so the menu only holds actions
-  const menuActions = (trip, status) => [
-    ...(status === "ready"
-      ? [{ label: "Download PDF", icon: Download, onClick: () => pdf.mutate(trip) }]
-      : []),
+  const { upcoming, past, next } = useMemo(() => describeTrips(trips), [trips]);
+  const stats = useMemo(() => travelStats(past), [past]);
+  const name = firstName(user);
+  // The mini calendar shows the next trip's month, or this month
+  const today = todayIso();
+  const calendarMonth = monthOf(next && next.range.start > today ? next.range.start : today);
+
+  const menuActions = ({ trip, status }) => [
+    ...(status === "ready" ? [{ label: "Download PDF", icon: Download, onClick: () => pdf.mutate(trip) }] : []),
     ...(status === "failed"
       ? [{ label: "Retry", icon: RotateCcw, onClick: () => retry.mutate({ id: trip.id, formData: trip.itinerary_data?._form_data }) }]
       : []),
-    deleteAction(trip),
+    { label: "Delete", icon: Trash2, danger: true, onClick: () => deleteMutation.mutate(trip.id) },
   ];
 
-  // Clicking a card opens it: drafts go back to the questionnaire, everything else to the
+  // Clicking a trip opens it: drafts go back to the questionnaire, everything else to the
   // trip page (which shows the itinerary, the loading screen, or the failed screen)
-  const cardProps = (trip, status) => {
+  const openProps = ({ trip, status }) => {
     const open = () => navigate(status === "draft" ? `/drafts/${trip.id}` : `/trip/${trip.id}`);
     return {
       role: "button",
@@ -115,169 +104,147 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen text-white relative">
-      <SkyBackground />
+    <div className="min-h-screen bg-[#eef2f8] pb-24 text-slate-900 sm:pb-0">
+      <AppHeader />
 
-      {/* Header */}
-      <div className="relative pl-6 pr-8 pt-10 pb-4 md:pl-12 md:pr-12 flex items-center justify-between">
-        <div>
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-4xl font-extrabold tracking-tight drop-shadow md:text-5xl"
-          >
-            My Trips ✈️
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-1 text-white/70 text-sm"
-          >
-            {trips.length === 0 && !loading
-              ? "No trips yet — create your first one!"
-              : `${trips.length} trip${trips.length !== 1 ? "s" : ""} planned`}
-          </motion.p>
+      {loading ? (
+        <div className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-6">
+          <div className="h-8 w-64 animate-pulse rounded-lg bg-slate-200" />
+          <div className="h-72 animate-pulse rounded-3xl bg-slate-200" />
+          <div className="h-48 animate-pulse rounded-3xl bg-slate-200" />
         </div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex flex-shrink-0 items-center gap-3">
-          <button
-            onClick={() => navigate("/calendar")}
-            className="inline-flex items-center gap-2 rounded-xl bg-white/15 px-3 py-2 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25"
-          >
-            <CalendarDays size={16} />
-            <span className="hidden sm:inline">My Trips Calendar</span>
-            <span className="sm:hidden">Calendar</span>
-          </button>
-          <ProfileMenu />
-        </motion.div>
-      </div>
+      ) : trips.length === 0 ? (
+        <FirstTripHero name={name} />
+      ) : (
+        <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-6 px-4 py-7 sm:px-6">
+          {/* Main column */}
+          <main className="min-w-0 flex-[999_1_620px] space-y-6">
+            <p className="text-2xl font-extrabold tracking-tight">Welcome back{name ? `, ${name}` : ""}</p>
 
-      {/* Grid */}
-      <div className="relative px-6 py-6 md:px-12">
-        {loading ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-44 rounded-2xl bg-white/10 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : (
-          <motion.div
-            className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3"
-            initial="hidden"
-            animate="visible"
-            variants={{ visible: { transition: { staggerChildren: 0.07 } } }}
-          >
-            {/* New Trip card */}
-            <motion.button
-              variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-              onClick={() => navigate("/new")}
-              className="h-44 rounded-2xl border-2 border-dashed border-white/30 bg-white/10 backdrop-blur flex flex-col items-center justify-center gap-2 hover:bg-white/20 hover:border-white/50 transition group"
-            >
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition">
-                <Plus size={24} className="text-white" />
+            {next ? (
+              <NextTripCard entry={next} onDownloadPdf={() => pdf.mutate(next.trip)} downloading={pdfTripId === next.trip.id} />
+            ) : (
+              <section className="flex flex-wrap items-center gap-5 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+                <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+                  <Compass size={28} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl font-extrabold">Nothing booked yet — where to next?</h1>
+                  <p className="text-slate-600">Plan your next trip and we'll count down the days with you.</p>
+                </div>
+                <Link to="/new" className="rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700">
+                  New itinerary
+                </Link>
+              </section>
+            )}
+
+            {/* Upcoming trips */}
+            <section className={card}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="flex items-center gap-2 text-xl font-extrabold">
+                  Upcoming trips
+                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm text-violet-800">{upcoming.length}</span>
+                </h2>
+                <Link
+                  to="/new"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f2b5b] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#163a75]"
+                >
+                  <Plus size={16} />
+                  New itinerary
+                </Link>
               </div>
-              <span className="text-white font-semibold">New Trip</span>
-            </motion.button>
-
-            {/* Trip cards */}
-            <AnimatePresence>
-              {trips.map((trip, idx) => {
-                const status = tripStatus(trip);
-                const gradient = CARD_GRADIENTS[idx % CARD_GRADIENTS.length];
-                const dateRange = formatDateRange(trip.itinerary_data);
-                const days = trip.duration;
-                const flag = getCountryFlagOnly(trip.destination);
-                const cities = trip.cities || [];
-
-                if (status === "draft") {
-                  return (
-                    <motion.div
-                      key={trip.id}
-                      {...cardProps(trip, status)}
-                      variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="relative h-44 cursor-pointer rounded-2xl bg-white/10 border-2 border-dashed border-white/25 shadow-lg hover:bg-white/15 transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden opacity-80"
-                    >
-                      <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} />
-                      <div className="absolute bottom-3 right-3">
-                        <StatusBadge status={status} />
-                      </div>
-
-                      <div className="relative">
-                        <h3 className="text-white font-bold text-lg leading-tight drop-shadow">
-                          {trip.destination || "Untitled Trip"}
-                        </h3>
-                        {cities.length > 0 && (
-                          <p className="text-white/60 text-sm">{cities.join(", ")}</p>
-                        )}
-                      </div>
-
-                      <div className="relative pr-24 text-white/50 text-xs">
-                        Click to continue planning
-                      </div>
-                    </motion.div>
-                  );
-                }
-
-                return (
-                  <motion.div
-                    key={trip.id}
-                    {...cardProps(trip, status)}
-                    variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className={`relative h-44 cursor-pointer rounded-2xl bg-gradient-to-br ${gradient} shadow-lg hover:shadow-2xl transition-all duration-200 p-5 flex flex-col justify-between overflow-hidden`}
-                  >
-                    {/* Background pattern */}
-                    <div className="absolute inset-0 opacity-10"
-                      style={{
-                        backgroundImage: "radial-gradient(circle at 80% 20%, white 1px, transparent 1px), radial-gradient(circle at 20% 80%, white 1px, transparent 1px)",
-                        backgroundSize: "30px 30px"
-                      }}
-                    />
-
-                    <TripCardMenu actions={menuActions(trip, status)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} />
-                    <div className="absolute bottom-3 right-3">
-                      <StatusBadge status={status} />
-                    </div>
-
-                    <div className="relative">
-                      <div className="text-3xl mb-1">{flag}</div>
-                      <h3 className="text-white font-bold text-lg leading-tight drop-shadow">
-                        {trip.destination}
-                      </h3>
-                      {cities.length > 0 && (
-                        <p className="text-white/80 text-sm">{cities.join(", ")}</p>
-                      )}
-                    </div>
-
-                    <div className="relative flex flex-wrap items-center gap-x-4 gap-y-1 pr-24 text-white/80 text-xs">
-                      {dateRange && (
-                        <span className="flex items-center gap-1">
-                          <Calendar size={12} />
-                          {dateRange}
+              {upcoming.length ? (
+                <ul className="mt-3">
+                  {upcoming.map((entry) => {
+                    const { trip, range, status } = entry;
+                    const badge = tripBadge(entry);
+                    const cities = trip.cities || [];
+                    return (
+                      <li
+                        key={trip.id}
+                        {...openProps(entry)}
+                        className="flex cursor-pointer items-center gap-4 border-t border-slate-100 px-1 py-3 transition hover:bg-slate-50"
+                      >
+                        <TripThumb
+                          country={trip.destination}
+                          className={`h-16 w-24 flex-none rounded-xl ${status === "draft" ? "opacity-70" : ""}`}
+                          flagSize="text-2xl"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-extrabold">
+                            {getCountryFlagOnly(trip.destination)} {trip.destination || "Untitled trip"}
+                          </span>
+                          <span className="block truncate text-sm text-slate-600">
+                            {[cities.join(", "), range ? formatRange(range) : "Dates not set"].filter(Boolean).join(" · ")}
+                          </span>
+                          <span className={`mt-1 inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold sm:hidden ${BADGE_TONES[badge.tone]}`}>
+                            {badge.label}
+                          </span>
                         </span>
-                      )}
-                      {days > 0 && (
-                        <span className="flex items-center gap-1">
-                          <MapPin size={12} />
-                          {days} day{days !== 1 ? "s" : ""}
+                        <span className={`hidden whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold sm:inline ${BADGE_TONES[badge.tone]}`}>
+                          {badge.label}
                         </span>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </div>
+                        <TripCardMenu actions={menuActions(entry)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="mt-4 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center text-slate-600">
+                  No upcoming trips. Start one with <span className="font-semibold">New itinerary</span>.
+                </p>
+              )}
+            </section>
+
+            {/* Past trips */}
+            <section className="rounded-3xl bg-slate-200/80 p-5 sm:p-6">
+              <h2 className="flex items-center gap-2 text-xl font-extrabold">
+                Past trips
+                <span className="rounded-full bg-white px-2.5 py-0.5 text-sm text-slate-700">{past.length}</span>
+              </h2>
+              {past.length ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
+                  {past.map((entry) => {
+                    const { trip, range } = entry;
+                    return (
+                      <div key={trip.id} {...openProps(entry)} className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white">
+                        <div className="h-24 overflow-hidden">
+                          <TripThumb country={trip.destination} muted className="h-24 w-full transition group-hover:scale-105" flagSize="text-4xl" />
+                        </div>
+                        <div className="absolute right-2 top-2">
+                          <TripCardMenu actions={menuActions(entry)} disabled={deletingId === trip.id} busy={pdfTripId === trip.id} onPhoto />
+                        </div>
+                        <div className="px-3 py-2.5">
+                          <div className="truncate text-sm font-bold">
+                            {getCountryFlagOnly(trip.destination)} {trip.destination}
+                          </div>
+                          <div className="text-xs text-slate-600">
+                            {new Date(`${range.start}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 text-slate-600">Trips you've taken will show up here.</p>
+              )}
+            </section>
+          </main>
+
+          {/* Sidebar (below the main column on phones) */}
+          <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-6">
+            <MiniCalendar month={calendarMonth} trips={upcoming.concat(past)} />
+            <TravelStats stats={stats} />
+            <TripIdeas exclude={upcoming.map((t) => t.trip.destination)} />
+          </aside>
+        </div>
+      )}
+
+      <BottomTabBar />
 
       {pdf.isError && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-red-500 px-4 py-3 text-sm text-white shadow-2xl">
+        <div className="fixed bottom-24 left-1/2 z-50 flex max-w-md -translate-x-1/2 items-center gap-3 rounded-xl bg-red-500 px-4 py-3 text-sm text-white shadow-2xl sm:bottom-6">
           <span>Couldn't create the PDF: {pdf.error.message}</span>
           <button onClick={() => pdf.reset()} className="font-semibold underline">Dismiss</button>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2, Download } from "lucide-react";
 import DayMap from "../components/DayMap";
@@ -92,7 +92,11 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
   const [tab, setTab] = useState(itinerary.days[0].key);
   const [navOpen, setNavOpen] = useState(false);
   const pdf = useDownloadPdf();
-  const [section, setSection] = useState("days");
+  // ?section=reservations (etc.) opens straight on that section, e.g. from the dashboard checklist
+  const [searchParams] = useSearchParams();
+  const [section, setSection] = useState(() =>
+    ["events", "food", "reservations"].includes(searchParams.get("section")) ? searchParams.get("section") : "days"
+  );
 
   const activeDay = useMemo(
     () => itinerary.days.find(d => d.key === tab) || itinerary.days[0],
