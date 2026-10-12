@@ -16,6 +16,7 @@ import { generateItinerary, tripLengthDays, MAX_TRIP_DAYS } from "./itinerary.js
 import { addFoodSpots, foodSpotsForTrip } from "./foodSpots.js";
 import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
+import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -26,6 +27,12 @@ const DIST_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Travel Crew routes (invites, joining, crew list, guest view)
+registerCrewRoutes(app, {
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+});
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -209,7 +216,7 @@ app.post("/api/trip-pdf", async (req, res) => {
   const supabase = supabaseAsUser(token);
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, destination, itinerary_data")
+    .select("id, user_id, destination, itinerary_data")
     .eq("id", tripId)
     .single();
   if (error || !trip) return res.status(404).json({ error: "Trip not found" });
@@ -218,7 +225,13 @@ app.post("/api/trip-pdf", async (req, res) => {
   }
 
   try {
-    await fillMissingFoodSpots(supabase, trip);
+    const { data: { user } = {} } = await supabase.auth.getUser(token);
+    if (user && trip.user_id === user.id) {
+      await fillMissingFoodSpots(supabase, trip);
+    } else {
+      // A travel partner's copy: leave out the owner's reservations and confirmation codes
+      trip.itinerary_data = withoutPrivateDetails(trip.itinerary_data);
+    }
     const doc = await buildTripPdf(trip, { geoapifyKey: process.env.GEOAPIFY_API_KEY, miles: !!miles });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="trip-${tripId}.pdf"`);

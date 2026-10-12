@@ -82,7 +82,8 @@ export function saveDraft({ id, formData }) {
 export async function fetchTrips() {
   const { data, error } = await supabase
     .from("trips")
-    .select("id, destination, cities, duration, itinerary_data, created_at")
+    // user_id tells the dashboard which trips are shared with (not owned by) the user
+    .select("id, user_id, destination, cities, duration, itinerary_data, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data;

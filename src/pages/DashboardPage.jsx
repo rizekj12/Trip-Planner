@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Trash2, MoreVertical, RotateCcw, Download, Loader2, Compass } from "lucide-react";
+import { Plus, Trash2, MoreVertical, RotateCcw, Download, Loader2, Compass, LogOut } from "lucide-react";
 import { useTrips, useDeleteTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useAuth } from "../context/AuthContext";
@@ -78,13 +78,20 @@ export default function DashboardPage() {
   const today = todayIso();
   const calendarMonth = monthOf(next && next.range.start > today ? next.range.start : today);
 
+  // Trips friends invited the user to (supabase/travel-crew.sql): view-only, so no Retry/Delete
+  const isShared = (trip) => trip.user_id && trip.user_id !== user?.id;
+
   const menuActions = ({ trip, status }) => [
     ...(status === "ready" ? [{ label: "Download PDF", icon: Download, onClick: () => pdf.mutate(trip) }] : []),
+    // Leaving happens on the trip's Travel Crew tab, which knows the membership to remove
+    ...(isShared(trip) ? [{ label: "Leave trip…", icon: LogOut, danger: true, onClick: () => navigate(`/trip/${trip.id}?section=crew`) }] : []),
+  ].concat(isShared(trip) ? [] : [
+
     ...(status === "failed"
       ? [{ label: "Retry", icon: RotateCcw, onClick: () => retry.mutate({ id: trip.id, formData: trip.itinerary_data?._form_data }) }]
       : []),
     { label: "Delete", icon: Trash2, danger: true, onClick: () => deleteMutation.mutate(trip.id) },
-  ];
+  ]);
 
   // Clicking a trip opens it: drafts go back to the questionnaire, everything else to the
   // trip page (which shows the itinerary, the loading screen, or the failed screen)
@@ -122,7 +129,12 @@ export default function DashboardPage() {
             <p className="text-2xl font-extrabold tracking-tight">Welcome back{name ? `, ${name}` : ""}</p>
 
             {next ? (
-              <NextTripCard entry={next} onDownloadPdf={() => pdf.mutate(next.trip)} downloading={pdfTripId === next.trip.id} />
+              <NextTripCard
+                entry={next}
+                onDownloadPdf={() => pdf.mutate(next.trip)}
+                downloading={pdfTripId === next.trip.id}
+                isOwner={!isShared(next.trip)}
+              />
             ) : (
               <section className="flex flex-wrap items-center gap-5 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
                 <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
@@ -171,8 +183,11 @@ export default function DashboardPage() {
                           flagSize="text-2xl"
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-extrabold">
-                            {getCountryFlagOnly(trip.destination)} {trip.destination || "Untitled trip"}
+                          <span className="flex items-center gap-2 truncate font-extrabold">
+                            <span className="truncate">{getCountryFlagOnly(trip.destination)} {trip.destination || "Untitled trip"}</span>
+                            {isShared(trip) && (
+                              <span className="flex-none rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Shared</span>
+                            )}
                           </span>
                           <span className="block truncate text-sm text-slate-600">
                             {[cities.join(", "), range ? formatRange(range) : "Dates not set"].filter(Boolean).join(" · ")}

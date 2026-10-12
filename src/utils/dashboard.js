@@ -49,13 +49,14 @@ export function tripBadge({ status, range }, today = todayIso()) {
 
 // "Before you go" checklist for the next trip, from what the app actually knows.
 // Each item links somewhere (`to`) or triggers the PDF download (`action: "pdf"`).
-export function beforeYouGo({ trip, status }) {
+// On a shared trip the flights and hotel are the organizer's, so those items are left out.
+export function beforeYouGo({ trip, status }, { isOwner = true } = {}) {
   const data = trip.itinerary_data || {};
   const form = data._form_data || {};
   const flights = form.reservations?.flights?.length || 0;
   const hotelCode = getHotels(form).some((h) => h.confirmationCode);
   const reservations = `/trip/${trip.id}?section=reservations`;
-  return [
+  const items = [
     {
       key: "itinerary",
       done: status === "ready",
@@ -71,6 +72,7 @@ export function beforeYouGo({ trip, status }) {
       action: status === "ready" ? "pdf" : null,
     },
   ];
+  return isOwner ? items : items.filter((i) => i.key === "itinerary" || i.key === "pdf");
 }
 
 // Totals across trips that have already happened

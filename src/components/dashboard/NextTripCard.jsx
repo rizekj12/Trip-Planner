@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Check, Loader2 } from "lucide-react";
 import TripThumb from "./TripThumb";
+import CrewBubbles from "../crew/CrewBubbles";
 import { getCountryFlagOnly } from "../../utils/countryFlags";
 import { formatRange } from "../../utils/calendar";
 import { countdown, waitProgress, beforeYouGo } from "../../utils/dashboard";
@@ -9,12 +10,12 @@ import { countdown, waitProgress, beforeYouGo } from "../../utils/dashboard";
 const RING = 2 * Math.PI * 48; // circumference of the progress ring
 
 // The hero of the dashboard: next trip's photo, days to go, and a "Before you go" checklist
-export default function NextTripCard({ entry, onDownloadPdf, downloading }) {
+export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwner = true }) {
   const { trip, range, status } = entry;
   const count = countdown(range);
   const progress = count.mode === "during" ? 1 : waitProgress(trip, range);
   const cities = trip.cities || [];
-  const items = beforeYouGo(entry);
+  const items = beforeYouGo(entry, { isOwner });
 
   return (
     <section className="flex flex-wrap overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
@@ -93,7 +94,7 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading }) {
           </ul>
         </div>
 
-        <div className="mt-auto flex flex-wrap gap-2.5">
+        <div className="mt-auto flex flex-wrap items-center gap-2.5">
           <Link to={`/trip/${trip.id}`} className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-violet-700">
             Open itinerary
           </Link>
@@ -107,6 +108,9 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading }) {
               {downloading ? "Preparing PDF…" : "Download PDF"}
             </button>
           )}
+          <div className="ml-auto">
+            <CrewBubbles tripId={trip.id} destination={trip.destination} tone="light" />
+          </div>
         </div>
       </div>
     </section>

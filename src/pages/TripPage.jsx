@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2, Download } from "lucide-react";
+import { Menu as MenuIcon, ArrowLeft, AlertTriangle, RotateCcw, Loader2, Download, Plane } from "lucide-react";
 import DayMap from "../components/DayMap";
 import ItineraryCard from "../components/ItineraryCard";
 import SideNav from "../components/SideNav";
@@ -10,6 +10,9 @@ import EventsPanel from "../components/EventsPanel";
 import FoodSpotsPanel from "../components/FoodSpotsPanel";
 import ReservationsPanel from "../components/reservations/ReservationsPanel";
 import ProfileMenu from "../components/ProfileMenu";
+import CrewBubbles from "../components/crew/CrewBubbles";
+import CrewPanel from "../components/crew/CrewPanel";
+import { useAuth } from "../context/AuthContext";
 import LoadingScreen from "../components/LoadingScreen";
 import GeneratingScreen from "../components/GeneratingScreen";
 import { useTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
@@ -23,6 +26,7 @@ const toMarker = (it, idx) =>
 
 export default function TripPage() {
   const { tripId } = useParams();
+  const { user } = useAuth();
   // useTrip re-checks every few seconds while pending, so this flips to the itinerary on its own
   const { data: trip, isLoading, error } = useTrip(tripId);
 
@@ -31,6 +35,8 @@ export default function TripPage() {
 
   const { _form_data, _draft, _status, _started_at, _error, _food_spots, _homebases, ...itinerary } = trip.itinerary_data || {};
   const formData = _form_data || { country: trip.destination, cities: [] };
+  // Travel partners can see shared trips but not change them (see supabase/travel-crew.sql)
+  const viewer = trip.user_id === user?.id ? "owner" : "member";
 
   switch (tripStatus(trip)) {
     case "draft":
@@ -38,7 +44,7 @@ export default function TripPage() {
     case "pending":
       return <GeneratingScreen formData={formData} />;
     case "failed":
-      return <FailedScreen tripId={tripId} formData={formData} error={_error} />;
+      return <FailedScreen tripId={tripId} formData={formData} error={_error} canRetry={viewer === "owner"} />;
   }
 
   if (!itinerary.days?.length) return <LoadingScreen message="This trip has no itinerary." />;
@@ -49,11 +55,12 @@ export default function TripPage() {
       formData={formData}
       foodSpots={_food_spots || {}}
       homebases={_homebases || {}}
+      viewer={viewer}
     />
   );
 }
 
-function FailedScreen({ tripId, formData, error }) {
+function FailedScreen({ tripId, formData, error, canRetry }) {
   const retry = useStartGeneration();
 
   return (
@@ -74,28 +81,33 @@ function FailedScreen({ tripId, formData, error }) {
           >
             My Trips
           </Link>
-          <button
+          {canRetry && <button
             onClick={() => retry.mutate({ id: tripId, formData })}
             disabled={retry.isPending}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-3 font-semibold hover:shadow-lg transition disabled:opacity-60"
           >
             {retry.isPending ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
             Try again
-          </button>
+          </button>}
         </div>
       </div>
     </div>
   );
 }
 
-function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
+// viewer: "owner" (everything), "member" (a travel partner: view-only, no reservations),
+// or "guest" (no account: view-only, opened from their personal link). `crew` is the
+// guest's copy of who's going (signed-in viewers load it themselves).
+export function TripView({ tripId, itinerary, formData, foodSpots, homebases, viewer = "owner", crew }) {
   const [tab, setTab] = useState(itinerary.days[0].key);
   const [navOpen, setNavOpen] = useState(false);
   const pdf = useDownloadPdf();
   // ?section=reservations (etc.) opens straight on that section, e.g. from the dashboard checklist
   const [searchParams] = useSearchParams();
   const [section, setSection] = useState(() =>
-    ["events", "food", "reservations"].includes(searchParams.get("section")) ? searchParams.get("section") : "days"
+    ["events", "food", "crew", ...(viewer === "owner" ? ["reservations"] : [])].includes(searchParams.get("section"))
+      ? searchParams.get("section")
+      : "days"
   );
 
   const activeDay = useMemo(
@@ -124,14 +136,30 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
 
       {/* Header */}
       <div className="px-6 pt-6 pb-0 md:px-12 flex items-center justify-between mb-6">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm"
-        >
-          <ArrowLeft size={16} />
-          My Trips
-        </Link>
-        <ProfileMenu />
+        {viewer === "guest" ? (
+          <>
+            <Link to="/" className="flex items-center gap-2 font-extrabold text-white drop-shadow">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-600">
+                <Plane size={18} className="rotate-45 fill-white text-white" />
+              </span>
+              Trip Planner
+            </Link>
+            <Link to="/" className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50">
+              Create a free account
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-white/15 text-white backdrop-blur ring-1 ring-white/20 hover:bg-white/25 transition text-sm"
+            >
+              <ArrowLeft size={16} />
+              My Trips
+            </Link>
+            <ProfileMenu />
+          </>
+        )}
       </div>
       <div className="px-6 pb-12 md:px-12">
         <motion.h1
@@ -165,7 +193,7 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
           <MenuIcon size={18} className="opacity-90" />
           <span className="text-sm font-medium">Menu</span>
         </button>
-        <button
+        {viewer !== "guest" && <button
           onClick={() => pdf.mutate({ id: tripId, destination: formData.country })}
           disabled={pdf.isPending}
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2
@@ -176,7 +204,10 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
         >
           {pdf.isPending ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} className="opacity-90" />}
           <span className="text-sm font-medium">{pdf.isPending ? "Preparing PDF…" : "Download PDF"}</span>
-        </button>
+        </button>}
+        <div className="ml-auto">
+          <CrewBubbles tripId={tripId} destination={formData.country} crew={crew} />
+        </div>
         {pdf.isError && (
           <span className="rounded-lg bg-red-500/80 px-3 py-1.5 text-sm text-white">{pdf.error.message}</span>
         )}
@@ -194,14 +225,17 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
           >
             {section === "events" ? (
               <EventsPanel events={itinerary.events || []} />
-            ) : section === "reservations" ? (
+            ) : section === "reservations" && viewer === "owner" ? (
               <ReservationsPanel tripId={tripId} formData={formData} />
+            ) : section === "crew" ? (
+              <CrewPanel tripId={tripId} destination={formData.country} crew={crew} />
             ) : section === "food" ? (
               <FoodSpotsPanel
                 tripId={tripId}
                 cities={(formData.cities || []).map((c) => c.name).filter(Boolean)}
                 foodSpots={foodSpots}
                 homebases={homebases}
+                readOnly={viewer !== "owner"}
               />
             ) : (
               <div className="grid grid-cols-1 gap-6 md:grid-cols-5">
@@ -236,10 +270,12 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
           setNavOpen(false);
         }}
         currentSection={section}
+        showReservations={viewer === "owner"}
+        showCrew
       />
 
       {/* Back / New Trip Buttons */}
-      <div className="fixed bottom-8 right-8 flex gap-3 z-40">
+      {viewer !== "guest" && <div className="fixed bottom-8 right-8 flex gap-3 z-40">
         <Link
           to="/"
           className="px-5 py-3 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all font-semibold backdrop-blur"
@@ -252,7 +288,7 @@ function TripView({ tripId, itinerary, formData, foodSpots, homebases }) {
         >
           New Trip
         </Link>
-      </div>
+      </div>}
     </div>
   );
 }
