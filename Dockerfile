@@ -33,6 +33,8 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
+# Code shared by the server and the browser (e.g. trip length)
+COPY --from=builder /app/shared ./shared
 
 # Local default; hosts like Railway override it with their own PORT
 ENV PORT=3000

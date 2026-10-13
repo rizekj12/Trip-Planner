@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
-import { tripLengthDays, MAX_TRIP_DAYS } from "./itinerary.js";
+import { tripLengthDays, isAllowedTripLength, MAX_TRIP_DAYS } from "../shared/tripLength.js";
 import { addFoodSpots } from "./foodSpots.js";
 import { geocodeCity, locateHomebase } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
@@ -128,9 +128,9 @@ app.post("/api/generate-itinerary", async (req, res) => {
 
   // Enforced here, not just in the questionnaire, since the browser can be bypassed
   const days = tripLengthDays(formData.cities);
-  if (days < 1 || days > MAX_TRIP_DAYS) {
+  if (!isAllowedTripLength(days)) {
     return res.status(400).json({
-      error: days < 1
+      error: days === null || days < 1
         ? "This trip needs check-in and check-out dates."
         : `Trips can be up to ${MAX_TRIP_DAYS} days; this one is ${days}. Please shorten your dates.`,
     });
