@@ -20,6 +20,7 @@ import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
 import { patchItineraryData } from "./tripData.js";
+import { travelerNeeds } from "./travelerProfile.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -223,6 +224,8 @@ app.post("/api/food-spots", async (req, res) => {
             existing,
             anthropicKey: ANTHROPIC_API_KEY,
             geoapifyKey,
+            // Only the owner gets here, so these are their own dietary needs
+            traveler: await travelerNeeds(supabase, user.id),
           }),
       // undefined = lookup failed, try again next time; null = nothing to pin
       city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey).catch(() => undefined),

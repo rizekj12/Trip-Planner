@@ -13,6 +13,9 @@ const GUEST_LINK_DAYS_AFTER_TRIP = 30; // guest links stop working this long aft
 const JOINS_PER_TRIP_PER_HOUR = 10; // flood guard for a leaked invite link
 const MAX_PENDING_REQUESTS = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// A member's emergency contact (if they chose to share it) shows to the organizer from this
+// many days before the trip until it ends
+const EMERGENCY_SHARE_DAYS_BEFORE = 2;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Itinerary data without the owner's private details (reservations, confirmation codes),
@@ -104,9 +107,30 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
 
   const ownerOf = async (trip) => (await admin.auth.admin.getUserById(trip.user_id)).data?.user || null;
 
-  // Everyone on a trip, the owner first. `viewer` decides what's included: emails and pending
-  // requests only for the owner, and which row is "you" (a signed-in user id, or a guest's own
-  // member row id).
+  // Profile details (supabase/profiles.sql) for people with accounts, by user id. Empty if the
+  // table isn't set up yet.
+  const profilesFor = async (userIds) => {
+    if (!userIds.length) return new Map();
+    const { data, error } = await admin
+      .from("profiles")
+      .select("id, bio, share_emergency, emergency_name, emergency_relationship, emergency_phone, emergency_email")
+      .in("id", userIds);
+    if (error) return new Map();
+    return new Map(data.map((p) => [p.id, p]));
+  };
+
+  // Whether today is within the window where shared emergency contacts are visible
+  const emergencyWindowOpen = (trip) => {
+    const { start } = tripDates(trip);
+    const ends = tripEndsAt(trip);
+    if (!start || !ends) return false;
+    const opens = Date.parse(`${start}T00:00:00Z`) - EMERGENCY_SHARE_DAYS_BEFORE * DAY_MS;
+    return Date.now() >= opens && Date.now() <= ends;
+  };
+
+  // Everyone on a trip, the owner first. `viewer` decides what's included: emails, pending
+  // requests and shared emergency contacts only for the owner, and which row is "you" (a
+  // signed-in user id, or a guest's own member row id).
   const crewFor = async (
     trip,
     { viewerUserId = null, viewerMemberId = null, showEmails = false, includePending = false } = {}
@@ -127,6 +151,18 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
         if (data?.user) accounts.set(id, data.user);
       })
     );
+    const profiles = await profilesFor([trip.user_id, ...rows.map((r) => r.user_id)].filter(Boolean));
+    const showEmergency = showEmails && emergencyWindowOpen(trip);
+    // Only for members who turned sharing on and gave a phone number
+    const emergencyOf = (profile) =>
+      showEmergency && profile?.share_emergency && profile.emergency_phone
+        ? {
+            name: profile.emergency_name,
+            relationship: profile.emergency_relationship,
+            phone: profile.emergency_phone,
+            email: profile.emergency_email,
+          }
+        : undefined;
 
     const owner = accounts.get(trip.user_id);
     return [
@@ -136,18 +172,22 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
         status: "approved",
         name: displayName(owner),
         avatarUrl: owner?.user_metadata?.avatar_url || null,
+        bio: profiles.get(trip.user_id)?.bio || null,
         email: showEmails ? owner?.email : undefined,
         isYou: !!viewerUserId && trip.user_id === viewerUserId,
       },
       ...rows.map((r) => {
         const account = r.user_id && accounts.get(r.user_id);
+        const profile = r.user_id && profiles.get(r.user_id);
         return {
           id: r.id,
           role: r.role,
           status: r.status,
           name: account ? displayName(account) : r.name,
           avatarUrl: account?.user_metadata?.avatar_url || r.avatar_url || null,
+          bio: profile?.bio || null,
           email: showEmails ? r.email : undefined,
+          emergency: r.status === "approved" ? emergencyOf(profile) : undefined,
           isYou: (!!viewerUserId && r.user_id === viewerUserId) || r.id === viewerMemberId,
         };
       }),

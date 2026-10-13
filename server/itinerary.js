@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { tripLengthDays } from "../shared/tripLength.js";
+import { needsForPrompt } from "../shared/accessibility.js";
 
 // Helper functions
 
@@ -40,9 +41,17 @@ ${lines.join("\n")}
 `;
 }
 
-function buildPrompt(formData) {
+// `traveler`: the organizer's accessibility and dietary needs from their profile, if any
+function buildPrompt(formData, traveler) {
   const numDays = tripLengthDays(formData.cities) ?? 0;
   const flightsBlock = buildFlightsBlock(formData);
+  const needs = needsForPrompt(traveler);
+  const needsBlock = needs
+    ? `
+TRAVELER NEEDS (plan the whole trip around these):
+${needs}
+`
+    : "";
 
   const citiesInfo = formData.cities
     .map((city, i) => {
@@ -68,7 +77,7 @@ ${citiesInfo}${flightsBlock}
 PREFERENCES:
 - Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
 - Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
-
+${needsBlock}
 Respond with ONLY valid JSON (no markdown):
 
 {
@@ -130,6 +139,12 @@ ITINERARY REQUIREMENTS:
 - Include ${numDays} days with 3-5 activities per day
 - Use real GPS coordinates
 - Match travel style: ${formData.travelStyle}${
+    needs
+      ? `
+- Respect the traveler needs above: choose accessible venues and routes (e.g. step-free stations,
+  shorter walks, rest breaks) and food stops that suit any dietary needs; mention access tips in notes`
+      : ""
+  }${
     flightsBlock
       ? `
 - Use the flights to pace the trip: estimate when they land from the departure time and route,
@@ -183,8 +198,9 @@ function parseItineraryResponse(message) {
   }
 }
 
-// `signal` (an AbortSignal) stops the request, e.g. when generation runs too long
-export async function generateItinerary(formData, apiKey, { signal } = {}) {
+// `signal` (an AbortSignal) stops the request, e.g. when generation runs too long.
+// `traveler` ({ needs, notes }) adds the organizer's accessibility and dietary needs.
+export async function generateItinerary(formData, apiKey, { signal, traveler } = {}) {
   const client = new Anthropic({ apiKey });
   // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count
   // against max_tokens, so leave plenty of room for a multi-day itinerary.
@@ -192,7 +208,7 @@ export async function generateItinerary(formData, apiKey, { signal } = {}) {
     .stream({
       model: "claude-sonnet-5",
       max_tokens: 64000,
-      messages: [{ role: "user", content: buildPrompt(formData) }],
+      messages: [{ role: "user", content: buildPrompt(formData, traveler) }],
     }, { signal })
     .finalMessage();
 

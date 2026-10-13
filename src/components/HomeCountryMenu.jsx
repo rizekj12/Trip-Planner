@@ -10,8 +10,9 @@ import { searchDestinations, guessHomeCountry } from "../utils/destinationSearch
 // "Based in" country picker for the header, like Expedia's site setting. Saved on the
 // user's profile (user_metadata.home_country) for future promotions and points; until
 // they choose, we show a guess from the browser's region without saving it.
-// fullWidth: a form-field version (profile page) instead of the compact header button.
-export default function HomeCountryMenu({ fullWidth = false }) {
+// fullWidth: a form-field version (profile page) instead of the compact header button;
+// tone="light" styles that field for a white card. `id` lets a <label> point at the button.
+export default function HomeCountryMenu({ fullWidth = false, tone = "dark", id }) {
   const { user } = useAuth();
   const saved = user?.user_metadata?.home_country || null;
   const [open, setOpen] = useState(false);
@@ -49,13 +50,19 @@ export default function HomeCountryMenu({ fullWidth = false }) {
   return (
     <div ref={ref} className="relative">
       <button
+        id={id}
+        type="button"
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Where you're based"
-        className={`items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25 ${
-          fullWidth ? "flex w-full py-2.5 text-left" : "inline-flex py-2"
-        }`}
+        className={
+          tone === "light"
+            ? "flex min-h-[44px] w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-3.5 py-2.5 text-left text-[15px] text-gray-900 transition hover:border-violet-300"
+            : `items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25 ${
+                fullWidth ? "flex w-full py-2.5 text-left" : "inline-flex py-2"
+              }`
+        }
       >
         {saving ? <Loader2 size={16} className="animate-spin" /> : current ? <CountryFlag name={current} /> : null}
         <span className={fullWidth ? "flex-1 truncate" : "hidden max-w-[9rem] truncate sm:inline"}>
@@ -80,6 +87,8 @@ export default function HomeCountryMenu({ fullWidth = false }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
+                  // preventDefault: inside a form, Enter would also submit it
+                  if (e.key === "Enter") e.preventDefault();
                   if (e.key === "Enter" && options[0]) choose(options[0]);
                   if (e.key === "Escape") setOpen(false);
                 }}
@@ -95,6 +104,7 @@ export default function HomeCountryMenu({ fullWidth = false }) {
               options.map((country) => (
                 <li key={country}>
                   <button
+                    type="button"
                     role="option"
                     aria-selected={country === current}
                     onClick={() => choose(country)}
