@@ -24,6 +24,8 @@ function clean(value) {
     .replace(/[–—]/g, "-")
     .replace(/…/g, "...")
     .replace(/→/g, "->")
+    // Keep only characters the PDF's built-in font can draw (tab, newlines, Latin-1)
+    // eslint-disable-next-line no-control-regex
     .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, "")
     .replace(/\(\s*\)/g, "")
     .replace(/[ \t]{2,}/g, " ")
