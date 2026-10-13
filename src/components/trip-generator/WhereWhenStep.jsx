@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
 import DestinationPicker from './DestinationPicker';
-import { MAX_TRIP_DAYS, tripLengthDays, latestCheckOut } from '../../utils/tripLength';
+import { MAX_TRIP_DAYS, tripLengthDays, latestCheckOut } from '../../../shared/tripLength.js';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
 function getTodayStr() {
