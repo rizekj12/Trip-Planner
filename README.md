@@ -16,11 +16,14 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - On phones, a bottom tab bar (Trips · Calendar · New · Profile).
 - **Trips calendar**: a month view of every trip as colored bars, from the month the account was created to a year ahead, with Today, Previous trip and Next trip buttons.
 - **Travel Crew**: invite travel partners with a shareable link (copy, share sheet or email). Friends with an account join and see the trip on their dashboard; anyone else can join that one trip as a guest with just a name and email. Avatar bubbles show who's going. Partners and guests can view the trip but not change it, and never see the organizer's confirmation codes.
+  - By default the organizer **approves each new traveler** (a setting in the invite window); until then the trip stays hidden from them.
+  - Up to **10 travelers** besides the organizer. Invite links expire after 30 days or when the trip ends, whichever is first, and guest links stop working 30 days after the trip.
+- **Notifications**: a bell in the header with an unread count and the latest five notifications ("Sam would like to join your trip to Ireland", with Approve / Deny right there, plus itinerary ready or failed and approvals), and a full list at `/notifications`. Checked every minute.
 - **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details, with an **Invite travel partner** button and who's-going bubbles. A side menu opens four more sections:
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
   - **Reservations** (organizer only): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
-  - **Travel Crew**: everyone on the trip with their photo and role; the organizer can invite and remove people, and partners can leave.
+  - **Travel Crew**: everyone on the trip with their photo and role; the organizer can invite and remove people and approve or deny join requests, and partners can leave.
 - **Offline PDF**: "Download PDF" (on the itinerary page and in each trip's ⋮ menu) builds a PDF with the reservations and codes, a map and stop list for every day, 10 local events, and 10 food spots per city.
 - **Accounts**: sign up or sign in with email and password or with Google, password reset, a profile page with name and avatar upload, and a **home country** setting ("Based in", with flags) for future offers and rewards.
 - **Installable**: a Progressive Web App with offline caching of the app shell and map tiles.
@@ -49,7 +52,7 @@ A single-page app in [`src/`](src/).
 |---|---|
 | Node.js + Express 5 | Server in [`server/`](server/): the API (itinerary generation, food spots, PDF export, hotel search, address validation) and, in production, the built frontend, all on one port. Holds the secret API keys. |
 | Anthropic SDK | Calls Claude (`claude-sonnet-5`): streams the itinerary as JSON, and picks food spots (at low effort, for speed) |
-| Supabase | Authentication (email/password and Google), Postgres database (`trips`, `members`, `trip_members`, `trip_invites`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user or, for Travel Crew, with the service role key. |
+| Supabase | Authentication (email/password and Google), Postgres database (`trips`, `members`, `trip_members`, `trip_invites`, `notifications`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user or, for Travel Crew, with the service role key. |
 | Geoapify | Hotel search, address validation, map coordinates for food spots and homebases, and static map images for the PDF |
 | pdfkit | Builds the offline PDF on the server |
 | Docker + Railway | Multi-stage image that runs one Node server. Deployed on Railway, which rebuilds on every push; GitHub Actions also builds the image in CI. |
@@ -64,7 +67,8 @@ A single-page app in [`src/`](src/).
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
-| [`server/crew.js`](server/crew.js) | Travel Crew: invite links, joining as a member or guest, the crew list, the guest's view-only trip, and removing people |
+| [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, and removing people |
+| [`server/notifications.js`](server/notifications.js) | Creates in-app notifications (join requests, approvals, itinerary ready or failed); the browser reads them directly |
 
 ## Architecture
 
@@ -103,7 +107,7 @@ Everything lives in the trip row's `itinerary_data` JSON, so no database schema 
 | `_homebases` | Each city's hotel or homebase location, for distances and the map |
 | `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
 
-Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. A user's home country is stored on their profile (`user_metadata.home_country`).
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's home country is stored on their profile (`user_metadata.home_country`).
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -125,7 +129,9 @@ main.jsx
                     ├── AuthScreen                         signed out: sign in / create account / Google
                     ├── ResetPassword                      password-recovery link
                     ├── DashboardPage                      /
-                    │   ├── AppHeader                      logo · HomeCountryMenu · Calendar · ProfileMenu
+                    │   ├── AppHeader                      logo · HomeCountryMenu · Calendar · NotificationBell · ProfileMenu
+                    │   │   └── NotificationBell           unread count, latest 5, Approve / Deny
+                    │   │       └── NotificationItem
                     │   ├── NextTripCard                   photo, countdown ring, Before you go
                     │   │   ├── TripThumb                  destination photo or flag tile
                     │   │   └── CrewBubbles                invite button + who's going
@@ -171,6 +177,10 @@ main.jsx
                     ├── CalendarPage                       /calendar
                     │   ├── AppHeader
                     │   └── BottomTabBar                   phones
+                    ├── NotificationsPage                  /notifications
+                    │   ├── AppHeader
+                    │   ├── NotificationItem               one per notification
+                    │   └── BottomTabBar                   phones
                     └── ProfilePage                        /profile
                         ├── SkyBackground
                         └── HomeCountryMenu                "Based in"
@@ -193,7 +203,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql) and [`supabase/generation-limits.sql`](supabase/generation-limits.sql) once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, and the log behind the daily itinerary cap). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql) and [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, and join requests and notifications). Then:
 
 ```bash
 npm install
@@ -213,10 +223,10 @@ In production one Node server serves both the API and the built app; it listens 
 
 ### Next features
 
-- **Notifications button on the dashboard**: e.g. an itinerary finished generating, someone joined your trip, a trip is coming up
 - **Gallery tab**: a shared photo and video gallery for each trip that the organizer, travel partners and guests can all add to
 - **Live location on the day-by-day maps**: let the site use the device's location to show where you are
-- **Invite emails (Travel Crew phase 2)**: send invites and trip notifications for guests by email from the app (needs an email service such as Resend)
+- **Invite emails (Travel Crew phase 2)**: send invites and trip notifications for guests by email from the app, and verify a guest's email with a magic link before they join (needs an email service such as Resend)
+- **More notifications**: "your trip is coming up" reminders, and live updates instead of checking every minute
 
 ### Later
 

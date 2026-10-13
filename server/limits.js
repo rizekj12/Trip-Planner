@@ -60,6 +60,8 @@ export function createGuards({ supabaseUrl, anonKey, serviceKey }) {
     geo: limiter(60 * 1000, 30, "Too many hotel or address lookups. Please wait a minute and try again."),
     // Invite and guest links, which work without signing in
     public: limiter(60 * 1000, 30, "Too many requests. Please wait a minute and try again."),
+    // Joining or asking to join a trip by invite link
+    join: limiter(60 * 60 * 1000, 10, "Too many join requests. Please try again later."),
   };
 
   // Uses up one of the user's itinerary generations for the next 24 hours (rolling).

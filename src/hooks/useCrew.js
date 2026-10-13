@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCrew, getInviteToken, removeCrewMember, joinTrip } from "../utils/aiService";
+import { getCrew, getInviteToken, removeCrewMember, joinTrip, answerJoinRequest } from "../utils/aiService";
 
-// Who's on a trip: { isOwner, people: [{ id, role, name, avatarUrl, email?, isYou }] }
+// Who's on a trip: { isOwner, maxTravelers, people: [{ id, role, status, name, avatarUrl, email?, isYou }] }.
+// The owner also gets pending join requests (status "pending").
 export function useCrew(tripId, { enabled = true } = {}) {
   return useQuery({
     queryKey: ["crew", tripId],
@@ -11,11 +12,12 @@ export function useCrew(tripId, { enabled = true } = {}) {
   });
 }
 
-// The trip's invite link. mutate() gets it (creating one if needed); mutate({ reset: true })
-// replaces it so old links stop working.
+// The trip's invite link and settings. mutate() gets it (creating one if needed);
+// mutate({ reset: true }) replaces it so old links stop working; mutate({ requireApproval })
+// changes whether new travelers need the organizer's approval.
 export function useInviteLink(tripId) {
   return useMutation({
-    mutationFn: ({ reset = false } = {}) => getInviteToken(tripId, reset),
+    mutationFn: (options = {}) => getInviteToken(tripId, options),
   });
 }
 
@@ -40,5 +42,18 @@ export function useJoinTrip(token) {
   return useMutation({
     mutationFn: (guest) => joinTrip(token, guest),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["trips"] }),
+  });
+}
+
+// Owner approves or denies a join request: mutate({ tripId, memberId, decision: "approve" | "deny" }).
+// Used from the crew tab and from notifications, so the trip id comes with each call.
+export function useAnswerJoinRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, memberId, decision }) => answerJoinRequest(tripId, memberId, decision),
+    onSettled: (_data, _error, { tripId }) => {
+      qc.invalidateQueries({ queryKey: ["crew", tripId] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
   });
 }

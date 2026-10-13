@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Loader2, X, LogOut } from "lucide-react";
+import { UserPlus, Loader2, X, LogOut, Check, Hourglass } from "lucide-react";
 import CrewAvatar from "./CrewAvatar";
 import InviteModal from "./InviteModal";
-import { useCrew, useRemoveCrewMember } from "../../hooks/useCrew";
+import { useCrew, useRemoveCrewMember, useAnswerJoinRequest } from "../../hooks/useCrew";
 import { theme } from "../../utils/theme";
 
 const ROLE_LABEL = { owner: "Organizer", member: "Member", guest: "Guest" };
@@ -13,15 +13,20 @@ const ROLE_STYLE = {
   guest: "bg-gray-100 text-gray-700",
 };
 
-// "Travel Crew" tab: everyone on the trip. The organizer can invite and remove people;
-// a member can leave. `crew` passes the list in directly for a guest (read-only).
+// "Travel Crew" tab: everyone on the trip. The organizer can invite and remove people and
+// answer join requests; a member can leave. `crew` passes the list in directly for a guest (read-only).
 export default function CrewPanel({ tripId, destination, crew: given }) {
   const navigate = useNavigate();
   const fetched = useCrew(tripId, { enabled: !given });
   const crew = given ? { data: given, isLoading: false, isError: false } : fetched;
   const remove = useRemoveCrewMember(tripId);
+  const answer = useAnswerJoinRequest();
   const [inviteOpen, setInviteOpen] = useState(false);
-  const people = crew.data?.people || [];
+  const everyone = crew.data?.people || [];
+  const people = everyone.filter((p) => p.status !== "pending");
+  const pending = everyone.filter((p) => p.status === "pending");
+  const maxTravelers = crew.data?.maxTravelers;
+  const spotsLeft = maxTravelers ? Math.max(0, maxTravelers - (people.length - 1)) : null;
   const isOwner = crew.data?.isOwner;
   const isGuest = !!given;
 
@@ -33,7 +38,10 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
       <div className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl p-4 ${theme.header}`}>
         <div>
           <h2 className="text-2xl font-semibold">Travel Crew</h2>
-          <p className="mt-1 text-sm opacity-80">Who's coming on this trip</p>
+          <p className="mt-1 text-sm opacity-80">
+            Who's coming on this trip
+            {isOwner && spotsLeft != null && ` · ${spotsLeft} spot${spotsLeft === 1 ? "" : "s"} left`}
+          </p>
         </div>
         {isOwner && (
           <button
@@ -52,6 +60,49 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
         </div>
       )}
       {crew.isError && <p className="py-6 text-center text-sm text-red-600">{crew.error.message}</p>}
+
+      {isOwner && pending.length > 0 && (
+        <div className="mb-5 rounded-xl border-2 border-amber-200 bg-amber-50 p-3">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-amber-900">
+            <Hourglass size={15} />
+            Waiting for your approval
+          </h3>
+          <ul className="space-y-2">
+            {pending.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-white p-3">
+                <CrewAvatar person={p} size="h-10 w-10" textSize="text-sm" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-gray-900">{p.name}</span>
+                  <span className="block truncate text-xs text-gray-500">
+                    {p.email}
+                    {p.role === "guest" && " · as a guest"}
+                  </span>
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    onClick={() => answer.mutate({ tripId, memberId: p.id, decision: "approve" })}
+                    disabled={answer.isPending || spotsLeft === 0}
+                    title={spotsLeft === 0 ? "The trip is full" : undefined}
+                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <Check size={13} />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => answer.mutate({ tripId, memberId: p.id, decision: "deny" })}
+                    disabled={answer.isPending}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-red-200 hover:text-red-600 disabled:opacity-50"
+                  >
+                    <X size={13} />
+                    Deny
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {answer.isError && <p className="mt-2 text-sm text-red-600">{answer.error.message}</p>}
+        </div>
+      )}
 
       <ul className="space-y-2">
         {people.map((p) => (

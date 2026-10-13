@@ -8,6 +8,7 @@ import TripPage from "./pages/TripPage";
 import CalendarPage from "./pages/CalendarPage";
 import JoinPage from "./pages/JoinPage";
 import GuestTripPage from "./pages/GuestTripPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/drafts/:draftId" element={<NewTripPage />} />
               <Route path="/trip/:tripId" element={<TripPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

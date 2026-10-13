@@ -1,18 +1,20 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, User, Mail, Users, CalendarDays } from "lucide-react";
+import { Loader2, User, Mail, Users, CalendarDays, Hourglass } from "lucide-react";
 import AuthLayout, { AuthInput, AuthMessage, AuthButton } from "../components/auth/AuthLayout";
 import AuthScreen from "../components/auth/AuthScreen";
 import CrewAvatar from "../components/crew/CrewAvatar";
 import { useAuth } from "../context/AuthContext";
 import { useJoinTrip } from "../hooks/useCrew";
 import { getInvite } from "../utils/aiService";
+import { supabase } from "../utils/supabase";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import { formatRange } from "../utils/calendar";
 
 // Invite link landing page (/join/:token), open without signing in. Signed-in users join as
-// members; anyone else can sign in first or join this one trip as a guest.
+// members; anyone else can sign in first or join this one trip as a guest. When the organizer
+// approves new travelers, joining sends a request instead and the organizer is notified.
 export default function JoinPage() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -22,11 +24,15 @@ export default function JoinPage() {
   const [mode, setMode] = useState("choose"); // "choose" | "signin" | "guest"
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [requested, setRequested] = useState(false); // a signed-in user's request is waiting
 
   // Sign in / create account right here; once signed in this page shows "Join this trip"
   if (!user && mode === "signin") return <AuthScreen />;
 
-  const joinAsMember = () => join.mutate(null, { onSuccess: ({ tripId }) => navigate(`/trip/${tripId}`) });
+  const joinAsMember = () =>
+    join.mutate(null, {
+      onSuccess: ({ tripId, status }) => (status === "pending" ? setRequested(true) : navigate(`/trip/${tripId}`)),
+    });
   const joinAsGuest = (e) => {
     e.preventDefault();
     join.mutate({ name, email }, { onSuccess: ({ guestToken }) => navigate(`/guest/${guestToken}`) });
@@ -45,7 +51,7 @@ export default function JoinPage() {
       <AuthLayout>
         <div className="text-center">
           <h2 className="text-xl font-bold">This invite isn't valid</h2>
-          <p className="mt-2 text-sm text-white/80">{invite.error.message}. Ask the organizer for a new link.</p>
+          <p className="mt-2 text-sm text-white/80">{invite.error.message}</p>
           <Link to="/" className="mt-5 inline-block text-sm font-semibold underline">Go to Trip Planner</Link>
         </div>
       </AuthLayout>
@@ -54,6 +60,8 @@ export default function JoinPage() {
 
   const trip = invite.data;
   const owner = { name: trip.ownerName, avatarUrl: trip.ownerAvatarUrl };
+  const firstName = trip.ownerName?.split(" ")[0] || "The organizer";
+  const joinLabel = trip.requireApproval ? "Ask to join" : "Join this trip";
 
   return (
     <AuthLayout>
@@ -84,21 +92,49 @@ export default function JoinPage() {
 
       <div className="mt-6 space-y-3">
         <AuthMessage>{join.error?.message}</AuthMessage>
+        {user && join.error?.status === 401 && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut({ scope: "local" });
+              join.reset();
+              setMode("signin");
+            }}
+            className="w-full rounded-xl bg-white/15 py-3 text-sm font-semibold ring-1 ring-white/30 hover:bg-white/25"
+          >
+            Sign in again
+          </button>
+        )}
 
-        {user ? (
+        {requested ? (
+          <div className="rounded-xl bg-white/15 p-4 text-center ring-1 ring-white/25">
+            <Hourglass className="mx-auto mb-2 text-amber-200" size={22} />
+            <p className="font-semibold">Request sent</p>
+            <p className="mt-1 text-sm text-white/80">
+              {firstName} will get a notification. Once they approve you, the trip shows up on your dashboard.
+            </p>
+            <Link to="/" className="mt-4 inline-block text-sm font-semibold underline">Go to my dashboard</Link>
+          </div>
+        ) : trip.full ? (
+          <p className="rounded-xl bg-white/15 p-4 text-center text-sm ring-1 ring-white/25">
+            This trip is full. Ask {firstName} if a spot opens up.
+          </p>
+        ) : user ? (
           <button
             onClick={joinAsMember}
             disabled={join.isPending}
             className="w-full rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 py-3 text-sm font-semibold shadow-lg disabled:opacity-60"
           >
-            {join.isPending ? "Joining…" : "Join this trip"}
+            {join.isPending ? "Joining…" : joinLabel}
           </button>
         ) : mode === "guest" ? (
           <form onSubmit={joinAsGuest} className="space-y-4">
             <AuthInput label="Your name" icon={User} required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
             <AuthInput label="Email" icon={Mail} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-            <p className="text-xs text-white/70">We'll use this for trip updates. You'll get a personal link to view this trip — bookmark it.</p>
-            <AuthButton busy={join.isPending} busyLabel="Joining…">Join as guest</AuthButton>
+            <p className="text-xs text-white/70">
+              We'll use this for trip updates. You'll get a personal link to view this trip — bookmark it.
+              {trip.requireApproval && ` It opens once ${firstName} approves you.`}
+            </p>
+            <AuthButton busy={join.isPending} busyLabel="Joining…">{trip.requireApproval ? "Ask to join as guest" : "Join as guest"}</AuthButton>
             <button type="button" onClick={() => setMode("choose")} className="block w-full text-center text-sm text-white/80 underline">
               Back
             </button>
@@ -119,6 +155,7 @@ export default function JoinPage() {
             </button>
             <p className="text-center text-xs text-white/70">
               With an account the trip appears on your dashboard. Guests get a view-only link for this trip.
+              {trip.requireApproval && ` ${firstName} approves new travelers.`}
             </p>
           </>
         )}
