@@ -1,7 +1,6 @@
 console.log("=== BACKEND STARTING ===");
 console.log("Environment:", process.env.NODE_ENV);
-// VITE_ANTHROPIC_API_KEY is the legacy name, still accepted until every environment is renamed
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 console.log("API Key exists:", !!ANTHROPIC_API_KEY);
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
