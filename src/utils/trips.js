@@ -1,13 +1,5 @@
 import { supabase } from "./supabase";
-
-function calcDuration(formData) {
-  const cities = formData?.cities || [];
-  if (!cities.length) return null;
-  const first = cities[0].checkIn;
-  const last = cities[cities.length - 1].checkOut;
-  if (!first || !last) return null;
-  return Math.ceil((new Date(last) - new Date(first)) / (1000 * 60 * 60 * 24));
-}
+import { tripLengthDays } from "../../shared/tripLength.js";
 
 // Inserts a new trip row, or updates it when `id` is given
 async function upsertTrip(id, formData, extra) {
@@ -16,7 +8,8 @@ async function upsertTrip(id, formData, extra) {
   const payload = {
     user_id: user.id,
     cities: (formData.cities || []).map(c => c.name).filter(Boolean),
-    duration: calcDuration(formData),
+    // Same calculation the server enforces and uses in the prompt
+    duration: tripLengthDays(formData?.cities),
     travel_style: formData.travelStyle || null,
     vacation_type: formData.vacationType || null,
     ...extra,

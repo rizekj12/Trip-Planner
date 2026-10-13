@@ -2,19 +2,9 @@
 // Runs on the server so generation keeps going even if the user closes the page.
 import Anthropic from "@anthropic-ai/sdk";
 
-// Helper functions
-// Longest trip we'll generate: keeps Claude requests (and their cost) bounded.
-// The questionnaire mirrors this in src/utils/tripLength.js.
-export const MAX_TRIP_DAYS = 14;
+import { tripLengthDays } from "../shared/tripLength.js";
 
-// Days from the earliest check-in to the latest check-out across all cities (0 if unknown)
-export function tripLengthDays(cities = []) {
-  const toUtc = (iso) => Date.parse(`${iso}T00:00:00Z`);
-  const checkIns = cities.map((c) => c.checkIn).filter(Boolean).map(toUtc);
-  const checkOuts = cities.map((c) => c.checkOut).filter(Boolean).map(toUtc);
-  if (!checkIns.length || !checkOuts.length) return 0;
-  return Math.round((Math.max(...checkOuts) - Math.min(...checkIns)) / (24 * 60 * 60 * 1000));
-}
+// Helper functions
 
 function getTravelStyleDescription(style) {
   const descriptions = {
@@ -51,7 +41,7 @@ ${lines.join("\n")}
 }
 
 function buildPrompt(formData) {
-  const numDays = tripLengthDays(formData.cities);
+  const numDays = tripLengthDays(formData.cities) ?? 0;
   const flightsBlock = buildFlightsBlock(formData);
 
   const citiesInfo = formData.cities
