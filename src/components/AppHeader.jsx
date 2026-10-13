@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import { Plane, CalendarDays } from "lucide-react";
 import HomeCountryMenu from "./HomeCountryMenu";
 import ProfileMenu from "./ProfileMenu";
+import NotificationBell from "./notifications/NotificationBell";
 
 // Site header (navy bar): logo + "Trip Planner" (links home) on the left; country setting,
-// calendar and profile on the right. On phones the calendar lives in the bottom tab bar.
+// calendar, notifications and profile on the right. On phones the calendar lives in the bottom tab bar.
 export default function AppHeader() {
   return (
     <header className="relative z-20 bg-[#0f2b5b] text-white shadow-md">
@@ -26,6 +27,7 @@ export default function AppHeader() {
             <CalendarDays size={16} />
             Calendar
           </Link>
+          <NotificationBell />
           <ProfileMenu />
         </div>
       </div>

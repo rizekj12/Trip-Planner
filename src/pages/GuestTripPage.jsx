@@ -7,7 +7,8 @@ import { getGuestTrip } from "../utils/aiService";
 import { tripStatus } from "../utils/trips";
 
 // A guest's view-only trip (/guest/:token), open without signing in. The server leaves out
-// the organizer's reservations and confirmation codes.
+// the organizer's reservations and confirmation codes. Until the organizer approves the guest,
+// it only says the request is waiting (and checks back every 30 seconds).
 export default function GuestTripPage() {
   const { token } = useParams();
   const guest = useQuery({
@@ -15,11 +16,22 @@ export default function GuestTripPage() {
     queryFn: () => getGuestTrip(token),
     retry: false,
     // Keep checking while the organizer's itinerary is still being generated
-    refetchInterval: (query) => (tripStatus(query.state.data?.trip) === "pending" ? 5000 : false),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === "pending") return 30_000;
+      return tripStatus(data?.trip) === "pending" ? 5000 : false;
+    },
   });
 
   if (guest.isLoading) return <LoadingScreen />;
-  if (guest.isError) return <LoadingScreen message="This trip link is no longer valid." />;
+  if (guest.isError) return <LoadingScreen message={guest.error.message || "This trip link is no longer valid."} />;
+  if (guest.data.status === "pending") {
+    return (
+      <LoadingScreen
+        message={`Hi ${guest.data.guestName}! Your request to join the trip to ${guest.data.destination} is waiting for ${guest.data.ownerName}'s approval. Bookmark this page — the trip opens here once you're approved.`}
+      />
+    );
+  }
 
   const { trip, guestName, crew } = guest.data;
   const { _form_data, _food_spots, _homebases, ...itinerary } = trip.itinerary_data || {};

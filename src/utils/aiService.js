@@ -92,10 +92,15 @@ const authedPost = (path, body) => apiRequest("POST", path, body, { auth: true }
 // ---- Travel Crew (server/crew.js) ----
 
 export const getCrew = (tripId) => apiJson("GET", `/api/trips/${tripId}/crew`, null, { auth: true });
-export const getInviteToken = (tripId, reset = false) =>
-  apiJson("POST", `/api/trips/${tripId}/invite`, { reset }, { auth: true });
+// Gets the invite link and settings: { token, expiresAt, requireApproval, travelers, maxTravelers }.
+// `options` can reset the link ({ reset: true }) or change { requireApproval }.
+export const getInviteToken = (tripId, options = {}) =>
+  apiJson("POST", `/api/trips/${tripId}/invite`, options, { auth: true });
 export const removeCrewMember = (tripId, memberId) =>
   apiJson("DELETE", `/api/trips/${tripId}/crew/${memberId}`, null, { auth: true });
+// Owner answers a join request; `decision` is "approve" or "deny"
+export const answerJoinRequest = (tripId, memberId, decision) =>
+  apiJson("POST", `/api/trips/${tripId}/crew/${memberId}/${decision}`, null, { auth: true });
 // These work without signing in (the invite page and a guest's trip link)
 export const getInvite = (token) => apiJson("GET", `/api/invites/${token}`);
 export const joinTrip = (token, guest) => apiJson("POST", `/api/invites/${token}/join`, guest || {}, { auth: !guest });
@@ -132,7 +137,7 @@ async function apiRequest(method, path, body, { auth = false } = {}) {
 
   if (!response.ok) {
     const { error } = await response.json().catch(() => ({}));
-    throw new Error(error || `Request failed (${response.status})`);
+    throw Object.assign(new Error(error || `Request failed (${response.status})`), { status: response.status });
   }
   return response;
 }

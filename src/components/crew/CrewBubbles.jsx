@@ -16,7 +16,8 @@ export default function CrewBubbles({ tripId, destination, tone = "dark", crew: 
   const [listOpen, setListOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const data = given || fetched.data;
-  const people = data?.people || [];
+  // Only people who are actually going (the owner also gets pending requests in the list)
+  const people = (data?.people || []).filter((p) => p.status !== "pending");
   const isOwner = data?.isOwner;
   if (!given && fetched.isError) return null; // e.g. Travel Crew not set up on the server yet
 

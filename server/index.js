@@ -18,6 +18,7 @@ import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { createGuards } from "./limits.js";
+import { createNotifier } from "./notifications.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -49,14 +50,20 @@ const guards = createGuards({
 app.use("/api", guards.identify, guards.limits.api);
 app.use(["/api/generate-itinerary", "/api/food-spots", "/api/trip-pdf"], guards.limits.ai);
 app.use(["/api/invites", "/api/guest"], guards.limits.public);
+// Joining (or asking to join) a trip gets a tighter per-IP limit, on top of crew.js's per-trip one
+app.post("/api/invites/:token/join", guards.limits.join);
 // Geoapify lookups are only used from the signed-in questionnaire; without this, anyone
 // could use the server as a free proxy and exhaust the quota
 app.use(["/api/search-hotels", "/api/validate-address"], guards.requireUser, guards.limits.geo);
 
-// Travel Crew routes (invites, joining, crew list, guest view)
+// In-app notifications (join requests, approvals, itinerary ready/failed)
+const notifier = createNotifier({ supabaseUrl: SUPABASE_URL, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY });
+
+// Travel Crew routes (invites, join requests and approvals, crew list, guest view)
 registerCrewRoutes(app, {
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  notifier,
 });
 
 // Health check endpoint
@@ -83,7 +90,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
 
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, user_id, itinerary_data")
+    .select("id, user_id, destination, itinerary_data")
     .eq("id", tripId)
     .single();
 
@@ -137,6 +144,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
       _food_spots: foodSpots,
       _homebases: homebases,
     });
+    await notifier.notify(user.id, "itinerary_ready", { tripId, data: { destination: trip.destination } });
   } catch (err) {
     console.error("Itinerary generation failed:", err);
     await guards.releaseGeneration(reservation.id).catch((releaseErr) =>
@@ -147,6 +155,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
       _status: "failed",
       _error: err.message || "Generation failed",
     }).catch((saveErr) => console.error("Couldn't mark trip as failed:", tripId, saveErr));
+    await notifier.notify(user.id, "itinerary_failed", { tripId, data: { destination: trip.destination } });
   }
 });
 
