@@ -271,6 +271,11 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     if (inviteProblem(res, found)) return;
     const { trip, invite } = found;
     const user = await requestUser(req);
+    // A login the browser still has but Supabase no longer accepts (signed out elsewhere,
+    // switched accounts): say so, rather than treating them as a guest with no name or email
+    if (!user && req.headers.authorization) {
+      return res.status(401).json({ error: "Your sign-in has expired. Please sign in again." });
+    }
 
     if (user?.id === trip.user_id) return res.json({ tripId: trip.id, status: "approved" });
 

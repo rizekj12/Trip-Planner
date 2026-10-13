@@ -137,7 +137,7 @@ async function apiRequest(method, path, body, { auth = false } = {}) {
 
   if (!response.ok) {
     const { error } = await response.json().catch(() => ({}));
-    throw new Error(error || `Request failed (${response.status})`);
+    throw Object.assign(new Error(error || `Request failed (${response.status})`), { status: response.status });
   }
   return response;
 }

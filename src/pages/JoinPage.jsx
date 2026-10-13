@@ -8,6 +8,7 @@ import CrewAvatar from "../components/crew/CrewAvatar";
 import { useAuth } from "../context/AuthContext";
 import { useJoinTrip } from "../hooks/useCrew";
 import { getInvite } from "../utils/aiService";
+import { supabase } from "../utils/supabase";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import { formatRange } from "../utils/calendar";
 
@@ -91,6 +92,18 @@ export default function JoinPage() {
 
       <div className="mt-6 space-y-3">
         <AuthMessage>{join.error?.message}</AuthMessage>
+        {user && join.error?.status === 401 && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut({ scope: "local" });
+              join.reset();
+              setMode("signin");
+            }}
+            className="w-full rounded-xl bg-white/15 py-3 text-sm font-semibold ring-1 ring-white/30 hover:bg-white/25"
+          >
+            Sign in again
+          </button>
+        )}
 
         {requested ? (
           <div className="rounded-xl bg-white/15 p-4 text-center ring-1 ring-white/25">
