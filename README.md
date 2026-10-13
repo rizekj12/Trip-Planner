@@ -7,7 +7,7 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
 ## What it does
 
 - **Plan a trip**: a five-step questionnaire collects the destination (type-to-search over 213 countries and territories, including Puerto Rico and the U.S. Virgin Islands, with nicknames like "USA" or "Bali") and one or more cities with check-in/check-out dates, up to 14 days in total; flight details (optional); where the traveler is staying (a hotel found through hotel search, a custom address, or none) with an optional hotel confirmation code; and their travel style and vacation type. Addresses are validated as they're entered.
-- **Background generation**: the trip is saved immediately as *pending*, and the server generates the itinerary with Claude. Flight times are used to keep arrival days light and leave time for the airport. The user sees an animated progress screen and can leave; the finished itinerary appears on their dashboard when it's ready.
+- **Background generation**: the trip is saved immediately as *pending*, and the server generates the itinerary with Claude. Flight times are used to keep arrival days light and leave time for the airport. The user sees an animated progress screen and can leave; the finished itinerary appears on their dashboard when it's ready. If the server restarts mid-generation, it picks the job back up.
 - **Dashboard**: a "Welcome back" page built around the next trip:
   - **Next-trip card** with a destination photo, a countdown ring ("22 days to go", or "Day 3 of 9" during the trip) and a **Before you go** checklist taken from the trip itself: itinerary ready, flights added, hotel confirmation saved, offline PDF downloaded. Each item links to the right place.
   - **Upcoming trips** as a list with live badges (*In 22 days*, *Happening now*, *Generating…*, *Draft*, *Failed*), and **Past trips** as a separate photo grid. Trips shared with you are tagged *Shared*.
@@ -39,7 +39,7 @@ A single-page app in [`src/`](src/).
 | React 18 | UI, function components and hooks |
 | Vite 5 | Dev server and production build; compiles Tailwind through PostCSS |
 | React Router 6 | Routes: `/`, `/new`, `/drafts/:id`, `/trip/:id`, `/calendar`, `/profile`, plus `/join/:token` and `/guest/:token`, which work without signing in |
-| TanStack Query 5 | Fetching, caching and saving trips; polls every 4 s while a trip is pending |
+| TanStack Query 5 | Fetching, caching and saving trips; refreshes a pending trip when Supabase Realtime reports a change (polling every 15 s as a fallback) |
 | Tailwind CSS 3 | Styling; one shared theme in [`src/utils/theme.js`](src/utils/theme.js) |
 | Framer Motion | Animations: page transitions, modals, the loading screen's globe and plane |
 | Leaflet + react-leaflet | Interactive maps on OpenStreetMap tiles |
@@ -66,6 +66,8 @@ A single-page app in [`src/`](src/).
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
+| [`server/generationJobs.js`](server/generationJobs.js) | Runs itinerary generation as a job that survives restarts: heartbeat, 10-minute timeout, and a sweeper that retries or fails jobs a stopped server left behind |
+| [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, and removing people |
 | [`server/notifications.js`](server/notifications.js) | Creates in-app notifications (join requests, approvals, itinerary ready or failed); the browser reads them directly |
@@ -87,12 +89,14 @@ flowchart LR
 
 1. The user finishes the questionnaire. The browser saves the trip to Supabase with status *pending* and its form answers.
 2. The browser calls `POST /api/generate-itinerary` with only the trip id and the user's login token, then opens `/trip/:id`, which shows the progress screen.
-3. The server reads the trip's answers from Supabase as that user, replies right away, and continues in the background. In parallel, it:
+3. The server checks the user owns the trip, records a **generation job** (`generation_jobs`), replies right away, and continues in the background. In parallel, with a 10-minute time limit, it:
    - streams the itinerary from Claude (the prompt includes flight routes and times, but never confirmation codes),
    - asks Claude for 12 food spots per city and finds each one on the map with Geoapify,
    - looks up each city's hotel or homebase location.
-4. The server merges everything into the trip with status *ready* (or *failed* with the error), re-reading the row first so edits made in the meantime aren't overwritten. A trip still pending after 10 minutes is treated as failed.
-5. The progress screen and the dashboard poll the trip every 4 seconds and switch to the itinerary as soon as it's ready, even if the user left and came back.
+4. The server merges everything into the trip with status *ready* (or *failed* with the error), re-reading the row first so edits made in the meantime aren't overwritten, and notifies the user.
+5. The progress screen and the dashboard hear about the change through Supabase Realtime (or a 15-second poll as a fallback) and switch to the itinerary as soon as it's ready, even if the user left and came back.
+
+If the server restarts or redeploys mid-generation, the job's heartbeat (refreshed every 30 seconds) goes stale. A sweeper, run on startup and every minute, retries the job once and then marks the trip *failed* in the database, giving back the daily generation slot. Trips left *pending* whose generation never started are marked failed after 15 minutes.
 
 ### What's stored on a trip
 
@@ -203,7 +207,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql) and [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, and join requests and notifications). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) and [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, and generation jobs plus Realtime for trips). Then:
 
 ```bash
 npm install

@@ -12,13 +12,15 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
-import { generateItinerary, tripLengthDays, MAX_TRIP_DAYS } from "./itinerary.js";
-import { addFoodSpots, foodSpotsForTrip } from "./foodSpots.js";
-import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
+import { tripLengthDays, MAX_TRIP_DAYS } from "./itinerary.js";
+import { addFoodSpots } from "./foodSpots.js";
+import { geocodeCity, locateHomebase } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
+import { createGenerationJobs } from "./generationJobs.js";
+import { patchItineraryData } from "./tripData.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -59,6 +61,18 @@ app.use(["/api/search-hotels", "/api/validate-address"], guards.requireUser, gua
 // In-app notifications (join requests, approvals, itinerary ready/failed)
 const notifier = createNotifier({ supabaseUrl: SUPABASE_URL, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY });
 
+// Itinerary generation runs as a job that survives restarts; the sweeper picks up jobs a
+// previous server left unfinished
+const generationJobs = createGenerationJobs({
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  anthropicKey: ANTHROPIC_API_KEY,
+  geoapifyKey: process.env.GEOAPIFY_API_KEY,
+  guards,
+  notifier,
+});
+generationJobs.startSweeper();
+
 // Travel Crew routes (invites, join requests and approvals, crew list, guest view)
 registerCrewRoutes(app, {
   supabaseUrl: SUPABASE_URL,
@@ -72,9 +86,10 @@ app.get("/health", (req, res) => {
 });
 
 // Generate itinerary endpoint.
-// The client saves the trip as pending first, then calls this with its id. We reply
-// 202 right away and generate in the background, writing the result back to the trip
-// row — so the itinerary still lands on the dashboard if the user leaves the page.
+// The client saves the trip as pending first, then calls this with its id. We record a
+// generation job, reply 202 right away and generate in the background, writing the result
+// back to the trip row — so the itinerary still lands on the dashboard if the user leaves the
+// page, and is retried (or marked failed) if the server restarts meanwhile.
 app.post("/api/generate-itinerary", async (req, res) => {
   const { tripId } = req.body;
   const token = req.headers.authorization?.replace(/^Bearer /, "");
@@ -121,42 +136,25 @@ app.post("/api/generate-itinerary", async (req, res) => {
     });
   }
 
-  // Per-account daily cap; released below if generation fails, so failures don't count
+  // Someone double-clicked, or a retry arrived while the first run is still going
+  if (await generationJobs.isRunning(trip.id)) {
+    return res.status(409).json({ error: "This itinerary is already being generated" });
+  }
+
+  // Per-account daily cap; given back if generation fails, so failures don't count
   const reservation = await guards.reserveGeneration(user.id, trip.id);
   if (reservation.error) {
     return res.status(reservation.status).json({ error: reservation.error });
   }
 
-  res.status(202).json({ status: "pending" });
-
+  // Recorded as a job before replying, so it survives a server restart (server/generationJobs.js)
   try {
-    // Food spots and homebase locations are prepared alongside the itinerary, so the
-    // Food Spots tab (list, distances, map) is ready when the trip is
-    const geoapifyKey = process.env.GEOAPIFY_API_KEY;
-    const [itinerary, foodSpots, homebases] = await Promise.all([
-      generateItinerary(formData, ANTHROPIC_API_KEY),
-      foodSpotsForTrip(formData, { anthropicKey: ANTHROPIC_API_KEY, geoapifyKey }),
-      homebasesForTrip(formData, geoapifyKey),
-    ]);
-    await patchItineraryData(supabase, tripId, {
-      ...itinerary,
-      _status: "ready",
-      _food_spots: foodSpots,
-      _homebases: homebases,
-    });
-    await notifier.notify(user.id, "itinerary_ready", { tripId, data: { destination: trip.destination } });
+    await generationJobs.start({ tripId: trip.id, userId: user.id, reservationId: reservation.id });
   } catch (err) {
-    console.error("Itinerary generation failed:", err);
-    await guards.releaseGeneration(reservation.id).catch((releaseErr) =>
-      console.error("Couldn't release generation for trip", tripId, releaseErr)
-    );
-    // The response has already been sent, so a failure here can only be logged
-    await patchItineraryData(supabase, tripId, {
-      _status: "failed",
-      _error: err.message || "Generation failed",
-    }).catch((saveErr) => console.error("Couldn't mark trip as failed:", tripId, saveErr));
-    await notifier.notify(user.id, "itinerary_failed", { tripId, data: { destination: trip.destination } });
+    await guards.releaseGeneration(reservation.id).catch(() => {});
+    return res.status(500).json({ error: err.message });
   }
+  res.status(202).json({ status: "pending" });
 });
 
 function checkAiConfig() {
@@ -173,33 +171,6 @@ function supabaseAsUser(token) {
   });
 }
 
-// Merges `patch` into the trip's itinerary_data, re-reading the row right before writing so
-// changes made while we were working (e.g. the user editing reservations, which live in
-// _form_data) aren't overwritten. Returns the merged data; throws if it couldn't save.
-async function patchItineraryData(supabase, tripId, patch) {
-  const { data: row, error: readError } = await supabase
-    .from("trips")
-    .select("itinerary_data")
-    .eq("id", tripId)
-    .single();
-  if (readError) {
-    throw new Error(`Couldn't read trip ${tripId}: ${readError.message}`);
-  }
-  const merged = { ...row.itinerary_data, ...patch };
-  // An update blocked by row-level security returns no error, just no rows, so check both
-  const { data: updated, error } = await supabase
-    .from("trips")
-    .update({ itinerary_data: merged })
-    .eq("id", tripId)
-    .select("id");
-  if (error) {
-    throw new Error(`Couldn't save trip ${tripId}: ${error.message}`);
-  }
-  if (!updated?.length) {
-    throw new Error(`Couldn't save trip ${tripId}: no row was updated`);
-  }
-  return merged;
-}
 
 // Food spots for one city of a trip. The first call returns 12 places; each later call
 // adds 10 more, skipping ones already listed. Also looks up the city's homebase location
