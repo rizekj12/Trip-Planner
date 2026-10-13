@@ -54,16 +54,29 @@ app.post("/api/generate-itinerary", async (req, res) => {
   }
 
   const supabase = supabaseAsUser(token);
+  const { data: { user } = {} } = await supabase.auth.getUser(token);
 
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, itinerary_data")
+    .select("id, user_id, itinerary_data")
     .eq("id", tripId)
     .single();
 
   const formData = trip?.itinerary_data?._form_data;
   if (error || !formData) {
     return res.status(404).json({ error: "Trip not found" });
+  }
+
+  // Travel partners can read shared trips, so being able to read it isn't enough: only the
+  // owner may spend Claude calls on it
+  if (!user || trip.user_id !== user.id) {
+    return res.status(403).json({ error: "Only the trip's owner can generate its itinerary" });
+  }
+
+  // A trip is generated once; the client marks it pending (new or retry) before calling this
+  const status = trip.itinerary_data?._status;
+  if (status !== "pending" && status !== "failed") {
+    return res.status(409).json({ error: "This trip's itinerary has already been generated" });
   }
 
   // Enforced here, not just in the questionnaire, since the browser can be bypassed
@@ -95,10 +108,11 @@ app.post("/api/generate-itinerary", async (req, res) => {
     });
   } catch (err) {
     console.error("Itinerary generation failed:", err);
+    // The response has already been sent, so a failure here can only be logged
     await patchItineraryData(supabase, tripId, {
       _status: "failed",
       _error: err.message || "Generation failed",
-    });
+    }).catch((saveErr) => console.error("Couldn't mark trip as failed:", tripId, saveErr));
   }
 });
 
@@ -118,7 +132,7 @@ function supabaseAsUser(token) {
 
 // Merges `patch` into the trip's itinerary_data, re-reading the row right before writing so
 // changes made while we were working (e.g. the user editing reservations, which live in
-// _form_data) aren't overwritten. Returns the merged data, or null if it couldn't save.
+// _form_data) aren't overwritten. Returns the merged data; throws if it couldn't save.
 async function patchItineraryData(supabase, tripId, patch) {
   const { data: row, error: readError } = await supabase
     .from("trips")
@@ -126,14 +140,20 @@ async function patchItineraryData(supabase, tripId, patch) {
     .eq("id", tripId)
     .single();
   if (readError) {
-    console.error("Failed to read trip", tripId, readError);
-    return null;
+    throw new Error(`Couldn't read trip ${tripId}: ${readError.message}`);
   }
   const merged = { ...row.itinerary_data, ...patch };
-  const { error } = await supabase.from("trips").update({ itinerary_data: merged }).eq("id", tripId);
+  // An update blocked by row-level security returns no error, just no rows, so check both
+  const { data: updated, error } = await supabase
+    .from("trips")
+    .update({ itinerary_data: merged })
+    .eq("id", tripId)
+    .select("id");
   if (error) {
-    console.error("Failed to save trip", tripId, error);
-    return null;
+    throw new Error(`Couldn't save trip ${tripId}: ${error.message}`);
+  }
+  if (!updated?.length) {
+    throw new Error(`Couldn't save trip ${tripId}: no row was updated`);
   }
   return merged;
 }
@@ -154,14 +174,20 @@ app.post("/api/food-spots", async (req, res) => {
   }
 
   const supabase = supabaseAsUser(token);
+  const { data: { user } = {} } = await supabase.auth.getUser(token);
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, itinerary_data")
+    .select("id, user_id, itinerary_data")
     .eq("id", tripId)
     .single();
 
   const data = trip?.itinerary_data;
   if (error || !data) return res.status(404).json({ error: "Trip not found" });
+
+  // Travel partners can read shared trips; only the owner may spend Claude calls on it
+  if (!user || trip.user_id !== user.id) {
+    return res.status(403).json({ error: "Only the trip's owner can load more food spots" });
+  }
 
   // Only cities in this trip, so the endpoint can't be used for arbitrary prompts
   const tripCities = (data._form_data?.cities || []).map((c) => c.name).filter(Boolean);
@@ -271,7 +297,13 @@ async function fillMissingFoodSpots(supabase, trip) {
 
   await Promise.all(tasks);
   const patch = { _food_spots: foodSpots, _homebases: homebases };
-  trip.itinerary_data = (await patchItineraryData(supabase, trip.id, patch)) || { ...data, ...patch };
+  try {
+    trip.itinerary_data = await patchItineraryData(supabase, trip.id, patch);
+  } catch (err) {
+    // Still use what was fetched for this PDF; it'll be fetched again next time
+    console.error("Failed to save food spots for trip", trip.id, err);
+    trip.itinerary_data = { ...data, ...patch };
+  }
 }
 
 // Hotel search endpoint
