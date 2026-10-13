@@ -67,7 +67,7 @@ A single-page app in [`src/`](src/).
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
 | [`server/generationJobs.js`](server/generationJobs.js) | Runs itinerary generation as a job that survives restarts: heartbeat, 10-minute timeout, and a sweeper that retries or fails jobs a stopped server left behind |
-| [`shared/tripLength.js`](shared/tripLength.js) | Trip length and the 14-day limit, used by both the questionnaire and the server so they always agree (tests: `npm test`) |
+| [`shared/tripLength.js`](shared/tripLength.js) | Trip length and the 14-day limit, used by both the questionnaire and the server so they always agree (tests: `npm test`, run by Vitest) |
 | [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, and removing people |
@@ -213,7 +213,8 @@ Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/gene
 ```bash
 npm install
 npm run dev:all   # Express API on :3001 (auto-restarts on save) + Vite on :3000
-npm test          # unit tests (Node's built-in test runner)
+npm run lint      # ESLint (errors fail CI; warnings don't)
+npm test          # unit and component tests (Vitest); npm run test:watch re-runs on save
 ```
 
 ## Deploying (Railway)

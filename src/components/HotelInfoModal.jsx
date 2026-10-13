@@ -45,7 +45,6 @@ function HotelInfo({ hotel, onClose }) {
 
             {/* Image */}
             <div className="aspect-video w-full bg-zinc-100">
-                {/* eslint-disable-next-line jsx-a11y/alt-text */}
                 <img
                     src={imgSrc}
                     alt={hotel.title}

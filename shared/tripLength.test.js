@@ -1,5 +1,5 @@
 // Run with: npm test
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { tripLengthDays, isAllowedTripLength, addDays, latestCheckOut, MAX_TRIP_DAYS } from "./tripLength.js";
 

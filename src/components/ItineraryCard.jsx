@@ -35,6 +35,7 @@ export default function ItineraryCard({ day, spots }) {
             className="mt-2 inline-block rounded-lg bg-indigo-600 px-3 py-1 text-white hover:opacity-90"
             href={gmaps(day.hotel.name + " " + day.hotel.address)}
             target="_blank"
+            rel="noreferrer"
           >
             Open Hotel in Maps
           </a>
