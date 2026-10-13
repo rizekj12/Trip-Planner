@@ -101,6 +101,9 @@ export const getInvite = (token) => apiJson("GET", `/api/invites/${token}`);
 export const joinTrip = (token, guest) => apiJson("POST", `/api/invites/${token}/join`, guest || {}, { auth: !guest });
 export const getGuestTrip = (guestToken) => apiJson("GET", `/api/guest/${guestToken}`);
 
+// Signed-in GET to our API (hotel search, address checks), parsed as JSON
+export const apiGet = (path) => apiJson("GET", path, null, { auth: true });
+
 async function apiJson(method, path, body, options) {
   const response = await apiRequest(method, path, body, options);
   return response.json().catch(() => ({}));

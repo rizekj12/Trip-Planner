@@ -17,6 +17,7 @@ import { addFoodSpots, foodSpotsForTrip } from "./foodSpots.js";
 import { geocodeCity, locateHomebase, homebasesForTrip } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
+import { createGuards } from "./limits.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -24,9 +25,33 @@ const PORT = process.env.PORT || 3001;
 // The built frontend (npm run build). Served by this server in production.
 const DIST_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist");
 
+// Browsers may only call the API from these origins (CORS_ORIGINS, comma-separated). In
+// production the app is served from the same origin as the API, so this is mainly for local
+// development, where Vite runs on :3000 and the API on :3001.
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+// One proxy (Railway's) sits in front of the app, so req.ip is the visitor's address
+app.set("trust proxy", 1);
+
 // Middleware
-app.use(cors());
+app.use(cors({ origin: CORS_ORIGINS }));
 app.use(express.json());
+
+// Who is calling, rate limits, and the daily itinerary cap (server/limits.js)
+const guards = createGuards({
+  supabaseUrl: SUPABASE_URL,
+  anonKey: SUPABASE_ANON_KEY,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+});
+app.use("/api", guards.identify, guards.limits.api);
+app.use(["/api/generate-itinerary", "/api/food-spots", "/api/trip-pdf"], guards.limits.ai);
+app.use(["/api/invites", "/api/guest"], guards.limits.public);
+// Geoapify lookups are only used from the signed-in questionnaire; without this, anyone
+// could use the server as a free proxy and exhaust the quota
+app.use(["/api/search-hotels", "/api/validate-address"], guards.requireUser, guards.limits.geo);
 
 // Travel Crew routes (invites, joining, crew list, guest view)
 registerCrewRoutes(app, {
@@ -89,6 +114,12 @@ app.post("/api/generate-itinerary", async (req, res) => {
     });
   }
 
+  // Per-account daily cap; released below if generation fails, so failures don't count
+  const reservation = await guards.reserveGeneration(user.id, trip.id);
+  if (reservation.error) {
+    return res.status(reservation.status).json({ error: reservation.error });
+  }
+
   res.status(202).json({ status: "pending" });
 
   try {
@@ -108,6 +139,9 @@ app.post("/api/generate-itinerary", async (req, res) => {
     });
   } catch (err) {
     console.error("Itinerary generation failed:", err);
+    await guards.releaseGeneration(reservation.id).catch((releaseErr) =>
+      console.error("Couldn't release generation for trip", tripId, releaseErr)
+    );
     // The response has already been sent, so a failure here can only be logged
     await patchItineraryData(supabase, tripId, {
       _status: "failed",

@@ -63,6 +63,7 @@ A single-page app in [`src/`](src/).
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
+| [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links, joining as a member or guest, the crew list, the guest's view-only trip, and removing people |
 
 ## Architecture
@@ -186,11 +187,13 @@ ANTHROPIC_API_KEY=...
 GEOAPIFY_API_KEY=...
 # Server only (Supabase → Project Settings → API → service_role). Never prefix with VITE_.
 SUPABASE_SERVICE_ROLE_KEY=...
+# Optional: origins allowed to call the API from a browser (default: localhost:3000)
+# CORS_ORIGINS=http://localhost:3000
 # Optional: use sample data instead of calling Claude
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql) once in Supabase's SQL Editor (it creates the Travel Crew tables and sharing rules). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql) and [`supabase/generation-limits.sql`](supabase/generation-limits.sql) once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, and the log behind the daily itinerary cap). Then:
 
 ```bash
 npm install
