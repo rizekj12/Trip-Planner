@@ -31,8 +31,10 @@ async function upsertTrip(id, formData, extra) {
   return data;
 }
 
-// A pending trip older than this is treated as failed (e.g. the server restarted mid-generation)
-const PENDING_TIMEOUT_MS = 10 * 60 * 1000;
+// A pending trip older than this is shown as failed. Only a last resort: the server itself
+// retries generation after a restart and marks the trip failed in the database (issue #29),
+// well within this time (10 minutes per attempt, two attempts).
+const PENDING_TIMEOUT_MS = 30 * 60 * 1000;
 
 // "draft" | "pending" | "ready" | "failed" — stored inside itinerary_data so no schema change is needed.
 // Rows saved before statuses existed have no _status and count as ready.

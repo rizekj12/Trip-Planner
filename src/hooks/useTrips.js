@@ -1,27 +1,59 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../utils/supabase";
 import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData, markPdfDownloaded } from "../utils/trips";
 import { startGeneration, loadMoreFoodSpots, downloadTripPdf } from "../utils/aiService";
 
-// How often to re-check while an itinerary is being generated
-const PENDING_POLL_MS = 4000;
+// While an itinerary is being generated, Supabase Realtime tells us the moment the trip row
+// changes; polling this often is only a fallback (e.g. if Realtime is blocked or not enabled)
+const PENDING_POLL_MS = 15_000;
 
 export function useTrips() {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["trips"],
     queryFn: fetchTrips,
     refetchInterval: (query) =>
       query.state.data?.some((t) => tripStatus(t) === "pending") ? PENDING_POLL_MS : false,
   });
+  useLiveUpdates((query.data || []).filter((t) => tripStatus(t) === "pending").map((t) => t.id));
+  return query;
 }
 
 export function useTrip(id) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ["trip", id],
     queryFn: () => fetchTrip(id),
     enabled: !!id,
     refetchInterval: (query) =>
       tripStatus(query.state.data) === "pending" ? PENDING_POLL_MS : false,
   });
+  useLiveUpdates(tripStatus(query.data) === "pending" ? [id] : []);
+  return query;
+}
+
+// Refetches as soon as any of these trips' rows change (e.g. generation finished)
+let channelCount = 0;
+function useLiveUpdates(tripIds) {
+  const qc = useQueryClient();
+  const key = [...tripIds].sort().join(",");
+  useEffect(() => {
+    if (!key) return;
+    const ids = key.split(",");
+    const channel = supabase
+      .channel(`trip-updates-${++channelCount}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "trips", filter: `id=in.(${ids.join(",")})` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["trips"] });
+          qc.invalidateQueries({ queryKey: ["trip"] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [key, qc]);
 }
 
 export function useDeleteTrip() {

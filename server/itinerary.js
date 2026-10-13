@@ -193,7 +193,8 @@ function parseItineraryResponse(message) {
   }
 }
 
-export async function generateItinerary(formData, apiKey) {
+// `signal` (an AbortSignal) stops the request, e.g. when generation runs too long
+export async function generateItinerary(formData, apiKey, { signal } = {}) {
   const client = new Anthropic({ apiKey });
   // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count
   // against max_tokens, so leave plenty of room for a multi-day itinerary.
@@ -202,7 +203,7 @@ export async function generateItinerary(formData, apiKey) {
       model: "claude-sonnet-5",
       max_tokens: 64000,
       messages: [{ role: "user", content: buildPrompt(formData) }],
-    })
+    }, { signal })
     .finalMessage();
 
   console.log("Itinerary response:", message.stop_reason, message.usage);

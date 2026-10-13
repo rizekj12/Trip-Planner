@@ -40,7 +40,7 @@ function parseSpots(message) {
   return spots.filter((s) => s?.name);
 }
 
-async function generateFoodSpots({ city, country, count, exclude, apiKey }) {
+async function generateFoodSpots({ city, country, count, exclude, apiKey, signal }) {
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
     model: "claude-sonnet-5",
@@ -48,7 +48,7 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey }) {
     // Recalling well-known restaurants doesn't need deep reasoning; low effort keeps it fast
     output_config: { effort: "low" },
     messages: [{ role: "user", content: buildPrompt({ city, country, count, exclude }) }],
-  });
+  }, { signal });
 
   console.log("Food spots response:", message.stop_reason, message.usage);
   if (message.stop_reason === "max_tokens") throw new Error("The list got cut off. Please try again.");
@@ -66,13 +66,14 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey }) {
 
 // Next batch for one city (12 the first time, then 10 more), with map coordinates from
 // Geoapify for any spot not looked up yet. Returns the city's full list.
-export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey }) {
+export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal }) {
   const spots = await generateFoodSpots({
     city,
     country,
     count: existing.length ? 10 : 12,
     exclude: existing.map((s) => s.name),
     apiKey: anthropicKey,
+    signal,
   });
   return locatePlaces([...existing, ...spots], { city, country }, geoapifyKey);
 }
