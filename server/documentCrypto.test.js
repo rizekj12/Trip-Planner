@@ -48,6 +48,19 @@ describe("document encryption", () => {
     expect(rotated.isStale(fresh)).toBe(false);
   });
 
+  test("files round-trip and are bound to their owner and document", () => {
+    const file = Buffer.from("%PDF-1.7 passport X12345678");
+    const stored = crypt.encryptFile(file, "user-a", "doc-1");
+    expect(stored.toString("latin1")).not.toContain("X12345678");
+    expect(stored.subarray(0, 3).toString()).toBe("v1:");
+    expect(crypt.decryptFile(stored, "user-a", "doc-1")).toEqual(file);
+    expect(() => crypt.decryptFile(stored, "user-a", "doc-2")).toThrow();
+    expect(() => crypt.decryptFile(stored, "user-b", "doc-1")).toThrow();
+    const tampered = Buffer.from(stored);
+    tampered[tampered.length - 1] ^= 1;
+    expect(() => crypt.decryptFile(tampered, "user-a", "doc-1")).toThrow();
+  });
+
   test("not configured: refuses to encrypt rather than storing plain text", () => {
     const none = createDocumentCrypto(undefined);
     expect(none.ready).toBe(false);

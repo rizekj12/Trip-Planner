@@ -8,7 +8,8 @@ import { db } from "./test/fakeSupabase.js";
 import { OWNER, MEMBER, USERS, TOKENS, auth } from "./test/fixtures.js";
 
 vi.mock("@supabase/supabase-js", async () => (await import("./test/fakeSupabase.js")).supabaseModule);
-const { registerTravelDocumentRoutes, cleanDocument, lastFour, MAX_DOCUMENTS } = await import("./travelDocuments.js");
+const { registerTravelDocumentRoutes, cleanDocument, lastFour, cleanFileName, MAX_DOCUMENTS, ATTACHMENT_BUCKET, MAX_ATTACHMENT_BYTES } = await import("./travelDocuments.js");
+const { JPEG_WITH_GPS, PDF } = await import("./test/sampleFiles.js");
 
 const KEYS = `1:${crypto.randomBytes(32).toString("base64")}`;
 const appWith = (encryptionKeys) => {
@@ -138,6 +139,13 @@ describe("changing", () => {
 });
 
 describe("helpers", () => {
+  test("cleanFileName drops folders and unsafe characters", () => {
+    expect(cleanFileName(encodeURIComponent("../../etc/pass\u0001wd.jpg"))).toBe("passwd.jpg");
+    expect(cleanFileName("C:\\Users\\me\\pass<port>.PNG")).toBe("passport.PNG");
+    expect(cleanFileName("", "application/pdf")).toBe("document.pdf");
+    expect(cleanFileName("x".repeat(300))).toHaveLength(100);
+  });
+
   test("lastFour ignores spaces and dashes", () => {
     expect(lastFour("AB-12 3456")).toBe("3456");
     expect(lastFour("12")).toBe("12");
@@ -147,5 +155,83 @@ describe("helpers", () => {
     expect(cleanDocument({ label: "x" }, { partial: true }).number).toBeUndefined();
     expect(cleanDocument({ number: "" }, { partial: true }).number).toBeNull();
     expect(cleanDocument({ kind: "passport", number: " X1 " }).number).toBe("X1");
+  });
+});
+
+describe("attachments", () => {
+  const upload = (id, body, { token = "token-owner", name = "passport.jpg", type = "image/jpeg" } = {}) =>
+    request(app).put(`/api/documents/${id}/attachment`).set(auth(token)).set("Content-Type", type).set("X-File-Name", encodeURIComponent(name)).send(body);
+  const files = () => db.files(ATTACHMENT_BUCKET);
+
+  test("a photo is stored encrypted, without its metadata, and only its owner can open it", async () => {
+    const { body: doc } = await add();
+    const res = await upload(doc.id, JPEG_WITH_GPS);
+    expect(res.status).toBe(200);
+    expect(res.body.attachment).toMatchObject({ type: "image/jpeg", name: "passport.jpg" });
+    expect(res.text).not.toContain(OWNER.id); // the storage path isn't revealed
+
+    // In storage: encrypted (no JPEG bytes, no GPS) under the owner's folder
+    const stored = files()[`${OWNER.id}/${doc.id}`];
+    expect(stored.body.toString("latin1")).not.toMatch(/GPS-LAT|IMAGE-DATA|JFIF/);
+    expect(stored.contentType).toBe("application/octet-stream");
+
+    const view = await request(app).get(`/api/documents/${doc.id}/attachment`).set(auth("token-owner")).buffer(true).parse((r, cb) => {
+      const parts = [];
+      r.on("data", (c) => parts.push(c));
+      r.on("end", () => cb(null, Buffer.concat(parts)));
+    });
+    expect(view.status).toBe(200);
+    expect(view.headers["content-type"]).toBe("image/jpeg");
+    expect(view.headers["cache-control"]).toBe("no-store");
+    expect(view.body.toString("latin1")).toContain("IMAGE-DATA-BYTES");
+    expect(view.body.toString("latin1")).not.toContain("GPS-LAT");
+
+    // Nobody else
+    expect((await request(app).get(`/api/documents/${doc.id}/attachment`).set(auth("token-member"))).status).toBe(404);
+    expect((await request(app).get(`/api/documents/${doc.id}/attachment`)).status).toBe(401);
+  });
+
+  test("someone else can't attach to, or remove, another person's document", async () => {
+    const { body: doc } = await add();
+    expect((await upload(doc.id, PDF, { token: "token-member", type: "application/pdf" })).status).toBe(404);
+    expect((await request(app).delete(`/api/documents/${doc.id}/attachment`).set(auth("token-member"))).status).toBe(404);
+    expect(files()).toEqual({});
+  });
+
+  test("only JPEG, PNG and PDF, checked by content", async () => {
+    const { body: doc } = await add();
+    const fake = await upload(doc.id, Buffer.from("<svg onload=alert(1)>"), { name: "x.jpg" });
+    expect(fake.status).toBe(415);
+    expect(files()).toEqual({});
+  });
+
+  test("at most 10 MB", async () => {
+    const { body: doc } = await add();
+    const big = Buffer.concat([PDF, Buffer.alloc(MAX_ATTACHMENT_BYTES)]);
+    expect((await upload(doc.id, big, { type: "application/pdf" })).status).toBe(413);
+  });
+
+  test("replacing keeps one file; removing the attachment or the document deletes it", async () => {
+    const { body: doc } = await add();
+    await upload(doc.id, JPEG_WITH_GPS);
+    await upload(doc.id, PDF, { name: "scan.pdf", type: "application/pdf" });
+    expect(Object.keys(files())).toHaveLength(1);
+    expect(rows()[0]).toMatchObject({ attachment_type: "application/pdf", attachment_name: "scan.pdf" });
+
+    const removed = await request(app).delete(`/api/documents/${doc.id}/attachment`).set(auth("token-owner"));
+    expect(removed.body.attachment).toBeNull();
+    expect(files()).toEqual({});
+
+    await upload(doc.id, PDF, { type: "application/pdf" });
+    await request(app).delete(`/api/documents/${doc.id}`).set(auth("token-owner"));
+    expect(files()).toEqual({});
+  });
+
+  test("without an encryption key, nothing is stored", async () => {
+    const plainApp = appWith(undefined);
+    const { body: doc } = await request(plainApp).post("/api/documents").set(auth("token-owner")).send({ kind: "insurance", label: "Acme" });
+    const res = await request(plainApp).put(`/api/documents/${doc.id}/attachment`).set(auth("token-owner")).set("Content-Type", "application/pdf").send(PDF);
+    expect(res.status).toBe(503);
+    expect(files()).toEqual({});
   });
 });
