@@ -1,8 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Plus, Lock, Pencil, Eye, EyeOff, Loader2, IdCard, Plane, ShieldCheck, Car, Stamp, Syringe, FileText, BadgeCheck } from "lucide-react";
+import { Plus, Lock, Pencil, Eye, EyeOff, Loader2, IdCard, Plane, ShieldCheck, Car, Stamp, Syringe, FileText, BadgeCheck, Paperclip, X, ExternalLink } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import Modal from "../Modal";
 import { useDocuments, useSaveDocument, useDeleteDocument } from "../../hooks/useProfile";
-import { DOCUMENT_KINDS, maskNumber, expiryStatus, revealDocumentNumber } from "../../utils/profile";
+import {
+  DOCUMENT_KINDS, maskNumber, expiryStatus, revealDocumentNumber,
+  uploadDocumentAttachment, removeDocumentAttachment, fetchDocumentAttachment,
+} from "../../utils/profile";
+import { prepareAttachment, formatSize } from "../../utils/attachmentFile";
 import { Field, SectionHeading, Pill, fieldClass, primaryButton, secondaryButton } from "./ProfileUI";
 
 const KIND_STYLE = {
@@ -25,6 +30,7 @@ const REVEAL_MS = 60 * 1000;
 export default function DocumentsSection() {
   const documents = useDocuments();
   const [editing, setEditing] = useState(null); // a document, {} for a new one, or null
+  const [viewing, setViewing] = useState(null); // the document whose attachment is open
   const docs = documents.data || [];
 
   // Full numbers are fetched (decrypted by the server) only when "Show" is pressed, kept in
@@ -112,6 +118,16 @@ export default function DocumentsSection() {
                     {visible ? "Hide" : "Show"}
                   </button>
                 )}
+                {doc.attachment && (
+                  <button
+                    onClick={() => setViewing(doc)}
+                    className={`${secondaryButton} min-h-[40px] px-3 py-2 text-sm`}
+                    aria-label={`Open the ${kind.label} attachment`}
+                  >
+                    <Paperclip size={15} />
+                    File
+                  </button>
+                )}
                 <button
                   onClick={() => setEditing(doc)}
                   className={`${secondaryButton} min-h-[40px] w-10 px-0 py-2`}
@@ -147,6 +163,7 @@ export default function DocumentsSection() {
       )}
 
       <DocumentModal document={editing} onClose={() => setEditing(null)} />
+      <AttachmentViewer document={viewing} onClose={() => setViewing(null)} />
     </div>
   );
 }
@@ -161,9 +178,97 @@ function DocumentModal({ document, onClose }) {
   );
 }
 
+// A document's photo or PDF, fetched (decrypted by the server) only while open. Photos show
+// inline; PDFs open in a new tab. The file lives in memory only and is let go on close.
+function AttachmentViewer({ document, onClose }) {
+  const [state, setState] = useState({ url: null, error: "" });
+  useEffect(() => {
+    if (!document?.attachment) return undefined;
+    let url = null;
+    let cancelled = false;
+    setState({ url: null, error: "" });
+    fetchDocumentAttachment(document.id)
+      .then((blob) => {
+        url = URL.createObjectURL(blob);
+        if (cancelled) URL.revokeObjectURL(url);
+        else setState({ url, error: "" });
+      })
+      .catch((err) => !cancelled && setState({ url: null, error: err.message }));
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [document]);
+
+  const attachment = document?.attachment;
+  const kind = document && (DOCUMENT_KINDS[document.kind] || DOCUMENT_KINDS.other);
+  return (
+    <Modal open={!!attachment} onClose={onClose} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto p-4 sm:p-6">
+      {attachment && (
+        <div>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-lg font-extrabold text-slate-900">{kind.label}</h2>
+              <p className="truncate text-sm text-slate-600">
+                {attachment.name} · {formatSize(attachment.size)}
+              </p>
+            </div>
+            <button onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
+          {state.error ? (
+            <p className="text-sm text-red-600">{state.error}</p>
+          ) : !state.url ? (
+            <div className="py-16 text-center text-slate-400">
+              <Loader2 className="mx-auto animate-spin" />
+            </div>
+          ) : attachment.type === "application/pdf" ? (
+            <a href={state.url} target="_blank" rel="noreferrer" className={`${primaryButton} w-full`}>
+              <ExternalLink size={16} />
+              Open PDF
+            </a>
+          ) : (
+            <img src={state.url} alt={`${kind.label} attachment`} className="mx-auto max-h-[70vh] w-auto rounded-xl" />
+          )}
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-slate-500">
+            <Lock size={12} aria-hidden="true" /> Stored encrypted. Only you can open it.
+          </p>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function DocumentForm({ document, onClose }) {
   const save = useSaveDocument();
   const remove = useDeleteDocument();
+  const qc = useQueryClient();
+  const [file, setFile] = useState(null); // prepared File to upload
+  const [fileError, setFileError] = useState("");
+  const [preparing, setPreparing] = useState(false);
+  const [removeFile, setRemoveFile] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  // Once created, later attempts (e.g. after a failed upload) update it instead of adding another
+  const [savedId, setSavedId] = useState(document.id || null);
+
+  const chooseFile = async (e) => {
+    const chosen = e.target.files?.[0];
+    e.target.value = "";
+    if (!chosen) return;
+    setFileError("");
+    setPreparing(true);
+    try {
+      setFile(await prepareAttachment(chosen));
+      setRemoveFile(false);
+    } catch (err) {
+      setFile(null);
+      setFileError(err.message);
+    } finally {
+      setPreparing(false);
+    }
+  };
   const [form, setForm] = useState({
     kind: document.kind || "passport",
     label: document.label || "",
@@ -175,23 +280,34 @@ function DocumentForm({ document, onClose }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const kind = DOCUMENT_KINDS[form.kind];
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    save.mutate(
-      {
-        id: document.id,
+    setBusy(true);
+    setSubmitError("");
+    try {
+      const saved = await save.mutateAsync({
+        id: savedId || undefined,
         kind: form.kind,
         label: form.label.trim() || null,
         // A typed number replaces the saved one; blank keeps it (or removes it if asked)
         ...(form.number.trim() ? { number: form.number.trim() } : form.removeNumber ? { number: "" } : {}),
         expires_on: form.expires_on || null,
         notes: form.notes.trim() || null,
-      },
-      { onSuccess: onClose }
-    );
+      });
+      setSavedId(saved.id);
+      if (file) await uploadDocumentAttachment(saved.id, file);
+      else if (removeFile && document.attachment) await removeDocumentAttachment(saved.id);
+      await qc.invalidateQueries({ queryKey: ["documents"] });
+      onClose();
+    } catch (err) {
+      await qc.invalidateQueries({ queryKey: ["documents"] });
+      setSubmitError(err.message || "Couldn't save. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const error = save.error || remove.error;
+  const error = submitError ? { message: submitError } : remove.error;
   return (
     <form onSubmit={submit}>
       <h2 className="text-lg font-extrabold text-slate-900">{document.id ? `Edit ${kind.label.toLowerCase()}` : "Add a travel document"}</h2>
@@ -240,6 +356,36 @@ function DocumentForm({ document, onClose }) {
             </label>
           )}
         </Field>
+        <Field
+          label="Photo or PDF (optional)"
+          htmlFor="doc-file"
+          hint="Up to 10 MB. Photos are cleaned of location data. Stored encrypted, only you can open it."
+        >
+          {document.attachment && !file && (
+            <div className={`mb-2 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm ${removeFile ? "text-slate-400 line-through" : "text-slate-700"}`}>
+              <Paperclip size={15} aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{document.attachment.name} · {formatSize(document.attachment.size)}</span>
+              <button type="button" onClick={() => setRemoveFile((r) => !r)} className="font-bold text-red-600 no-underline hover:underline">
+                {removeFile ? "Keep" : "Remove"}
+              </button>
+            </div>
+          )}
+          {file && (
+            <div className="mb-2 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
+              <Paperclip size={15} aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{file.name} · {formatSize(file.size)}</span>
+              <button type="button" onClick={() => setFile(null)} className="rounded p-1 hover:bg-violet-100" aria-label="Don't attach this file">
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          <label className={`${secondaryButton} w-full cursor-pointer`}>
+            {preparing ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+            {preparing ? "Preparing…" : document.attachment || file ? "Choose a different file" : "Attach a photo or PDF"}
+            <input id="doc-file" type="file" accept="image/*,application/pdf" onChange={chooseFile} className="sr-only" />
+          </label>
+          {fileError && <p className="mt-1.5 text-sm text-red-600">{fileError}</p>}
+        </Field>
         <Field label="Expires (optional)" htmlFor="doc-expires">
           <input id="doc-expires" type="date" className={fieldClass} value={form.expires_on} onChange={set("expires_on")} />
         </Field>
@@ -273,9 +419,9 @@ function DocumentForm({ document, onClose }) {
         )}
         <div className="flex gap-2">
           <button type="button" onClick={onClose} className={secondaryButton}>Cancel</button>
-          <button type="submit" disabled={save.isPending} className={primaryButton}>
-            {save.isPending && <Loader2 size={16} className="animate-spin" />}
-            Save
+          <button type="submit" disabled={busy || preparing} className={primaryButton}>
+            {busy && <Loader2 size={16} className="animate-spin" />}
+            {busy && file ? "Uploading…" : "Save"}
           </button>
         </div>
       </div>
