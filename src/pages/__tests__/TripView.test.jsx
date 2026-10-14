@@ -13,6 +13,7 @@ vi.mock("../../components/FoodSpotsPanel", () => ({ default: () => <div>Food pan
 vi.mock("../../components/reservations/ReservationsPanel", () => ({ default: () => <div>Reservations panel</div> }));
 vi.mock("../../components/reservations/MyReservationsPanel", () => ({ default: () => <div>My reservations panel</div> }));
 vi.mock("../../components/crew/CrewPanel", () => ({ default: () => <div>Crew panel</div> }));
+vi.mock("../../components/photos/PhotosPanel", () => ({ default: ({ days }) => <div>Photos panel ({days.length} days)</div> }));
 
 const { TripView } = await import("../TripPage");
 
@@ -96,6 +97,13 @@ describe("TripView", () => {
     expect(location.search).toBe("?section=food");
     fireEvent.click(screen.getByRole("button", { name: "Itinerary" }));
     expect(dayHeading()).toHaveTextContent("Arrival in Asakusa");
+  });
+
+  test("the Photos tab opens the shared album with the trip's days", () => {
+    renderAt("/trip/t1", "guest");
+    fireEvent.click(screen.getByRole("button", { name: "Photos" }));
+    expect(screen.getByText("Photos panel (3 days)")).toBeInTheDocument();
+    expect(location.search).toBe("?section=photos");
   });
 
   test("partners and guests get their own reservations tab and no organizer panel", () => {

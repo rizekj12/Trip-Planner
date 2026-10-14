@@ -8,6 +8,7 @@ import FoodSpotsPanel from "../components/FoodSpotsPanel";
 import ReservationsPanel from "../components/reservations/ReservationsPanel";
 import MyReservationsPanel from "../components/reservations/MyReservationsPanel";
 import CrewPanel from "../components/crew/CrewPanel";
+import PhotosPanel from "../components/photos/PhotosPanel";
 import TripHeader from "../components/trip/TripHeader";
 import DayStrip from "../components/trip/DayStrip";
 import DayDetails from "../components/trip/DayDetails";
@@ -111,6 +112,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
     { id: "days", label: "Itinerary" },
     { id: "events", label: "Local events" },
     { id: "food", label: "Food spots" },
+    { id: "photos", label: "Photos" },
     { id: "reservations", label: viewer === "owner" ? "Reservations" : "My reservations" },
     { id: "crew", label: "Travel crew" },
   ];
@@ -236,6 +238,8 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
               ) : (
                 <MyReservationsPanel tripId={tripId} guestToken={viewer === "guest" ? guestToken : undefined} />
               )
+            ) : section === "photos" ? (
+              <PhotosPanel tripId={tripId} guestToken={viewer === "guest" ? guestToken : undefined} days={days} />
             ) : section === "crew" ? (
               <CrewPanel tripId={tripId} destination={formData.country} crew={crew} />
             ) : (
