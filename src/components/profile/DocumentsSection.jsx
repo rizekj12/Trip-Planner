@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Plus, Lock, Pencil, Eye, EyeOff, Loader2, IdCard, Plane, ShieldCheck, Car, Stamp, Syringe, FileText, BadgeCheck } from "lucide-react";
 import Modal from "../Modal";
 import { useDocuments, useSaveDocument, useDeleteDocument } from "../../hooks/useProfile";
-import { DOCUMENT_KINDS, maskNumber, expiryStatus } from "../../utils/profile";
+import { DOCUMENT_KINDS, maskNumber, expiryStatus, revealDocumentNumber } from "../../utils/profile";
 import { Field, SectionHeading, Pill, fieldClass, primaryButton, secondaryButton } from "./ProfileUI";
 
 const KIND_STYLE = {
@@ -19,19 +19,40 @@ const KIND_STYLE = {
 const formatDate = (iso) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 
+const REVEAL_MS = 60 * 1000;
+
 // "Travel documents": passport, Known Traveler Number, insurance and so on, private to the user
 export default function DocumentsSection() {
   const documents = useDocuments();
   const [editing, setEditing] = useState(null); // a document, {} for a new one, or null
-  const [shown, setShown] = useState(() => new Set()); // ids whose full number is visible
   const docs = documents.data || [];
 
-  const toggleShown = (id) =>
-    setShown((s) => {
-      const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+  // Full numbers are fetched (decrypted by the server) only when "Show" is pressed, kept in
+  // memory only, and hidden again after a minute
+  const [revealed, setRevealed] = useState({}); // id -> full number
+  const [revealing, setRevealing] = useState(null); // id being fetched
+  const [revealError, setRevealError] = useState("");
+  const timers = useRef({});
+  useEffect(() => () => Object.values(timers.current).forEach(clearTimeout), []);
+
+  const hide = (id) => {
+    clearTimeout(timers.current[id]);
+    setRevealed(({ [id]: _hidden, ...rest }) => rest);
+  };
+  const toggleShown = async (id) => {
+    if (revealed[id] !== undefined) return hide(id);
+    setRevealing(id);
+    setRevealError("");
+    try {
+      const number = await revealDocumentNumber(id);
+      setRevealed((r) => ({ ...r, [id]: number || "" }));
+      timers.current[id] = setTimeout(() => hide(id), REVEAL_MS);
+    } catch (err) {
+      setRevealError(err.message);
+    } finally {
+      setRevealing(null);
+    }
+  };
 
   return (
     <div>
@@ -63,10 +84,10 @@ export default function DocumentsSection() {
             const kind = DOCUMENT_KINDS[doc.kind] || DOCUMENT_KINDS.other;
             const { Icon, className } = KIND_STYLE[doc.kind] || KIND_STYLE.other;
             const status = expiryStatus(doc);
-            const visible = shown.has(doc.id);
+            const visible = revealed[doc.id] !== undefined;
             const details = [
               doc.label,
-              doc.number && (visible ? doc.number : maskNumber(doc.number)),
+              doc.hasNumber && (visible ? revealed[doc.id] : maskNumber(doc.last4)),
               doc.expires_on && `Expires ${formatDate(doc.expires_on)}`,
             ].filter(Boolean);
             return (
@@ -80,13 +101,14 @@ export default function DocumentsSection() {
                   {doc.notes && <div className="mt-1 text-[13px] text-slate-500">{doc.notes}</div>}
                 </div>
                 <Pill tone={status.tone}>{status.text}</Pill>
-                {doc.number && (
+                {doc.hasNumber && (
                   <button
                     onClick={() => toggleShown(doc.id)}
+                    disabled={revealing === doc.id}
                     className={`${secondaryButton} min-h-[40px] px-3 py-2 text-sm`}
                     aria-label={`${visible ? "Hide" : "Show"} ${kind.label} number`}
                   >
-                    {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {revealing === doc.id ? <Loader2 size={15} className="animate-spin" /> : visible ? <EyeOff size={15} /> : <Eye size={15} />}
                     {visible ? "Hide" : "Show"}
                   </button>
                 )}
@@ -102,6 +124,8 @@ export default function DocumentsSection() {
           })}
         </ul>
       )}
+
+      {revealError && <p className="mt-3 text-sm text-red-600">{revealError}</p>}
 
       {!documents.isLoading && !documents.isError && (
         <button
@@ -143,7 +167,8 @@ function DocumentForm({ document, onClose }) {
   const [form, setForm] = useState({
     kind: document.kind || "passport",
     label: document.label || "",
-    number: document.number || "",
+    number: "", // never pre-filled: the saved number stays on the server unless replaced
+    removeNumber: false,
     expires_on: document.expires_on || "",
     notes: document.notes || "",
   });
@@ -157,7 +182,8 @@ function DocumentForm({ document, onClose }) {
         id: document.id,
         kind: form.kind,
         label: form.label.trim() || null,
-        number: form.number.trim() || null,
+        // A typed number replaces the saved one; blank keeps it (or removes it if asked)
+        ...(form.number.trim() ? { number: form.number.trim() } : form.removeNumber ? { number: "" } : {}),
         expires_on: form.expires_on || null,
         notes: form.notes.trim() || null,
       },
@@ -182,8 +208,37 @@ function DocumentForm({ document, onClose }) {
         <Field label={kind.labelField} htmlFor="doc-label">
           <input id="doc-label" className={fieldClass} value={form.label} onChange={set("label")} maxLength={100} />
         </Field>
-        <Field label={kind.numberField} htmlFor="doc-number">
-          <input id="doc-number" className={`${fieldClass} font-mono`} value={form.number} onChange={set("number")} maxLength={100} autoComplete="off" />
+        <Field
+          label={kind.numberField}
+          htmlFor="doc-number"
+          hint={
+            document.hasNumber
+              ? `Saved as ${maskNumber(document.last4)}. Leave blank to keep it.`
+              : "Encrypted before it's saved. Only you can see it."
+          }
+        >
+          <input
+            id="doc-number"
+            className={`${fieldClass} font-mono`}
+            value={form.number}
+            onChange={set("number")}
+            maxLength={100}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={form.removeNumber}
+            placeholder={document.hasNumber ? "Enter a new number to replace it" : ""}
+          />
+          {document.hasNumber && (
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.removeNumber}
+                onChange={(e) => setForm((f) => ({ ...f, removeNumber: e.target.checked, number: "" }))}
+                className="h-4 w-4 accent-violet-700"
+              />
+              Remove the saved number
+            </label>
+          )}
         </Field>
         <Field label="Expires (optional)" htmlFor="doc-expires">
           <input id="doc-expires" type="date" className={fieldClass} value={form.expires_on} onChange={set("expires_on")} />

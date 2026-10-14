@@ -14,6 +14,7 @@ import { geocodeCity, locateHomebase } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { registerMemberReservationRoutes } from "./memberReservations.js";
+import { registerTravelDocumentRoutes } from "./travelDocuments.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
@@ -85,6 +86,13 @@ registerCrewRoutes(app, {
 const memberReservations = registerMemberReservationRoutes(app, {
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+});
+
+// Travel documents on the profile page; numbers are encrypted with a key only the server has
+registerTravelDocumentRoutes(app, {
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  encryptionKeys: process.env.DOCUMENT_ENCRYPTION_KEYS,
 });
 
 // Health check endpoint
