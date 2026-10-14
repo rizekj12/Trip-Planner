@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
   return {
     jobs: { startSweeper: () => {}, isRunning: async () => false, start: async () => {} },
     addFoodSpots: async () => [{ name: "New spot" }],
+    eventsForTrip: async () => ({ events: [], source: "ticketmaster", checkedAt: "now" }),
     pdfTrips: [],
   };
 });
@@ -19,6 +20,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@supabase/supabase-js", async () => (await import("./test/fakeSupabase.js")).supabaseModule);
 vi.mock("./generationJobs.js", () => ({ createGenerationJobs: () => mocks.jobs }));
 vi.mock("./foodSpots.js", () => ({ addFoodSpots: (...args) => mocks.addFoodSpots(...args), foodSpotsForTrip: async () => ({}) }));
+vi.mock("./events.js", () => ({ eventsForTrip: (...args) => mocks.eventsForTrip(...args) }));
 vi.mock("./geoapify.js", () => ({ geocodeCity: async () => null, locateHomebase: async () => null, homebasesForTrip: async () => ({}) }));
 vi.mock("./pdf.js", () => ({
   buildTripPdf: async (trip) => {
@@ -112,6 +114,43 @@ describe("POST /api/food-spots", () => {
     expect(res.status).toBe(200);
     expect(mocks.addFoodSpots).toHaveBeenCalledTimes(1);
     expect(db.rows("trips")[0].itinerary_data._food_spots.Tokyo).toEqual([{ name: "New spot" }]);
+  });
+});
+
+describe("POST /api/trips/:tripId/events", () => {
+  const refresh = (token) => request(app).post(`/api/trips/${TRIP_ID}/events`).set(token ? auth(token) : {});
+  const EVENT = { id: "tm_1", title: "Real show", source: "ticketmaster" };
+
+  test("only the organizer can spend a refresh", async () => {
+    mocks.eventsForTrip = vi.fn();
+    expect((await refresh("token-member")).status).toBe(403);
+    expect((await refresh()).status).toBe(401);
+    expect(mocks.eventsForTrip).not.toHaveBeenCalled();
+  });
+
+  test("replaces the trip's events with real listings and records where they came from", async () => {
+    mocks.eventsForTrip = vi.fn(async () => ({ events: [EVENT], source: "ticketmaster", checkedAt: "2030-01-01T00:00:00Z" }));
+    const res = await refresh("token-owner");
+    expect(res.status).toBe(200);
+    expect(res.body.events).toEqual([EVENT]);
+    expect(db.rows("trips")[0].itinerary_data).toMatchObject({ events: [EVENT], _events_source: "ticketmaster" });
+    // Searched with the trip's own answers
+    expect(mocks.eventsForTrip.mock.calls[0][0].country).toBe("Japan");
+  });
+
+  test("listings unavailable: an error, and the trip is left alone", async () => {
+    db.rows("trips")[0].itinerary_data.events = [{ id: "old" }];
+    mocks.eventsForTrip = vi.fn(async () => ({ events: [], source: "unavailable", checkedAt: "now" }));
+    expect((await refresh("token-owner")).status).toBe(503);
+    expect(db.rows("trips")[0].itinerary_data.events).toEqual([{ id: "old" }]);
+  });
+
+  test("checked in the last few minutes: returns what's there without searching again", async () => {
+    Object.assign(db.rows("trips")[0].itinerary_data, { events: [EVENT], _events_source: "ticketmaster", _events_checked_at: new Date().toISOString() });
+    mocks.eventsForTrip = vi.fn();
+    const res = await refresh("token-owner");
+    expect(res.body.events).toEqual([EVENT]);
+    expect(mocks.eventsForTrip).not.toHaveBeenCalled();
   });
 });
 

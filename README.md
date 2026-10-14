@@ -25,7 +25,7 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - The day's title, a big interactive map (stops and hotel), **the plan** (numbered stops joined by a line, with Directions and Videos), tips, and tonight's hotel.
   - **Previous / Next day** cards at the bottom, showing each day's title.
   - The other tabs:
-  - **Local Events** happening during the trip, with details for each one.
+  - **Local Events**: real listings from **Ticketmaster** near each city during its dates (venue, date and time, price, photo, ticket link). Claude picks up to 8 that fit the trip and writes a line about each, but can only choose from the listings, never add its own. Trips made before this show their AI-suggested events with a "check before you go" warning and no links, and the organizer can swap them for real ones ("Find real events" / "Refresh").
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
   - **Reservations** (organizer): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
   - **My reservations** (partners and guests): the same screen for the flights and hotels *they* booked. Only that person can see them: not the organizer and not other travelers. They're included in the partner's own PDF.
@@ -64,6 +64,7 @@ A single-page app in [`src/`](src/).
 | Node.js + Express 5 | Server in [`server/`](server/): the API (itinerary generation, food spots, PDF export, hotel search, address validation) and, in production, the built frontend, all on one port. Holds the secret API keys. |
 | Anthropic SDK | Calls Claude (`claude-sonnet-5`): streams the itinerary as JSON, and picks food spots (at low effort, for speed) |
 | Supabase | Authentication (email/password and Google), Postgres database (`trips`, `members`, `trip_members`, `trip_invites`, `notifications`) and file storage (avatars). Used directly by the browser, and by the server acting as the signed-in user or, for Travel Crew, with the service role key. |
+| Ticketmaster Discovery API | Local events for each city and stay (free key; 5,000 calls/day, 5/s) |
 | Geoapify | Hotel search, address validation, map coordinates for food spots and homebases, and static map images for the PDF |
 | pdfkit | Builds the offline PDF on the server |
 | Docker + Railway | Multi-stage image that runs one Node server. Deployed on Railway, which rebuilds on every push; GitHub Actions also builds the image in CI. |
@@ -74,6 +75,7 @@ A single-page app in [`src/`](src/).
 |---|---|
 | [`server/index.js`](server/index.js) | Express routes (reading and writing trips as the signed-in user), the 14-day trip limit, and serving the built frontend in production |
 | [`server/itinerary.js`](server/itinerary.js) | Builds the itinerary prompt, calls Claude, parses the JSON |
+| [`server/events.js`](server/events.js) | Searches Ticketmaster around each city for its dates, de-duplicates shows, and lets Claude pick and describe ones that fit (only from the real listings) |
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
@@ -109,6 +111,7 @@ flowchart LR
 3. The server checks the user owns the trip, records a **generation job** (`generation_jobs`), replies right away, and continues in the background. In parallel, with a 10-minute time limit, it:
    - streams the itinerary from Claude (the prompt includes flight routes and times, but never confirmation codes),
    - asks Claude for 12 food spots per city and finds each one on the map with Geoapify,
+   - searches Ticketmaster for local events in each city during its stay, and lets Claude pick the best fits (`events`, `_events_source`, `_events_checked_at`),
    - looks up each city's hotel or homebase location.
 4. The server merges everything into the trip with status *ready* (or *failed* with the error), re-reading the row first so edits made in the meantime aren't overwritten, and notifies the user.
 5. The progress screen and the dashboard hear about the change through Supabase Realtime (or a 15-second poll as a fallback) and switch to the itinerary as soon as it's ready, even if the user left and came back. Travel partners don't get Realtime for the organizer's trip; their app re-fetches the shared view every 5 seconds while it's generating.
@@ -221,6 +224,8 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 ANTHROPIC_API_KEY=...
 GEOAPIFY_API_KEY=...
+# Local events (free "Consumer Key" from developer.ticketmaster.com). Without it, trips have no events.
+TICKETMASTER_API_KEY=...
 # Server only (Supabase → Project Settings → API → service_role). Never prefix with VITE_.
 SUPABASE_SERVICE_ROLE_KEY=...
 # Server only: encrypts travel document numbers. "1:" + 32 random bytes in base64, from
@@ -250,7 +255,7 @@ npm test          # unit and component tests (Vitest); npm run test:watch re-run
 In production one Node server serves both the API and the built app; it listens on Railway's `PORT`.
 
 1. **New Project → Deploy from GitHub repo**; Railway builds the [`Dockerfile`](Dockerfile).
-2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DOCUMENT_ENCRYPTION_KEYS` (the same value as in your local `.env`) (the `VITE_` ones are also used at build time). Don't set `PORT`.
+2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY`, `TICKETMASTER_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DOCUMENT_ENCRYPTION_KEYS` (the same value as in your local `.env`) (the `VITE_` ones are also used at build time). Don't set `PORT`.
 3. **Settings**: Networking → Generate Domain; Deploy → Healthcheck Path `/health`.
 4. Add the Railway URL to Supabase (**Site URL** and **Redirect URLs**, e.g. `https://<app>.up.railway.app/**`) and to Google Cloud (**Authorized JavaScript origins**).
 

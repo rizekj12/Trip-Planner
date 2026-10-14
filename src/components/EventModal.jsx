@@ -4,6 +4,8 @@ import Modal from './Modal';
 import EventImage from './EventImage';
 
 export default function EventModal({ event, onClose }) {
+    // A real listing (from Ticketmaster) rather than one suggested by AI
+    const verified = event?.source === "ticketmaster";
     return (
         <Modal open={!!event} onClose={onClose} className="max-w-2xl max-h-[90vh] overflow-y-auto">
             {event && (
@@ -75,7 +77,7 @@ export default function EventModal({ event, onClose }) {
                             </div>
 
                             {/* Price */}
-                            {event.price && (
+                            {verified && event.price && (
                                 <div className="flex items-start gap-3 md:col-span-2">
                                     <div className="p-2 bg-amber-50 rounded-lg">
                                         <Ticket size={20} className="text-amber-600" />
@@ -94,9 +96,17 @@ export default function EventModal({ event, onClose }) {
                             <p className="text-gray-700 leading-relaxed">{event.description}</p>
                         </div>
 
+                        {!verified && (
+                            <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                Suggested by AI when this trip was made. The date, time and details may be wrong, so search for it before you go.
+                            </p>
+                        )}
+
                         {/* Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                            {event.ticketLink && (
+                            {/* Links are only shown for real listings: AI-suggested events (trips made
+                                before issue #36) may have invented ones, so they get a search instead */}
+                            {verified && event.ticketLink && (
                                 <a
                                     href={event.ticketLink}
                                     target="_blank"
@@ -108,7 +118,7 @@ export default function EventModal({ event, onClose }) {
                                 </a>
                             )}
 
-                            {event.website && (
+                            {verified && event.website && (
                                 <a
                                     href={event.website}
                                     target="_blank"
@@ -120,7 +130,18 @@ export default function EventModal({ event, onClose }) {
                                 </a>
                             )}
                             {/* Show message if no links available */}
-                            {!event.ticketLink && !event.website && (
+                            {!verified && (
+                                <a
+                                    href={`https://www.google.com/search?q=${encodeURIComponent([event.title, event.location, event.date].filter(Boolean).join(" "))}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 text-gray-900 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                                >
+                                    <ExternalLink size={18} />
+                                    Search for this event
+                                </a>
+                            )}
+                            {verified && !event.ticketLink && !event.website && (
                                 <div className="text-center py-3 text-gray-500 text-sm">
                                     No official website available • Check local listings
                                 </div>
