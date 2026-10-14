@@ -109,37 +109,13 @@ Respond with ONLY valid JSON (no markdown):
         "maps": "https://www.google.com/maps/search/?api=1&query=Place+Name"
       }
     }
-  },
-  "events": [
-    {
-      "id": "event_1",
-      "title": "Event Name",
-      "date": "Date range or specific date",
-      "time": "Event time (or 'Varies' if not specific)",
-      "location": "Venue name",
-      "address": "Full address",
-      "description": "What happens at this event",
-      "price": "Free|$10|$5-$20|null if unknown",
-      "website": "URL or null",
-      "ticketLink": "URL or null if no tickets needed",
-      "category": "Food & Drink|Music & Dance|Sports & Recreation|Arts & Culture|Nightlife|Festival|Market|Other",
-      "image": null
-    }
-  ]
+  }
 }
-
-EVENT REQUIREMENTS:
-- Include 3-5 LOCAL events happening during trip dates (${formData.cities[0].checkIn} to ${formData.cities[formData.cities.length - 1].checkOut})
-- Mix of ticketed and free events
-- Include festivals, markets, concerts, sports, cultural events, street fairs, etc.
-- If ticket info unavailable, use null for ticketLink and "Check website" or "Free" for price
-- If no official website exists, use null
-- Leave "image" and "img" as null; don't invent image URLs
-- Events should match ${formData.vacationType} vacation type
 
 ITINERARY REQUIREMENTS:
 - Include ${numDays} days with 3-5 activities per day
 - Use real GPS coordinates
+- Leave "img" as null; don't invent image URLs
 - Match travel style: ${formData.travelStyle}${
     needs
       ? `
@@ -180,10 +156,9 @@ export function parseItineraryResponse(message) {
       throw new Error("Invalid itinerary structure: missing spots object");
     }
 
-    // Events are optional
-    if (!itinerary.events) {
-      itinerary.events = [];
-    }
+    // Events come from a real events API now (server/events.js), not the model; drop any it
+    // adds anyway rather than show invented dates and links
+    itinerary.events = [];
 
     itinerary.days = itinerary.days.map((day) => ({
       ...day,

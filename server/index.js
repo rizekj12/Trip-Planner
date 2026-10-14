@@ -20,6 +20,7 @@ import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
 import { patchItineraryData } from "./tripData.js";
 import { travelerNeeds } from "./travelerProfile.js";
+import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
 import { publicMessage } from "./errors.js";
 
@@ -69,6 +70,7 @@ const generationJobs = createGenerationJobs({
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   anthropicKey: ANTHROPIC_API_KEY,
   geoapifyKey: process.env.GEOAPIFY_API_KEY,
+  ticketmasterKey: process.env.TICKETMASTER_API_KEY,
   guards,
   notifier,
 });
@@ -187,6 +189,48 @@ function supabaseAsUser(token) {
   });
 }
 
+
+// Real local events for a trip (Ticketmaster; server/events.js), replacing what it has. For
+// trips made before events came from Ticketmaster, and to refresh listings. Owner only, since
+// it spends a Claude call; a trip that was checked in the last 10 minutes gets what it has.
+const EVENTS_REFRESH_MS = 10 * 60 * 1000;
+app.post("/api/trips/:tripId/events", guards.limits.ai, async (req, res) => {
+  const token = req.headers.authorization?.replace(/^Bearer /, "");
+  if (!token) return res.status(401).json({ error: "Please sign in" });
+  const supabase = supabaseAsUser(token);
+  const { data: { user } = {} } = await supabase.auth.getUser(token);
+  const { data: trip } = await supabase
+    .from("trips")
+    .select("id, user_id, itinerary_data")
+    .eq("id", req.params.tripId)
+    .maybeSingle();
+  const data = trip?.itinerary_data;
+  if (!data?._form_data) return res.status(404).json({ error: "Trip not found" });
+  if (!user || trip.user_id !== user.id) return res.status(403).json({ error: "Only the trip's owner can refresh its events" });
+
+  const fresh = data._events_source && Date.now() - Date.parse(data._events_checked_at || 0) < EVENTS_REFRESH_MS;
+  if (fresh) return res.json({ events: data.events || [], source: data._events_source, checkedAt: data._events_checked_at });
+
+  const found = await eventsForTrip(data._form_data, {
+    ticketmasterKey: process.env.TICKETMASTER_API_KEY,
+    geoapifyKey: process.env.GEOAPIFY_API_KEY,
+    anthropicKey: ANTHROPIC_API_KEY,
+  });
+  if (found.source === "unavailable") {
+    return res.status(503).json({ error: "Event listings aren't available right now. Please try again later." });
+  }
+  try {
+    await patchItineraryData(supabase, trip.id, {
+      events: found.events,
+      _events_source: found.source,
+      _events_checked_at: found.checkedAt,
+    });
+  } catch (err) {
+    logger.error({ err, tripId: trip.id }, "Couldn't save refreshed events");
+    return res.status(500).json({ error: "Couldn't save the events. Please try again." });
+  }
+  res.json(found);
+});
 
 // Food spots for one city of a trip. The first call returns 12 places; each later call
 // adds 10 more, skipping ones already listed. Also looks up the city's homebase location

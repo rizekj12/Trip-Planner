@@ -273,7 +273,11 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
   if (events.length) {
     doc.addPage();
     heading("Local Events");
-    muted("Happening during your trip");
+    muted(
+      itinerary._events_source === "ticketmaster"
+        ? "Happening during your trip, from Ticketmaster listings. Check details before you go."
+        : "Suggested by AI when the trip was made. Dates and details may be wrong; check before you go."
+    );
     doc.moveDown(0.8);
     events.forEach((e, i) =>
       numbered(i + 1, e.title, [
