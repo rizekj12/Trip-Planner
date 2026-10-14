@@ -19,7 +19,12 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - By default the organizer **approves each new traveler** (a setting in the invite window); until then the trip stays hidden from them.
   - Up to **10 travelers** besides the organizer. Invite links expire after 30 days or when the trip ends, whichever is first, and guest links stop working 30 days after the trip.
 - **Notifications**: a bell in the header with an unread count and the latest five notifications ("Sam would like to join your trip to Ireland", with Approve / Deny right there, plus itinerary ready or failed and approvals), and a full list at `/notifications`. Checked every minute.
-- **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details, with an **Invite travel partner** button and who's-going bubbles. A side menu opens four more sections:
+- **Itinerary view** (mobile first; `?day=3` and `?section=food` open a day or section):
+  - A navy header with the trip's name and dates, who's going (with **Invite travel partner**), **PDF**, and always-visible section tabs.
+  - A **day strip** with every day (number, date, city) and **‹ › arrows**, pinned to the top while scrolling. Swiping the plan left or right also changes day.
+  - The day's title, a big interactive map (stops and hotel), **the plan** (numbered stops joined by a line, with Directions and Videos), tips, and tonight's hotel.
+  - **Previous / Next day** cards at the bottom, showing each day's title.
+  - The other tabs:
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
   - **Reservations** (organizer): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
@@ -172,16 +177,16 @@ main.jsx
                     │   ├── GeneratingScreen               pending: globe + plane
                     │   ├── FailedScreen (local)           failed: error + Try again
                     │   └── TripView                       ready (owner or travel partner)
-                    │       ├── SkyBackground, ProfileMenu
-                    │       ├── CrewBubbles                invite button + who's going
-                    │       │   ├── InviteModal            link, email, share, reset
-                    │       │   └── Modal                  who's going list
-                    │       ├── SideNav                    days, Local Events, Food Spots, Reservations, Travel Crew
+                    │       ├── TripHeader                 trip name, dates, PDF, section tabs
+                    │       │   └── CrewBubbles            invite button + who's going
+                    │       │       ├── InviteModal        link, email, share, reset
+                    │       │       └── Modal              who's going list
+                    │       ├── DayStrip                   every day + arrows, pinned while scrolling
                     │       ├── DayMap                     Leaflet map of the day
                     │       │   ├── MarkerInfoModal        uses Modal
                     │       │   └── HotelInfoModal         uses Modal
-                    │       ├── ItineraryCard
-                    │       │   └── TodayStopsList
+                    │       ├── DayDetails                 the plan (stops joined by a line), tips, tonight's hotel
+                    │       ├── DayPager                   previous / next day
                     │       ├── EventsPanel                Local Events section
                     │       │   ├── EventImage             photo or category icon
                     │       │   └── EventModal             uses Modal + EventImage

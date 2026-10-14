@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-// Shared overlay + card for every modal. z-index sits above Leaflet (≤1000) and SideNav (2100).
+// Shared overlay + card for every modal. z-index sits above Leaflet (≤1000) and the pinned day strip.
 // Pass layout overrides (width, height, flex) via className.
 export default function Modal({ open, onClose, children, className = "max-w-lg max-h-[90vh] overflow-y-auto" }) {
   useEffect(() => {
