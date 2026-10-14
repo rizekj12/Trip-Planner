@@ -235,6 +235,9 @@ SUPABASE_SERVICE_ROLE_KEY=...
 DOCUMENT_ENCRYPTION_KEYS=1:...
 # Optional: origins allowed to call the API from a browser (default: localhost:3000)
 # CORS_ORIGINS=http://localhost:3000
+# Optional, local testing only: itineraries allowed per account per day (default 4).
+# Ignored in production (NODE_ENV=production), so it can't lift the cap for real users.
+# DAILY_GENERATION_LIMIT=100
 # Optional: log level (trace, debug, info, warn, error, silent). Default: debug locally, info in production
 # LOG_LEVEL=info
 # Optional: use sample data instead of calling Claude
