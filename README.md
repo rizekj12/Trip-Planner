@@ -23,9 +23,14 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
   - **Reservations** (organizer only): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
-  - **Travel Crew**: everyone on the trip with their photo and role; the organizer can invite and remove people and approve or deny join requests, and partners can leave.
+  - **Travel Crew**: everyone on the trip with their photo, role and bio; the organizer can invite and remove people, approve or deny join requests, save people to their saved travelers, and see a member's emergency contact around the trip dates if that member shares it. Partners can leave.
 - **Offline PDF**: "Download PDF" (on the itinerary page and in each trip's ⋮ menu) builds a PDF with the reservations and codes, a map and stop list for every day, 10 local events, and 10 food spots per city.
-- **Accounts**: sign up or sign in with email and password or with Google, password reset, a profile page with name and avatar upload, and a **home country** setting ("Based in", with flags) for future offers and rewards.
+- **Accounts**: sign up or sign in with email and password or with Google, and password reset.
+- **My Profile** (`/profile`): photo, completeness meter, and four sections (`?tab=` opens one):
+  - **About me**: name, phone, birthday, gender, bio (shown to travel partners) and home country ("Based in").
+  - **Safety & accessibility**: accessibility and dietary needs, which new itineraries and food spots plan around, and an emergency contact the organizer of a trip can see from 2 days before it until it ends (only if the user turns sharing on).
+  - **Travel documents**: passport, Known Traveler Number, insurance, visas and more, with hidden numbers and expiry warnings (passports 6 months out). Private to the user.
+  - **Saved travelers**: people the user travels with; "Invite to a trip" picks one of their upcoming trips and emails or copies its invite link.
 - **Installable**: a Progressive Web App with offline caching of the app shell and map tiles.
 
 ## Technology
@@ -68,6 +73,8 @@ A single-page app in [`src/`](src/).
 | [`server/pdf.js`](server/pdf.js) | Lays out the offline PDF |
 | [`server/generationJobs.js`](server/generationJobs.js) | Runs itinerary generation as a job that survives restarts: heartbeat, 10-minute timeout, and a sweeper that retries or fails jobs a stopped server left behind |
 | [`shared/tripLength.js`](shared/tripLength.js) | Trip length and the 14-day limit, used by both the questionnaire and the server so they always agree (tests: `npm test`, run by Vitest) |
+| [`shared/accessibility.js`](shared/accessibility.js) | The accessibility and dietary options on the profile page, and how they're described to Claude |
+| [`server/travelerProfile.js`](server/travelerProfile.js) | Reads the organizer's accessibility and dietary needs for the itinerary and food spot prompts |
 | [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, and removing people |
@@ -112,7 +119,7 @@ Everything lives in the trip row's `itinerary_data` JSON, so no database schema 
 | `_homebases` | Each city's hotel or homebase location, for distances and the map |
 | `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
 
-Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's home country is stored on their profile (`user_metadata.home_country`).
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The server reads bios, shared emergency contacts and accessibility needs with the service role key.
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -187,9 +194,13 @@ main.jsx
                     │   ├── AppHeader
                     │   ├── NotificationItem               one per notification
                     │   └── BottomTabBar                   phones
-                    └── ProfilePage                        /profile
-                        ├── SkyBackground
-                        └── HomeCountryMenu                "Based in"
+                    └── ProfilePage                        /profile (?tab=about|safety|documents|travelers)
+                        ├── AppHeader, BottomTabBar
+                        ├── AboutSection                   name, phone, birthday, gender, bio
+                        │   └── HomeCountryMenu            "Based in" (light style)
+                        ├── SafetySection                  accessibility needs, emergency contact
+                        ├── DocumentsSection               document list + add/edit Modal
+                        └── TravelersSection               saved travelers, add/edit Modal, Invite to a trip
 ```
 
 ## Running locally
@@ -209,7 +220,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) and [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, and generation jobs plus Realtime for trips). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql) and [`supabase/profiles.sql`](supabase/profiles.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, and the profile page's tables). Then:
 
 ```bash
 npm install

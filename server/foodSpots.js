@@ -1,8 +1,13 @@
 // Asks Claude for the best places to eat in a city, skipping ones already listed.
 import Anthropic from "@anthropic-ai/sdk";
 import { locatePlaces } from "./geoapify.js";
+import { needsForPrompt } from "../shared/accessibility.js";
 
-function buildPrompt({ city, country, count, exclude }) {
+function buildPrompt({ city, country, count, exclude, traveler }) {
+  const dietary = needsForPrompt(traveler, { dietaryOnly: true });
+  const dietaryBlock = dietary
+    ? `\nThe traveler has dietary needs; every place must have good options for them:\n${dietary}\n`
+    : "";
   const excludeBlock = exclude.length
     ? `\nThese are already on the list, so do NOT include them again:\n${exclude.map((n) => `- ${n}`).join("\n")}\n`
     : "";
@@ -10,7 +15,7 @@ function buildPrompt({ city, country, count, exclude }) {
   return `List the ${count} best places to eat in ${city}${country ? `, ${country}` : ""} that a visitor shouldn't miss.
 Mix famous institutions with local favorites, across cuisines and price ranges.
 Only include places you're confident are real and still operating.
-${excludeBlock}
+${dietaryBlock}${excludeBlock}
 Respond with ONLY valid JSON (no markdown):
 
 {
@@ -40,14 +45,14 @@ function parseSpots(message) {
   return spots.filter((s) => s?.name);
 }
 
-async function generateFoodSpots({ city, country, count, exclude, apiKey, signal }) {
+async function generateFoodSpots({ city, country, count, exclude, apiKey, signal, traveler }) {
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 16000,
     // Recalling well-known restaurants doesn't need deep reasoning; low effort keeps it fast
     output_config: { effort: "low" },
-    messages: [{ role: "user", content: buildPrompt({ city, country, count, exclude }) }],
+    messages: [{ role: "user", content: buildPrompt({ city, country, count, exclude, traveler }) }],
   }, { signal });
 
   console.log("Food spots response:", message.stop_reason, message.usage);
@@ -66,7 +71,8 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey, signal
 
 // Next batch for one city (12 the first time, then 10 more), with map coordinates from
 // Geoapify for any spot not looked up yet. Returns the city's full list.
-export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal }) {
+// `traveler` ({ needs }) keeps the list to places that suit the traveler's dietary needs
+export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal, traveler }) {
   const spots = await generateFoodSpots({
     city,
     country,
@@ -74,6 +80,7 @@ export async function addFoodSpots({ city, country, existing = [], anthropicKey,
     exclude: existing.map((s) => s.name),
     apiKey: anthropicKey,
     signal,
+    traveler,
   });
   return locatePlaces([...existing, ...spots], { city, country }, geoapifyKey);
 }
