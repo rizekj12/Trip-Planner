@@ -33,7 +33,7 @@ Respond with ONLY valid JSON (no markdown):
 }`;
 }
 
-function parseSpots(message) {
+export function parseSpots(message) {
   const text = message.content
     .filter((block) => block.type === "text")
     .map((block) => block.text)

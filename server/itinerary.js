@@ -30,7 +30,7 @@ function getVacationTypeDescription(type) {
 
 // Flight timing for pacing the first and last days. Only route, date and departure time are
 // sent — never confirmation codes, flight numbers or notes. Empty string if there are none.
-function buildFlightsBlock(formData) {
+export function buildFlightsBlock(formData) {
   const lines = (formData.reservations?.flights || [])
     .filter((f) => f.date && (f.from || f.to))
     .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`))
@@ -44,7 +44,7 @@ ${lines.join("\n")}
 }
 
 // `traveler`: the organizer's accessibility and dietary needs from their profile, if any
-function buildPrompt(formData, traveler) {
+export function buildPrompt(formData, traveler) {
   const numDays = tripLengthDays(formData.cities) ?? 0;
   const flightsBlock = buildFlightsBlock(formData);
   const needs = needsForPrompt(traveler);
@@ -156,7 +156,7 @@ ITINERARY REQUIREMENTS:
   }`;
 }
 
-function parseItineraryResponse(message) {
+export function parseItineraryResponse(message) {
   try {
     // Skip thinking blocks; join text in case the reply was split across blocks
     const text = message.content

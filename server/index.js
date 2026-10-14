@@ -70,7 +70,8 @@ const generationJobs = createGenerationJobs({
   guards,
   notifier,
 });
-generationJobs.startSweeper();
+// Not in tests, which import the app without starting background work
+if (!process.env.VITEST) generationJobs.startSweeper();
 
 // Travel Crew routes (invites, join requests and approvals, crew list, guest view)
 registerCrewRoutes(app, {
@@ -441,6 +442,11 @@ if (fs.existsSync(path.join(DIST_DIR, "index.html"))) {
   logger.info({ dir: DIST_DIR }, "Serving frontend");
 }
 
-app.listen(PORT, () => {
-  logger.info({ port: PORT, env: process.env.NODE_ENV || "development", ai: !!ANTHROPIC_API_KEY }, "Server running");
-});
+// Exported for route tests (server/*.test.js), which use supertest instead of a real port
+export default app;
+
+if (!process.env.VITEST) {
+  app.listen(PORT, () => {
+    logger.info({ port: PORT, env: process.env.NODE_ENV || "development", ai: !!ANTHROPIC_API_KEY }, "Server running");
+  });
+}
