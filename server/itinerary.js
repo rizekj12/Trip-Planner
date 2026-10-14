@@ -4,6 +4,8 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { tripLengthDays } from "../shared/tripLength.js";
 import { needsForPrompt } from "../shared/accessibility.js";
+import { logger } from "./logger.js";
+import { UserFacingError } from "./errors.js";
 
 // Helper functions
 
@@ -192,9 +194,8 @@ function parseItineraryResponse(message) {
 
     return itinerary;
   } catch (error) {
-    console.error("Failed to parse itinerary:", error);
-    console.error("Stop reason:", message.stop_reason);
-    throw new Error("Failed to parse AI response. Please try again.");
+    logger.error({ err: error, stopReason: message.stop_reason }, "Failed to parse itinerary");
+    throw new UserFacingError("Failed to parse AI response. Please try again.", { cause: error });
   }
 }
 
@@ -212,13 +213,13 @@ export async function generateItinerary(formData, apiKey, { signal, traveler } =
     }, { signal })
     .finalMessage();
 
-  console.log("Itinerary response:", message.stop_reason, message.usage);
+  logger.info({ stopReason: message.stop_reason, usage: message.usage }, "Itinerary response");
 
   if (message.stop_reason === "max_tokens") {
-    throw new Error("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
+    throw new UserFacingError("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
   }
   if (message.stop_reason === "refusal") {
-    throw new Error("The AI declined to generate this itinerary.");
+    throw new UserFacingError("The AI declined to generate this itinerary.");
   }
 
   return parseItineraryResponse(message);

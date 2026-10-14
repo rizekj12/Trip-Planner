@@ -1,6 +1,7 @@
 // Sign-in checks, rate limits and the daily itinerary cap for the API (issue #27)
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger.js";
 
 export const DAILY_GENERATIONS = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -78,7 +79,7 @@ export function createGuards({ supabaseUrl, anonKey, serviceKey }) {
       .gte("created_at", since)
       .order("created_at");
     if (error) {
-      console.error("Couldn't read generation log:", error);
+      logger.error({ err: error }, "Couldn't read generation log");
       return { status: 500, error: "Generation limits aren't set up on the server (run supabase/generation-limits.sql)" };
     }
 
@@ -97,7 +98,7 @@ export function createGuards({ supabaseUrl, anonKey, serviceKey }) {
       .select("id")
       .single();
     if (insertError) {
-      console.error("Couldn't record generation:", insertError);
+      logger.error({ err: insertError }, "Couldn't record generation");
       return { status: 500, error: "Couldn't start generation. Please try again." };
     }
     return { id: row.id };

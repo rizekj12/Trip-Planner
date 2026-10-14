@@ -1,7 +1,4 @@
-console.log("=== BACKEND STARTING ===");
-console.log("Environment:", process.env.NODE_ENV);
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-console.log("API Key exists:", !!ANTHROPIC_API_KEY);
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 // server/index.js
@@ -21,6 +18,8 @@ import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
 import { patchItineraryData } from "./tripData.js";
 import { travelerNeeds } from "./travelerProfile.js";
+import { logger } from "./logger.js";
+import { publicMessage } from "./errors.js";
 
 const app = express();
 // Hosts like Railway assign the port; locally it's 3001 (Vite runs the frontend on 3000)
@@ -152,7 +151,8 @@ app.post("/api/generate-itinerary", async (req, res) => {
     await generationJobs.start({ tripId: trip.id, userId: user.id, reservationId: reservation.id });
   } catch (err) {
     await guards.releaseGeneration(reservation.id).catch(() => {});
-    return res.status(500).json({ error: err.message });
+    logger.error({ err, tripId: trip.id }, "Couldn't start generation");
+    return res.status(500).json({ error: publicMessage(err, "Couldn't start generating this trip. Please try again.") });
   }
   res.status(202).json({ status: "pending" });
 });
@@ -238,8 +238,8 @@ app.post("/api/food-spots", async (req, res) => {
 
     res.json({ spots, homebase: homebase ?? null });
   } catch (err) {
-    console.error("Food spots failed:", err);
-    res.status(502).json({ error: err.message || "Couldn't load food spots" });
+    logger.error({ err, tripId, city }, "Food spots failed");
+    res.status(502).json({ error: publicMessage(err, "Couldn't load food spots. Please try again.") });
   }
 });
 
@@ -280,7 +280,7 @@ app.post("/api/trip-pdf", async (req, res) => {
     doc.pipe(res);
     doc.end();
   } catch (err) {
-    console.error("PDF generation failed:", err);
+    logger.error({ err, tripId }, "PDF generation failed");
     res.status(500).json({ error: "Couldn't create the PDF" });
   }
 });
@@ -302,7 +302,7 @@ async function fillMissingFoodSpots(supabase, trip) {
       ANTHROPIC_API_KEY && !foodSpots[c.name]?.length &&
         addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey })
           .then((spots) => { foodSpots[c.name] = spots; })
-          .catch((err) => console.error(`Food spots for ${c.name} failed:`, err.message)),
+          .catch((err) => logger.error({ err, city: c.name }, "Food spots failed")),
       !(c.name in homebases) &&
         locateHomebase(c, geoapifyKey)
           .then((homebase) => { homebases[c.name] = homebase; })
@@ -317,7 +317,7 @@ async function fillMissingFoodSpots(supabase, trip) {
     trip.itinerary_data = await patchItineraryData(supabase, trip.id, patch);
   } catch (err) {
     // Still use what was fetched for this PDF; it'll be fetched again next time
-    console.error("Failed to save food spots for trip", trip.id, err);
+    logger.error({ err, tripId: trip.id }, "Failed to save food spots");
     trip.itinerary_data = { ...data, ...patch };
   }
 }
@@ -351,10 +351,8 @@ app.get("/api/search-hotels", async (req, res) => {
     const placesResponse = await fetch(placesUrl);
     if (!placesResponse.ok) {
       const errorData = await placesResponse.json();
-      console.error("Geoapify Places error:", errorData);
-      return res.status(placesResponse.status).json({
-        error: errorData.message || "Hotel search failed",
-      });
+      logger.error({ status: placesResponse.status, geoapify: errorData?.message }, "Geoapify Places error");
+      return res.status(502).json({ error: "Hotel search isn't available right now. Please try again." });
     }
 
     const placesData = await placesResponse.json();
@@ -369,10 +367,8 @@ app.get("/api/search-hotels", async (req, res) => {
 
     res.json({ hotels });
   } catch (error) {
-    console.error("Server error:", error);
-    res.status(500).json({
-      error: error.message || "Internal server error",
-    });
+    logger.error({ err: error, path: req.path }, "Request failed");
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -399,10 +395,8 @@ app.get("/api/validate-address", async (req, res) => {
     const geocodeResponse = await fetch(geocodeUrl);
     if (!geocodeResponse.ok) {
       const errorData = await geocodeResponse.json();
-      console.error("Geoapify geocode error:", errorData);
-      return res.status(geocodeResponse.status).json({
-        error: errorData.message || "Address validation failed",
-      });
+      logger.error({ status: geocodeResponse.status, geoapify: errorData?.message }, "Geoapify geocode error");
+      return res.status(502).json({ error: "Address check isn't available right now. Please try again." });
     }
 
     const geocodeData = await geocodeResponse.json();
@@ -418,10 +412,8 @@ app.get("/api/validate-address", async (req, res) => {
       formatted: result?.formatted,
     });
   } catch (error) {
-    console.error("Server error:", error);
-    res.status(500).json({
-      error: error.message || "Internal server error",
-    });
+    logger.error({ err: error, path: req.path }, "Request failed");
+    res.status(500).json({ error: "Something went wrong. Please try again." });
   }
 });
 
@@ -446,10 +438,9 @@ if (fs.existsSync(path.join(DIST_DIR, "index.html"))) {
     res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(DIST_DIR, "index.html"));
   });
-  console.log("Serving frontend from", DIST_DIR);
+  logger.info({ dir: DIST_DIR }, "Serving frontend");
 }
 
 app.listen(PORT, () => {
-  console.log(`=== Backend server running on port ${PORT} ===`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  logger.info({ port: PORT, env: process.env.NODE_ENV || "development", ai: !!ANTHROPIC_API_KEY }, "Server running");
 });

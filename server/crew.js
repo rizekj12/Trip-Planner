@@ -3,6 +3,7 @@
 // asking before touching anything. Tables: supabase/travel-crew.sql.
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -245,7 +246,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
         ? await admin.from("trip_invites").update(changes).eq("trip_id", trip.id).select().single()
         : await admin.from("trip_invites").insert({ trip_id: trip.id, ...changes }).select().single();
       if (error) {
-        console.error("Invite link failed:", error);
+        logger.error({ err: error, tripId: trip.id }, "Invite link failed");
         return res.status(500).json({ error: "Couldn't create the invite link" });
       }
       invite = data;
@@ -370,7 +371,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
       .select("id")
       .single();
     if (error) {
-      console.error("Join failed:", error);
+      logger.error({ err: error, tripId: trip.id }, "Join failed");
       return res.status(500).json({ error: "Couldn't join the trip" });
     }
 
@@ -444,7 +445,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     }
     const { error } = await admin.from("trip_members").update({ status: "approved" }).eq("id", member.id);
     if (error) {
-      console.error("Approve failed:", error);
+      logger.error({ err: error }, "Approve failed");
       return res.status(500).json({ error: "Couldn't approve the request" });
     }
     await notifier?.resolveJoinRequest(member.id, "approved");

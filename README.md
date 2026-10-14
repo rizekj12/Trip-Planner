@@ -216,6 +216,8 @@ GEOAPIFY_API_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 # Optional: origins allowed to call the API from a browser (default: localhost:3000)
 # CORS_ORIGINS=http://localhost:3000
+# Optional: log level (trace, debug, info, warn, error, silent). Default: debug locally, info in production
+# LOG_LEVEL=info
 # Optional: use sample data instead of calling Claude
 # VITE_USE_MOCK_DATA=true
 ```

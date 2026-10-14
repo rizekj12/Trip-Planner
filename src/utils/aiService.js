@@ -7,9 +7,8 @@ import { savePending, saveTrip, saveFailed } from "./trips";
 import { usesMiles } from "./helpers";
 
 // Mock itinerary generator
-async function generateMockItinerary(formData) {
-  console.log("🎭 MOCK MODE: Using mock data instead of API");
-  console.log("Form data received:", formData);
+async function generateMockItinerary(_formData) {
+  // Mock mode: sample data instead of calling the API. Don't log formData: it holds reservations.
 
   // Simulate API delay (long enough to see the loading screen)
   await new Promise((resolve) => setTimeout(resolve, 6000));
@@ -26,7 +25,6 @@ async function generateMockItinerary(formData) {
     },
   };
 
-  console.log("✅ Mock itinerary generated with events");
   return mockItinerary;
 }
 
