@@ -6,12 +6,30 @@ import { logger } from "./logger.js";
 export const DAILY_GENERATIONS = 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Itineraries allowed per account per rolling 24 hours. DAILY_GENERATION_LIMIT raises (or
+// lowers) it for local testing; it's ignored in production (NODE_ENV=production, as in the
+// Dockerfile) so a stray value on Railway can never lift the cap for real users.
+export function dailyGenerationLimit(env = process.env) {
+  if (env.DAILY_GENERATION_LIMIT === undefined || env.DAILY_GENERATION_LIMIT === "") return DAILY_GENERATIONS;
+  const value = Number(env.DAILY_GENERATION_LIMIT);
+  if (env.NODE_ENV === "production") {
+    logger.warn("DAILY_GENERATION_LIMIT is ignored in production");
+    return DAILY_GENERATIONS;
+  }
+  if (!Number.isInteger(value) || value < 1) {
+    logger.warn({ value: env.DAILY_GENERATION_LIMIT }, "DAILY_GENERATION_LIMIT must be a whole number of 1 or more; using the default");
+    return DAILY_GENERATIONS;
+  }
+  logger.info({ limit: value }, "Daily itinerary limit overridden for testing");
+  return value;
+}
+
 // Checked tokens are remembered briefly so verifying one on every request doesn't call
 // Supabase every time
 const TOKEN_CACHE_MS = 60 * 1000;
 const TOKEN_CACHE_MAX = 1000;
 
-export function createGuards({ supabaseUrl, anonKey, serviceKey }) {
+export function createGuards({ supabaseUrl, anonKey, serviceKey, dailyLimit = dailyGenerationLimit() }) {
   const clientOptions = { auth: { persistSession: false, autoRefreshToken: false } };
   const auth = supabaseUrl && anonKey ? createClient(supabaseUrl, anonKey, clientOptions) : null;
   const admin = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey, clientOptions) : null;
@@ -83,12 +101,13 @@ export function createGuards({ supabaseUrl, anonKey, serviceKey }) {
       return { status: 500, error: "Generation limits aren't set up on the server (run supabase/generation-limits.sql)" };
     }
 
-    if (recent.length >= DAILY_GENERATIONS) {
-      const freesAt = new Date(recent[0].created_at).getTime() + DAY_MS;
+    if (recent.length >= dailyLimit) {
+      // A slot frees up when enough of the oldest ones are more than a day old
+      const freesAt = new Date(recent[recent.length - dailyLimit].created_at).getTime() + DAY_MS;
       const hours = Math.max(1, Math.ceil((freesAt - Date.now()) / (60 * 60 * 1000)));
       return {
         status: 429,
-        error: `You've reached the limit of ${DAILY_GENERATIONS} itineraries per day. You can create another in about ${hours} hour${hours === 1 ? "" : "s"}.`,
+        error: `You've reached the limit of ${dailyLimit} itinerar${dailyLimit === 1 ? "y" : "ies"} per day. You can create another in about ${hours} hour${hours === 1 ? "" : "s"}.`,
       };
     }
 
