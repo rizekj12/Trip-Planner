@@ -64,6 +64,9 @@ export function loadMoreFoodSpots({ tripId, city, homebaseOnly = false }) {
   return postToServer("/api/food-spots", { tripId, city, homebaseOnly });
 }
 
+// Replaces a trip's local events with real listings (owner only): { events, source, checkedAt }
+export const refreshTripEvents = (tripId) => apiJson("POST", `/api/trips/${tripId}/events`, null, { auth: true });
+
 // Downloads an offline PDF of a ready trip (day maps, stops, events, food spots)
 export async function downloadTripPdf({ tripId, filename }) {
   const response = await authedPost("/api/trip-pdf", { tripId, miles: usesMiles() });

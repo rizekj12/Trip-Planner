@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../utils/supabase";
 import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData, markPdfDownloaded } from "../utils/trips";
-import { startGeneration, loadMoreFoodSpots, downloadTripPdf } from "../utils/aiService";
+import { startGeneration, loadMoreFoodSpots, downloadTripPdf, refreshTripEvents } from "../utils/aiService";
 import { useAuth } from "../context/AuthContext";
 
 // While an itinerary is being generated:
@@ -109,6 +109,20 @@ export function useLoadFoodSpots(tripId) {
           _food_spots: { ...trip.itinerary_data._food_spots, [city]: spots },
           _homebases: { ...trip.itinerary_data._homebases, [city]: homebase },
         },
+      });
+    },
+  });
+}
+
+// Fetches real local events for a trip (Ticketmaster) and puts them in the trip's cache
+export function useRefreshEvents(tripId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => refreshTripEvents(tripId),
+    onSuccess: ({ events, source, checkedAt }) => {
+      qc.setQueryData(["trip", tripId], (trip) => trip && {
+        ...trip,
+        itinerary_data: { ...trip.itinerary_data, events, _events_source: source, _events_checked_at: checkedAt },
       });
     },
   });

@@ -220,7 +220,14 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
         ) : (
           <div className="pt-4 sm:pt-6">
             {section === "events" ? (
-              <EventsPanel events={itinerary.events || []} />
+              <EventsPanel
+                tripId={tripId}
+                events={itinerary.events || []}
+                source={itinerary._events_source}
+                checkedAt={itinerary._events_checked_at}
+                cities={(formData.cities || []).map((c) => c.name).filter(Boolean)}
+                canRefresh={viewer === "owner"}
+              />
             ) : section === "reservations" ? (
               // Everyone sees only their own codes: the organizer's live with the trip, a
               // partner's in their own private list (server/memberReservations.js)

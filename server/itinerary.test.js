@@ -76,6 +76,11 @@ describe("parseItineraryResponse", () => {
     expect(parseItineraryResponse(message).days[0].key).toBe("d1");
   });
 
+  test("drops events the model adds anyway (they come from Ticketmaster now)", () => {
+    const withEvents = { ...VALID, events: [{ id: "e1", title: "Made-up festival", ticketLink: "https://fake" }] };
+    expect(parseItineraryResponse(reply(JSON.stringify(withEvents))).events).toEqual([]);
+  });
+
   test("fills in optional fields", () => {
     const itinerary = parseItineraryResponse(reply(JSON.stringify(VALID)));
     expect(itinerary.events).toEqual([]);

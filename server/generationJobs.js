@@ -10,6 +10,7 @@ import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
 import { patchItineraryData } from "./tripData.js";
 import { travelerNeeds } from "./travelerProfile.js";
+import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
 import { UserFacingError, publicMessage } from "./errors.js";
 
@@ -24,7 +25,7 @@ const UNSTARTED_AFTER_MS = 15 * 60 * 1000;
 const TIMEOUT_MESSAGE = "Generating this itinerary took too long. Please try again.";
 const LOST_MESSAGE = "The server restarted while generating this itinerary. Please try again.";
 
-export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, geoapifyKey, guards, notifier }) {
+export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, geoapifyKey, ticketmasterKey, guards, notifier }) {
   const admin = serviceKey
     ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     : null;
@@ -98,13 +99,18 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       const signal = controller.signal;
       // The organizer's accessibility and dietary needs (profile page), if they set any
       const traveler = await travelerNeeds(admin, job.user_id);
-      const [itinerary, foodSpots, homebases] = await Promise.all([
+      // Local events come from Ticketmaster, not the model (server/events.js, issue #36)
+      const [itinerary, foodSpots, homebases, localEvents] = await Promise.all([
         generateItinerary(formData, anthropicKey, { signal, traveler }),
         foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler }),
         homebasesForTrip(formData, geoapifyKey),
+        eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal }),
       ]);
       await patchItineraryData(admin, tripId, {
         ...itinerary,
+        events: localEvents.events,
+        _events_source: localEvents.source,
+        _events_checked_at: localEvents.checkedAt,
         _status: "ready",
         _error: null,
         _food_spots: foodSpots,
