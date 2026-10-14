@@ -12,15 +12,7 @@ import FirstTripHero from "../components/dashboard/FirstTripHero";
 import { MiniCalendar, TravelStats, TripIdeas } from "../components/dashboard/Sidebar";
 import { getCountryFlagOnly } from "../utils/countryFlags";
 import { formatRange, monthOf, todayIso } from "../utils/calendar";
-import { describeTrips, tripBadge, travelStats, firstName } from "../utils/dashboard";
-
-const BADGE_TONES = {
-  violet: "bg-violet-100 text-violet-800",
-  green: "bg-emerald-100 text-emerald-800",
-  amber: "bg-amber-100 text-amber-900",
-  red: "bg-red-100 text-red-800",
-  slate: "bg-slate-100 text-slate-700",
-};
+import { describeTrips, tripBadge, travelStats, firstName, BADGE_TONES } from "../utils/dashboard";
 
 // ⋮ menu; `actions` is a list of { label, icon, onClick, danger? }. `busy` swaps the dots
 // for a spinner (e.g. while a PDF is being prepared). `onPhoto` styles it for use over an image.

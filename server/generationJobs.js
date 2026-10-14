@@ -9,6 +9,7 @@ import { generateItinerary } from "./itinerary.js";
 import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
 import { patchItineraryData } from "./tripData.js";
+import { travelerNeeds } from "./travelerProfile.js";
 
 const MAX_ATTEMPTS = 2; // the first run plus one automatic retry after a restart
 export const GENERATION_TIMEOUT_MS = 10 * 60 * 1000; // per attempt, for all the Claude calls together
@@ -93,9 +94,11 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       // Food spots and homebase locations are prepared alongside the itinerary, so the
       // Food Spots tab (list, distances, map) is ready when the trip is
       const signal = controller.signal;
+      // The organizer's accessibility and dietary needs (profile page), if they set any
+      const traveler = await travelerNeeds(admin, job.user_id);
       const [itinerary, foodSpots, homebases] = await Promise.all([
-        generateItinerary(formData, anthropicKey, { signal }),
-        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal }),
+        generateItinerary(formData, anthropicKey, { signal, traveler }),
+        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler }),
         homebasesForTrip(formData, geoapifyKey),
       ]);
       await patchItineraryData(admin, tripId, {
