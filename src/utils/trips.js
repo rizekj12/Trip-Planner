@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { tripLengthDays } from "../../shared/tripLength.js";
 import { apiJson } from "./api";
+import { emptyTripAlbum } from "./photos";
 
 // Inserts a new trip row, or updates it when `id` is given
 async function upsertTrip(id, formData, extra) {
@@ -150,6 +151,9 @@ async function fetchTripToChange(id) {
 }
 
 export async function deleteTrip(id) {
+  // Photos first: deleting the trip's row removes the album's rows but can't remove the files
+  // from storage. Drafts never have photos, and mock mode may have no server.
+  if (import.meta.env.VITE_USE_MOCK_DATA !== "true") await emptyTripAlbum(id);
   const { error } = await supabase.from("trips").delete().eq("id", id);
   if (error) throw error;
 }

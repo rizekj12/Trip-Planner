@@ -84,6 +84,7 @@ A single-page app in [`src/`](src/).
 | [`shared/accessibility.js`](shared/accessibility.js) | The accessibility and dietary options on the profile page, and how they're described to Claude |
 | [`server/travelerProfile.js`](server/travelerProfile.js) | Reads the organizer's accessibility and dietary needs for the itinerary and food spot prompts |
 | [`server/travelDocuments.js`](server/travelDocuments.js) | Travel document routes (`/api/documents`): the only way to the `travel_documents` table; lists masked numbers and decrypts one for its owner on request |
+| [`server/tripPhotos.js`](server/tripPhotos.js) | The trip's shared photo album: the organizer, members and guests add photos (tagged to a day, with a caption); the person who added one can change it, they or the organizer can delete it. Metadata is stripped, files live in the private `trip-photos` bucket and the browser gets one-hour signed links |
 | [`server/fileScrub.js`](server/fileScrub.js) | Checks an uploaded file by its bytes (JPEG, PNG or PDF only) and strips photo metadata such as GPS location |
 | [`server/documentCrypto.js`](server/documentCrypto.js) | AES-256-GCM encryption of document numbers with `DOCUMENT_ENCRYPTION_KEYS` (versioned for rotation; `server/scripts/reencryptDocuments.js` moves old values to the newest key) |
 | [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
@@ -196,6 +197,8 @@ main.jsx
                     │       │   └── EventModal             uses Modal + EventImage
                     │       ├── FoodSpotsPanel             Food Spots section
                     │       │   └── DayMap                 spots + hotel pins, no popups
+                    │       ├── PhotosPanel                Photos section: shared album, grouped by day
+                    │       │   └── Modal                  full-size viewer: caption, day, delete
                     │       ├── ReservationsPanel          Reservations section (owner only)
                     │       │   └── Modal                  add / edit form: FlightFields, HotelFields
                     │       └── CrewPanel                  Travel Crew section
@@ -245,7 +248,7 @@ DOCUMENT_ENCRYPTION_KEYS=1:...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql) and [`supabase/document-attachments.sql`](supabase/document-attachments.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, server-only, encrypted travel documents, and the private bucket for their attachments). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql) [`supabase/document-attachments.sql`](supabase/document-attachments.sql) and [`supabase/trip-photos.sql`](supabase/trip-photos.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, server-only, encrypted travel documents, the private bucket for their attachments, and the trip photo album). Then:
 
 ```bash
 npm install
@@ -267,7 +270,7 @@ In production one Node server serves both the API and the built app; it listens 
 
 ### Next features
 
-- **Gallery tab**: a shared photo and video gallery for each trip that the organizer, travel partners and guests can all add to
+- **Videos in the Photos tab**: the shared album takes photos today; add short videos too
 - **Live location on the day-by-day maps**: let the site use the device's location to show where you are
 - **Invite emails (Travel Crew phase 2)**: send invites and trip notifications for guests by email from the app, and verify a guest's email with a magic link before they join (needs an email service such as Resend)
 - **More notifications**: "your trip is coming up" reminders, and live updates instead of checking every minute

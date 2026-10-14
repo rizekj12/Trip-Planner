@@ -158,7 +158,7 @@ function createClient() {
       },
     },
     channel: () => ({ on() { return this; }, subscribe() { return this; } }),
-    // Supabase Storage: upload / download / remove (what the server uses)
+    // Supabase Storage: upload / download / remove / createSignedUrls (what the server uses)
     storage: {
       from: (bucket) => ({
         async upload(path, body, { upsert = false, contentType } = {}) {
@@ -170,6 +170,12 @@ function createClient() {
         async download(path) {
           const file = files.get(`${bucket}/${path}`);
           return file ? { data: new Blob([file.body]), error: null } : { data: null, error: { message: "Object not found" } };
+        },
+        async createSignedUrls(paths, expiresIn) {
+          return {
+            data: paths.map((p) => ({ path: p, signedUrl: files.has(`${bucket}/${p}`) ? `https://fake.storage/${bucket}/${p}?expires=${expiresIn}` : null, error: null })),
+            error: null,
+          };
         },
         async remove(paths) {
           paths.forEach((p) => files.delete(`${bucket}/${p}`));

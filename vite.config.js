@@ -56,6 +56,12 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Trip album photos come as signed links that change every hour; caching them would
+          // crowd out other images and keep deleted photos on the device
+          {
+            urlPattern: /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/.*/i,
+            handler: "NetworkOnly",
+          },
           {
             urlPattern: ({ request }) => request.destination === "image",
             handler: "CacheFirst",
