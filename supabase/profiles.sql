@@ -39,6 +39,8 @@ create policy "Users can update their profile" on public.profiles
 
 -- ---- Travel documents ---------------------------------------------------------------------
 -- Only ever visible to their owner: never shared with travel partners or put in trip PDFs.
+-- Numbers are encrypted by the server and the browser goes through /api/documents (issue #56,
+-- supabase/encrypt-travel-documents.sql), so there are no browser policies on this table.
 create table if not exists public.travel_documents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -46,7 +48,8 @@ create table if not exists public.travel_documents (
     'passport', 'known_traveler', 'drivers_license', 'visa', 'insurance', 'frequent_flyer', 'vaccination', 'other'
   )),
   label text check (char_length(label) <= 100),      -- e.g. issuing country, airline, insurer
-  number text check (char_length(number) <= 100),
+  number_encrypted text,                               -- encrypted by the server, never plain text
+  number_last4 text check (char_length(number_last4) <= 4),
   expires_on date,
   notes text check (char_length(notes) <= 500),
   created_at timestamptz not null default now(),
@@ -58,8 +61,7 @@ create index if not exists travel_documents_user_idx on public.travel_documents 
 alter table public.travel_documents enable row level security;
 
 drop policy if exists "Users manage their travel documents" on public.travel_documents;
-create policy "Users manage their travel documents" on public.travel_documents
-  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+revoke all on public.travel_documents from anon, authenticated;
 
 -- ---- Saved travelers ----------------------------------------------------------------------
 -- People someone travels with, to invite to future trips. Private to the person who saved them.

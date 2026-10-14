@@ -30,7 +30,7 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
 - **My Profile** (`/profile`): photo, completeness meter, and four sections (`?tab=` opens one):
   - **About me**: name, phone, birthday, gender, bio (shown to travel partners) and home country ("Based in").
   - **Safety & accessibility**: accessibility and dietary needs, which new itineraries and food spots plan around, and an emergency contact the organizer of a trip can see from 2 days before it until it ends (only if the user turns sharing on).
-  - **Travel documents**: passport, Known Traveler Number, insurance, visas and more, with hidden numbers and expiry warnings (passports 6 months out). Private to the user.
+  - **Travel documents**: passport, Known Traveler Number, insurance, visas and more, with hidden numbers and expiry warnings (passports 6 months out). Private to the user. Numbers are **encrypted by the server** with a key Supabase never sees; the list only has the last 4 characters, and "Show" fetches one full number for a minute.
   - **Saved travelers**: people the user travels with; "Invite to a trip" picks one of their upcoming trips and emails or copies its invite link.
 - **Installable**: a Progressive Web App with offline caching of the app shell and map tiles.
 
@@ -76,6 +76,8 @@ A single-page app in [`src/`](src/).
 | [`shared/tripLength.js`](shared/tripLength.js) | Trip length and the 14-day limit, used by both the questionnaire and the server so they always agree (tests: `npm test`, run by Vitest) |
 | [`shared/accessibility.js`](shared/accessibility.js) | The accessibility and dietary options on the profile page, and how they're described to Claude |
 | [`server/travelerProfile.js`](server/travelerProfile.js) | Reads the organizer's accessibility and dietary needs for the itinerary and food spot prompts |
+| [`server/travelDocuments.js`](server/travelDocuments.js) | Travel document routes (`/api/documents`): the only way to the `travel_documents` table; lists masked numbers and decrypts one for its owner on request |
+| [`server/documentCrypto.js`](server/documentCrypto.js) | AES-256-GCM encryption of document numbers with `DOCUMENT_ENCRYPTION_KEYS` (versioned for rotation; `server/scripts/reencryptDocuments.js` moves old values to the newest key) |
 | [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/memberReservations.js`](server/memberReservations.js) | Partners' and guests' own reservations: add, edit, delete and list, always filtered to the person asking. Table: `member_reservations` (server-only, no browser access) |
@@ -121,7 +123,7 @@ Everything lives in the trip row's `itinerary_data` JSON, so no database schema 
 | `_homebases` | Each city's hotel or homebase location, for distances and the map |
 | `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
 
-Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), Members can't read `trips` directly: only the owner can (row-level security). The app reads a shared trip through the server's `GET /api/trips/:id/shared`, which checks the person is an approved member and removes the organizer's reservations, confirmation codes and notes, and finds which trips to load from the member's own `trip_members` rows ([#62](https://github.com/rizekj12/Trip-Planner/issues/62); [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) removes the old direct-read policy). [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/member-reservations.sql`](supabase/member-reservations.sql)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), Members can't read `trips` directly: only the owner can (row-level security). The app reads a shared trip through the server's `GET /api/trips/:id/shared`, which checks the person is an approved member and removes the organizer's reservations, confirmation codes and notes, and finds which trips to load from the member's own `trip_members` rows ([#62](https://github.com/rizekj12/Trip-Planner/issues/62); [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) removes the old direct-read policy). [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The exception is `travel_documents`, which the browser can't query at all: it goes through the server's `/api/documents`, and document numbers are stored only encrypted (`number_encrypted`) plus their last 4 characters ([#56](https://github.com/rizekj12/Trip-Planner/issues/56)). The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/member-reservations.sql`](supabase/member-reservations.sql)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -216,6 +218,11 @@ ANTHROPIC_API_KEY=...
 GEOAPIFY_API_KEY=...
 # Server only (Supabase → Project Settings → API → service_role). Never prefix with VITE_.
 SUPABASE_SERVICE_ROLE_KEY=...
+# Server only: encrypts travel document numbers. "1:" + 32 random bytes in base64, from
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Use the SAME value locally and on Railway (they share one database), and keep a copy in a
+# password manager: if it's lost, saved document numbers can't be read again.
+DOCUMENT_ENCRYPTION_KEYS=1:...
 # Optional: origins allowed to call the API from a browser (default: localhost:3000)
 # CORS_ORIGINS=http://localhost:3000
 # Optional: log level (trace, debug, info, warn, error, silent). Default: debug locally, info in production
@@ -224,7 +231,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, and removing partners' direct access to trip rows). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) and [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, and server-only, encrypted travel documents). Then:
 
 ```bash
 npm install
@@ -238,7 +245,7 @@ npm test          # unit and component tests (Vitest); npm run test:watch re-run
 In production one Node server serves both the API and the built app; it listens on Railway's `PORT`.
 
 1. **New Project → Deploy from GitHub repo**; Railway builds the [`Dockerfile`](Dockerfile).
-2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (the `VITE_` ones are also used at build time). Don't set `PORT`.
+2. **Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANTHROPIC_API_KEY`, `GEOAPIFY_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DOCUMENT_ENCRYPTION_KEYS` (the same value as in your local `.env`) (the `VITE_` ones are also used at build time). Don't set `PORT`.
 3. **Settings**: Networking → Generate Domain; Deploy → Healthcheck Path `/health`.
 4. Add the Railway URL to Supabase (**Site URL** and **Redirect URLs**, e.g. `https://<app>.up.railway.app/**`) and to Google Cloud (**Authorized JavaScript origins**).
 

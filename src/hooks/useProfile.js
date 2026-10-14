@@ -31,10 +31,9 @@ export function useDocuments() {
 }
 
 export function useSaveDocument() {
-  const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (doc) => saveDocument(user.id, doc),
+    mutationFn: saveDocument,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["documents"] }),
   });
 }

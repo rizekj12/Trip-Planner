@@ -1,6 +1,8 @@
 // The signed-in user's profile details, travel documents and saved travelers
 // (supabase/profiles.sql). Row-level security limits every query to the user's own rows.
+// Travel documents go through the server instead, which encrypts their numbers (issue #56).
 import { supabase } from "./supabase";
+import { apiJson } from "./api";
 
 // ---- Profile details ----
 
@@ -40,30 +42,25 @@ export const DOCUMENT_KINDS = {
   other: { label: "Other document", labelField: "Name", numberField: "Number" },
 };
 
-export async function fetchDocuments() {
-  const { data, error } = await supabase.from("travel_documents").select("*").order("created_at");
-  if (error) throw error;
-  return data;
-}
+// The user's documents: { id, kind, label, hasNumber, last4, expires_on, notes, ... }.
+// Never includes full numbers; see revealDocumentNumber.
+export const fetchDocuments = () => apiJson("GET", "/api/documents", null, { auth: true });
 
-// Creates a document, or updates it when `id` is given
-export async function saveDocument(userId, { id, ...fields }) {
-  const row = { ...fields, user_id: userId, updated_at: new Date().toISOString() };
-  const query = id
-    ? supabase.from("travel_documents").update(row).eq("id", id)
-    : supabase.from("travel_documents").insert(row);
-  const { data, error } = await query.select().single();
-  if (error) throw error;
-  return data;
-}
+// Creates a document, or updates it when `id` is given. For `number`: leave it out to keep
+// the saved one, "" to remove it, or a new number to replace it.
+export const saveDocument = ({ id, ...fields }) =>
+  id
+    ? apiJson("PUT", `/api/documents/${id}`, fields, { auth: true })
+    : apiJson("POST", "/api/documents", fields, { auth: true });
 
-export async function deleteDocument(id) {
-  const { error } = await supabase.from("travel_documents").delete().eq("id", id);
-  if (error) throw error;
-}
+export const deleteDocument = (id) => apiJson("DELETE", `/api/documents/${id}`, null, { auth: true });
 
-// "•••• 4821" (or "" with no number)
-export const maskNumber = (number) => (number ? `•••• ${String(number).slice(-4)}` : "");
+// The full number of one document (decrypted by the server), for "Show"
+export const revealDocumentNumber = async (id) =>
+  (await apiJson("GET", `/api/documents/${id}/number`, null, { auth: true })).number;
+
+// "•••• 4821" (or "" with no number) from a document's last 4 characters
+export const maskNumber = (last4) => (last4 ? `•••• ${last4}` : "");
 
 // How a document's expiry looks: { text, tone: "ok" | "warn" | "bad" | "none" }.
 // Passports warn 6 months out, since many countries require that much validity left.
