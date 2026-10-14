@@ -11,7 +11,7 @@ import {
 } from "./test/fixtures.js";
 
 vi.mock("@supabase/supabase-js", async () => (await import("./test/fakeSupabase.js")).supabaseModule);
-const { registerCrewRoutes, withoutPrivateDetails, MAX_TRAVELERS } = await import("./crew.js");
+const { registerCrewRoutes, withoutPrivateDetails, sharedTripView, MAX_TRAVELERS } = await import("./crew.js");
 
 const notifier = { notify: vi.fn(), resolveJoinRequest: vi.fn() };
 const app = express();
@@ -59,6 +59,48 @@ describe("withoutPrivateDetails", () => {
     expect(() => withoutPrivateDetails()).not.toThrow();
     const shared = withoutPrivateDetails({ _form_data: { cities: [{ name: "Lima", hotel: null }] } });
     expect(shared._form_data.cities[0].hotel).toBeNull();
+  });
+});
+
+// The only way a travel partner reads a trip (issue #62): it must never carry the organizer's
+// reservations or confirmation codes, whatever the trip row holds
+describe("GET /api/trips/:tripId/shared", () => {
+  const url = `/api/trips/${TRIP_ID}/shared`;
+
+  test("requires sign-in", async () => {
+    expect((await request(app).get(url)).status).toBe(401);
+  });
+
+  test("an approved member gets the trip without any confirmation codes or private notes", async () => {
+    const res = await request(app).get(url).set(auth("token-member"));
+    expect(res.status).toBe(200);
+    expect(leaksSecrets(res.body)).toEqual([]);
+    expect(res.text).not.toMatch(/confirmationCode|reservations|_pdf_downloaded_at/);
+    // Still everything the trip page needs, in the shape of a trips row
+    expect(res.body).toMatchObject({ id: TRIP_ID, user_id: OWNER.id, destination: "Japan" });
+    expect(res.body.itinerary_data.days).toHaveLength(1);
+    expect(res.body.itinerary_data._form_data.cities[0].hotel).toEqual({ name: "Hotel Sakura", address: "1-1 Ginza, Tokyo" });
+  });
+
+  test("strangers, pending members and the owner's own token get nothing", async () => {
+    for (const token of ["token-stranger", "token-pending", "token-owner"]) {
+      const res = await request(app).get(url).set(auth(token));
+      expect(res.status).toBe(404);
+      expect(leaksSecrets(res.body)).toEqual([]);
+    }
+  });
+
+  test("an unknown trip is a 404", async () => {
+    expect((await request(app).get("/api/trips/nope/shared").set(auth("token-member"))).status).toBe(404);
+  });
+});
+
+describe("sharedTripView", () => {
+  test("only passes allow-listed columns, and strips private details", () => {
+    const view = sharedTripView({ ...readyTrip(), secret_column: "SECRET", travel_style: "flexible" });
+    expect(view.secret_column).toBeUndefined();
+    expect(view.travel_style).toBe("flexible");
+    expect(leaksSecrets(view)).toEqual([]);
   });
 });
 

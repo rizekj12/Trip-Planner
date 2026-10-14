@@ -11,15 +11,10 @@ alter table public.trip_members drop constraint if exists trip_members_status_ch
 alter table public.trip_members
   add constraint trip_members_status_check check (status in ('pending', 'approved'));
 
--- Only approved members can view a shared trip (a pending request sees nothing yet)
+-- Only approved members can view a shared trip (a pending request sees nothing yet). The
+-- server checks that in GET /api/trips/:id/shared; members don't read `trips` directly any
+-- more (issue #62), so the old "Members can view shared trips" policy is removed here too.
 drop policy if exists "Members can view shared trips" on public.trips;
-create policy "Members can view shared trips" on public.trips
-  for select using (
-    exists (
-      select 1 from public.trip_members m
-      where m.trip_id = trips.id and m.user_id = auth.uid() and m.status = 'approved'
-    )
-  );
 
 -- ---- Invite links: expiry and the "approve new travelers" setting ------------------------
 alter table public.trip_invites
