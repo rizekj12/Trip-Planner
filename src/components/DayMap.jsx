@@ -73,7 +73,8 @@ function FitBounds({ items }) {
 // items: stops plus hotels (type: "hotel"), each with [lat, lng] coords.
 // A stop's pin shows its `number` if set (to match a list), otherwise its position.
 // clickable: false turns off the details popup on pin click (the hover tooltip stays).
-export default function DayMap({ items = [], clickable = true }) {
+// heightClass: Tailwind height classes for the map (responsive ones welcome).
+export default function DayMap({ items = [], clickable = true, heightClass = "h-72" }) {
   const [active, setActive] = useState(null);
 
   const spots = useMemo(
@@ -100,7 +101,7 @@ export default function DayMap({ items = [], clickable = true }) {
       <MapContainer
         center={WORLD_CENTER}
         zoom={2}
-        className="h-72 w-full rounded-2xl shadow-xl ring-1 ring-black/10"
+        className={`${heightClass} w-full rounded-2xl shadow-xl ring-1 ring-black/10`}
         scrollWheelZoom={false}
       >
         <TileLayer
