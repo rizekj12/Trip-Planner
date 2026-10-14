@@ -14,7 +14,7 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - A sidebar with a **mini calendar** of the next trip's month, **travel stats** (trips, countries, days away) and **ideas** that start a new trip with the destination filled in.
   - New users see a "Where will your first trip take you?" welcome with popular destinations instead.
   - On phones, a bottom tab bar (Trips · Calendar · New · Profile).
-- **Trips calendar**: a month view of every trip as colored bars, from the month the account was created to a year ahead, with Today, Previous trip and Next trip buttons.
+- **Trips calendar** (`/calendar?month=YYYY-MM`): in the dashboard's style, a month grid with every trip as a colored bar (past trips faded, drafts dashed), a month strip for jumping around the year (dots mark months with trips), Today / Previous trip / Next trip, and a side column with the month's trips (hover to highlight on the grid), what's coming up and the year at a glance. Covers the month the account was created to a year ahead.
 - **Travel Crew**: invite travel partners with a shareable link (copy, share sheet or email). Friends with an account join and see the trip on their dashboard; anyone else can join that one trip as a guest with just a name and email. Avatar bubbles show who's going. Partners and guests can view the trip but not change it, and never see the organizer's confirmation codes.
   - By default the organizer **approves each new traveler** (a setting in the invite window); until then the trip stays hidden from them.
   - Up to **10 travelers** besides the organizer. Invite links expire after 30 days or when the trip ends, whichever is first, and guest links stop working 30 days after the trip.
@@ -179,8 +179,9 @@ main.jsx
                     │       ├── ReservationsPanel          Reservations section (owner only)
                     │       │   └── Modal                  add / edit form: FlightFields, HotelFields
                     │       └── CrewPanel                  Travel Crew section
-                    ├── CalendarPage                       /calendar
+                    ├── CalendarPage                       /calendar?month=YYYY-MM
                     │   ├── AppHeader
+                    │   ├── TripThumb                      side list of the month's trips
                     │   └── BottomTabBar                   phones
                     ├── NotificationsPage                  /notifications
                     │   ├── AppHeader
