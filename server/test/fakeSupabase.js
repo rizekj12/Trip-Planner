@@ -13,12 +13,20 @@
 let tables = {};
 let users = new Map();
 let tokens = new Map();
+let files = new Map(); // "bucket/path" -> { body: Buffer, contentType }
 
 export const db = {
   reset(initialTables = {}, { users: userList = [], tokens: tokenMap = {} } = {}) {
     tables = Object.fromEntries(Object.entries(initialTables).map(([t, rows]) => [t, rows.map((r) => ({ ...r }))]));
     users = new Map(userList.map((u) => [u.id, u]));
     tokens = new Map(Object.entries(tokenMap));
+    files = new Map();
+  },
+  // Storage objects in a bucket: { path: { body, contentType } }
+  files(bucket) {
+    return Object.fromEntries(
+      [...files].filter(([key]) => key.startsWith(`${bucket}/`)).map(([key, v]) => [key.slice(bucket.length + 1), v])
+    );
   },
   rows(table) {
     return tables[table] || [];
@@ -150,6 +158,25 @@ function createClient() {
       },
     },
     channel: () => ({ on() { return this; }, subscribe() { return this; } }),
+    // Supabase Storage: upload / download / remove (what the server uses)
+    storage: {
+      from: (bucket) => ({
+        async upload(path, body, { upsert = false, contentType } = {}) {
+          const key = `${bucket}/${path}`;
+          if (files.has(key) && !upsert) return { data: null, error: { message: "The resource already exists" } };
+          files.set(key, { body: Buffer.from(body), contentType });
+          return { data: { path }, error: null };
+        },
+        async download(path) {
+          const file = files.get(`${bucket}/${path}`);
+          return file ? { data: new Blob([file.body]), error: null } : { data: null, error: { message: "Object not found" } };
+        },
+        async remove(paths) {
+          paths.forEach((p) => files.delete(`${bucket}/${p}`));
+          return { data: paths.map((name) => ({ name })), error: null };
+        },
+      }),
+    },
   };
 }
 

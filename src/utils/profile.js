@@ -2,7 +2,7 @@
 // (supabase/profiles.sql). Row-level security limits every query to the user's own rows.
 // Travel documents go through the server instead, which encrypts their numbers (issue #56).
 import { supabase } from "./supabase";
-import { apiJson } from "./api";
+import { apiJson, apiRequest } from "./api";
 
 // ---- Profile details ----
 
@@ -58,6 +58,23 @@ export const deleteDocument = (id) => apiJson("DELETE", `/api/documents/${id}`, 
 // The full number of one document (decrypted by the server), for "Show"
 export const revealDocumentNumber = async (id) =>
   (await apiJson("GET", `/api/documents/${id}/number`, null, { auth: true })).number;
+
+// ---- Document attachments (a photo or PDF per document, issue #55) ----
+
+export const ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+
+// Uploads (or replaces) a document's file; resolves with the updated document
+export const uploadDocumentAttachment = (id, file) =>
+  apiJson("PUT", `/api/documents/${id}/attachment`, file, {
+    auth: true,
+    headers: { "X-File-Name": encodeURIComponent(file.name || "") },
+  });
+
+export const removeDocumentAttachment = (id) => apiJson("DELETE", `/api/documents/${id}/attachment`, null, { auth: true });
+
+// The file itself (decrypted by the server), as a Blob
+export const fetchDocumentAttachment = async (id) =>
+  (await apiRequest("GET", `/api/documents/${id}/attachment`, null, { auth: true })).blob();
 
 // "•••• 4821" (or "" with no number) from a document's last 4 characters
 export const maskNumber = (last4) => (last4 ? `•••• ${last4}` : "");

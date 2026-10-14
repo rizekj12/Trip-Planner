@@ -64,8 +64,36 @@ export function createDocumentCrypto(envValue) {
     return Buffer.concat([decipher.update(Buffer.from(ciphertext, "base64")), decipher.final()]).toString("utf8");
   }
 
+  // Files (document attachments, issue #55): the same AES-256-GCM, on bytes. Bound to the
+  // owner AND the document, so a file can't be moved to another document or person.
+  // Layout: "v<version>:" then IV (12 bytes), auth tag (16 bytes), ciphertext.
+  const fileAad = (userId, documentId) => Buffer.from(`travel_documents:${userId}:${documentId}:file`, "utf8");
+
+  function encryptFile(bytes, userId, documentId) {
+    if (!config) throw new Error("Document encryption isn't configured");
+    const iv = crypto.randomBytes(IV_BYTES);
+    const cipher = crypto.createCipheriv(ALGORITHM, config.keys.get(config.current), iv);
+    cipher.setAAD(fileAad(userId, documentId));
+    const ciphertext = Buffer.concat([cipher.update(bytes), cipher.final()]);
+    return Buffer.concat([Buffer.from(`v${config.current}:`), iv, cipher.getAuthTag(), ciphertext]);
+  }
+
+  function decryptFile(stored, userId, documentId) {
+    if (!config) throw new Error("Document encryption isn't configured");
+    const colon = stored.indexOf(0x3a); // ":" after "v<version>"
+    const version = colon > 1 && stored[0] === 0x76 ? Number(stored.subarray(1, colon).toString()) : NaN;
+    const key = config.keys.get(version);
+    if (!key || stored.length < colon + 1 + IV_BYTES + 16) throw new Error("Unreadable document file");
+    const iv = stored.subarray(colon + 1, colon + 1 + IV_BYTES);
+    const tag = stored.subarray(colon + 1 + IV_BYTES, colon + 1 + IV_BYTES + 16);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAAD(fileAad(userId, documentId));
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(stored.subarray(colon + 1 + IV_BYTES + 16)), decipher.final()]);
+  }
+
   // Whether a stored value was encrypted with an older key (and should be re-encrypted)
   const isStale = (stored) => !!config && !String(stored).startsWith(`v${config.current}:`);
 
-  return { ready: !!config, encrypt, decrypt, isStale };
+  return { ready: !!config, encrypt, decrypt, encryptFile, decryptFile, isStale };
 }
