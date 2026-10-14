@@ -4,6 +4,8 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { tripLengthDays } from "../shared/tripLength.js";
 import { needsForPrompt } from "../shared/accessibility.js";
+import { logger } from "./logger.js";
+import { UserFacingError } from "./errors.js";
 
 // Helper functions
 
@@ -28,7 +30,7 @@ function getVacationTypeDescription(type) {
 
 // Flight timing for pacing the first and last days. Only route, date and departure time are
 // sent — never confirmation codes, flight numbers or notes. Empty string if there are none.
-function buildFlightsBlock(formData) {
+export function buildFlightsBlock(formData) {
   const lines = (formData.reservations?.flights || [])
     .filter((f) => f.date && (f.from || f.to))
     .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`))
@@ -42,7 +44,7 @@ ${lines.join("\n")}
 }
 
 // `traveler`: the organizer's accessibility and dietary needs from their profile, if any
-function buildPrompt(formData, traveler) {
+export function buildPrompt(formData, traveler) {
   const numDays = tripLengthDays(formData.cities) ?? 0;
   const flightsBlock = buildFlightsBlock(formData);
   const needs = needsForPrompt(traveler);
@@ -154,7 +156,7 @@ ITINERARY REQUIREMENTS:
   }`;
 }
 
-function parseItineraryResponse(message) {
+export function parseItineraryResponse(message) {
   try {
     // Skip thinking blocks; join text in case the reply was split across blocks
     const text = message.content
@@ -192,9 +194,8 @@ function parseItineraryResponse(message) {
 
     return itinerary;
   } catch (error) {
-    console.error("Failed to parse itinerary:", error);
-    console.error("Stop reason:", message.stop_reason);
-    throw new Error("Failed to parse AI response. Please try again.");
+    logger.error({ err: error, stopReason: message.stop_reason }, "Failed to parse itinerary");
+    throw new UserFacingError("Failed to parse AI response. Please try again.", { cause: error });
   }
 }
 
@@ -212,13 +213,13 @@ export async function generateItinerary(formData, apiKey, { signal, traveler } =
     }, { signal })
     .finalMessage();
 
-  console.log("Itinerary response:", message.stop_reason, message.usage);
+  logger.info({ stopReason: message.stop_reason, usage: message.usage }, "Itinerary response");
 
   if (message.stop_reason === "max_tokens") {
-    throw new Error("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
+    throw new UserFacingError("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
   }
   if (message.stop_reason === "refusal") {
-    throw new Error("The AI declined to generate this itinerary.");
+    throw new UserFacingError("The AI declined to generate this itinerary.");
   }
 
   return parseItineraryResponse(message);

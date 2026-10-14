@@ -10,6 +10,8 @@ import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
 import { patchItineraryData } from "./tripData.js";
 import { travelerNeeds } from "./travelerProfile.js";
+import { logger } from "./logger.js";
+import { UserFacingError, publicMessage } from "./errors.js";
 
 const MAX_ATTEMPTS = 2; // the first run plus one automatic retry after a restart
 export const GENERATION_TIMEOUT_MS = 10 * 60 * 1000; // per attempt, for all the Claude calls together
@@ -47,7 +49,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       updated_at: now(),
     });
     if (error) {
-      console.error("Couldn't record generation job:", error);
+      logger.error({ err: error, tripId }, "Couldn't record generation job");
       throw new Error("Couldn't start generation (run supabase/generation-jobs.sql)");
     }
     run({ trip_id: String(tripId), user_id: userId, reservation_id: reservationId });
@@ -73,7 +75,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
         .update({ heartbeat_at: now() })
         .eq("trip_id", tripId)
         .eq("worker", workerId)
-        .then(({ error }) => error && console.error("Heartbeat failed for trip", tripId, error.message));
+        .then(({ error }) => error && logger.warn({ err: error, tripId }, "Heartbeat failed"));
     }, HEARTBEAT_MS);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
@@ -89,7 +91,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       if (!trip) return finish(job, "done"); // deleted while waiting; nothing to do
       destination = trip.destination;
       const formData = trip.itinerary_data?._form_data;
-      if (!formData) throw new Error("This trip has no questionnaire answers to generate from.");
+      if (!formData) throw new UserFacingError("This trip has no questionnaire answers to generate from.");
 
       // Food spots and homebase locations are prepared alongside the itinerary, so the
       // Food Spots tab (list, distances, map) is ready when the trip is
@@ -111,8 +113,9 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       await finish(job, "done");
       await notifier?.notify(job.user_id, "itinerary_ready", { tripId, data: { destination } });
     } catch (err) {
-      const message = controller.signal.aborted ? TIMEOUT_MESSAGE : err.message || "Generation failed";
-      console.error("Itinerary generation failed for trip", tripId, err);
+      // Only messages written for the traveler reach the app; everything else stays in the log
+      const message = controller.signal.aborted ? TIMEOUT_MESSAGE : publicMessage(err, "Generation failed. Please try again.");
+      logger.error({ err, tripId }, "Itinerary generation failed");
       await fail(job, message, destination);
     } finally {
       clearInterval(heartbeat);
@@ -125,17 +128,17 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       .from("generation_jobs")
       .update({ status, last_error: lastError, updated_at: now() })
       .eq("trip_id", job.trip_id);
-    if (error) console.error("Couldn't update generation job", job.trip_id, error.message);
+    if (error) logger.error({ err: error, tripId: job.trip_id }, "Couldn't update generation job");
   }
 
   // Marks the trip and its job failed, gives back the user's generation slot so the failure
   // doesn't count against the daily cap, and lets them know. Never throws.
   async function fail(job, message, destination) {
     await guards.releaseGeneration(job.reservation_id).catch((err) =>
-      console.error("Couldn't release generation for trip", job.trip_id, err)
+      logger.error({ err, tripId: job.trip_id }, "Couldn't release generation")
     );
     await patchItineraryData(admin, job.trip_id, { _status: "failed", _error: message }).catch((err) =>
-      console.error("Couldn't mark trip as failed:", job.trip_id, err.message)
+      logger.error({ err, tripId: job.trip_id }, "Couldn't mark trip as failed")
     );
     await finish(job, "failed", message);
     await notifier?.notify(job.user_id, "itinerary_failed", { tripId: job.trip_id, data: { destination } });
@@ -151,7 +154,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       .select("trip_id, user_id, attempts, heartbeat_at, reservation_id")
       .eq("status", "running")
       .lt("heartbeat_at", staleBefore);
-    if (error) return console.error("Generation sweep failed:", error.message);
+    if (error) return logger.error({ err: error }, "Generation sweep failed");
 
     for (const job of stale) {
       // Claim it; matching the old heartbeat means only one server wins if several sweep at once
@@ -179,10 +182,10 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
         continue;
       }
       if (retry) {
-        console.log(`Retrying generation for trip ${job.trip_id} (attempt ${job.attempts + 1})`);
+        logger.info({ tripId: job.trip_id, attempt: job.attempts + 1 }, "Retrying generation");
         run(job);
       } else {
-        console.log(`Giving up on generation for trip ${job.trip_id}`);
+        logger.warn({ tripId: job.trip_id }, "Giving up on generation");
         await fail(job, LOST_MESSAGE, trip.destination);
       }
     }
@@ -197,7 +200,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       .from("trips")
       .select("id, itinerary_data")
       .eq("itinerary_data->>_status", "pending");
-    if (error) return console.error("Pending trip sweep failed:", error.message);
+    if (error) return logger.error({ err: error }, "Pending trip sweep failed");
 
     const old = pending.filter((t) => {
       const started = Date.parse(t.itinerary_data?._started_at);
@@ -215,14 +218,14 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       await patchItineraryData(admin, trip.id, {
         _status: "failed",
         _error: "Generation didn't start. Please try again.",
-      }).catch((err) => console.error("Couldn't mark trip as failed:", trip.id, err.message));
+      }).catch((err) => logger.error({ err, tripId: trip.id }, "Couldn't mark trip as failed"));
     }
   }
 
   // Sweep now (picking up anything a previous server left behind) and then every minute
   function startSweeper() {
     if (!admin) return;
-    const safeSweep = () => sweep().catch((err) => console.error("Generation sweep failed:", err));
+    const safeSweep = () => sweep().catch((err) => logger.error({ err }, "Generation sweep failed"));
     safeSweep();
     setInterval(safeSweep, SWEEP_EVERY_MS).unref();
   }
