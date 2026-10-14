@@ -7,7 +7,8 @@ import { getGuestTrip } from "../utils/aiService";
 import { tripStatus } from "../utils/trips";
 
 // A guest's view-only trip (/guest/:token), open without signing in. The server leaves out
-// the organizer's reservations and confirmation codes. Until the organizer approves the guest,
+// the organizer's reservations and confirmation codes; the guest can keep their own in
+// "My reservations", which only they can see. Until the organizer approves the guest,
 // it only says the request is waiting (and checks back every 30 seconds).
 export default function GuestTripPage() {
   const { token } = useParams();
@@ -52,6 +53,7 @@ export default function GuestTripPage() {
         homebases={_homebases || {}}
         viewer="guest"
         crew={crew}
+        guestToken={token}
       />
     </>
   );

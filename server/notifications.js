@@ -2,6 +2,7 @@
 // users read their own and mark them read from the browser (see
 // supabase/invite-approvals-notifications.sql).
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger.js";
 
 export function createNotifier({ supabaseUrl, serviceKey }) {
   const admin =
@@ -16,7 +17,7 @@ export function createNotifier({ supabaseUrl, serviceKey }) {
     const { error } = await admin
       .from("notifications")
       .insert({ user_id: userId, type, trip_id: tripId == null ? null : String(tripId), data });
-    if (error) console.error(`Couldn't create ${type} notification:`, error);
+    if (error) logger.error({ err: error, type }, "Couldn't create notification");
   }
 
   // Marks a join request's notification as handled ("approved" / "declined"), so it no
@@ -28,7 +29,7 @@ export function createNotifier({ supabaseUrl, serviceKey }) {
       .select("id, data")
       .eq("type", "join_request")
       .eq("data->>member_id", memberId);
-    if (error) return console.error("Couldn't find join request notification:", error);
+    if (error) return logger.error({ err: error }, "Couldn't find join request notification");
     await Promise.all(
       (rows || []).map((n) =>
         admin

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plane, Hotel, Plus, Pencil, Copy, Check, Loader2, Trash2 } from "lucide-react";
+import { Plane, Hotel, Plus, Pencil, Copy, Check, Loader2, Trash2, Lock } from "lucide-react";
 import Modal from "../Modal";
 import { FlightFields, HotelFields } from "./ReservationFields";
 import { useUpdateReservations } from "../../hooks/useTrips";
@@ -79,25 +79,44 @@ function ReservationCard({ icon: Icon, title, badge, lines, code, emptyCodeHint,
   );
 }
 
-// Flights and hotels with their confirmation codes, all editable. Saved in the trip's form data.
+// The organizer's flights and hotels with their confirmation codes, all editable. Saved in the
+// trip's form data, which only the organizer can change.
 export default function ReservationsPanel({ tripId, formData }) {
   const save = useUpdateReservations(tripId);
+  return (
+    <ReservationsView
+      flights={getFlights(formData)}
+      hotels={getHotels(formData)}
+      save={save}
+      // Each change is an update function applied to the latest saved form data
+      saveChange={(editing) => (fd) =>
+        editing.kind === "flight" ? saveFlight(fd, editing.value) : saveHotel(fd, editing.value)}
+      deleteChange={(editing) => (fd) =>
+        editing.kind === "flight" ? deleteFlight(fd, editing.value.id) : deleteHotel(fd, editing.value)}
+      subtitle="Your flight and hotel confirmation codes, in one place"
+      footnote="Reservations are included when you download the PDF, so you'll have them offline."
+    />
+  );
+}
+
+// The Reservations screen itself: lists flights and hotels and adds, edits and deletes them.
+// Shared by the organizer (ReservationsPanel) and travel partners (MyReservationsPanel).
+//   save          a React Query mutation that takes what saveChange/deleteChange return
+//   saveChange    (editing) => mutation input that saves editing.value ({ kind, value, isNew })
+//   deleteChange  (editing) => mutation input that deletes it
+//   subtitle, footnote, notice   text around the lists (notice: an optional banner on top)
+export function ReservationsView({ flights, hotels, save, saveChange, deleteChange, subtitle, footnote, notice, isLoading }) {
   // { kind: "flight" | "hotel", value, isNew }
   const [editing, setEditing] = useState(null);
-
-  const flights = getFlights(formData);
-  const hotels = getHotels(formData);
 
   const close = () => {
     setEditing(null);
     save.reset();
   };
-  const submit = (update) => save.mutate(update, { onSuccess: close });
+  const submit = (input) => save.mutate(input, { onSuccess: close });
 
-  const onSave = () =>
-    submit((fd) => (editing.kind === "flight" ? saveFlight(fd, editing.value) : saveHotel(fd, editing.value)));
-  const onDelete = () =>
-    submit((fd) => (editing.kind === "flight" ? deleteFlight(fd, editing.value.id) : deleteHotel(fd, editing.value)));
+  const onSave = () => submit(saveChange(editing));
+  const onDelete = () => submit(deleteChange(editing));
 
   const isTripHotel = editing?.kind === "hotel" && editing.value.source === "trip";
   // A new hotel needs a name; a flight needs at least one field filled in
@@ -109,8 +128,21 @@ export default function ReservationsPanel({ tripId, formData }) {
     <div className={`mx-auto max-w-3xl rounded-2xl p-6 shadow-xl ${theme.card}`}>
       <div className={`mb-6 rounded-xl p-4 ${theme.header}`}>
         <h2 className="text-2xl font-semibold">Reservations</h2>
-        <p className="mt-1 text-sm opacity-80">Your flight and hotel confirmation codes, in one place</p>
+        <p className="mt-1 text-sm opacity-80">{subtitle}</p>
       </div>
+
+      {notice && (
+        <div className="mb-6 flex items-start gap-2 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+          <Lock size={16} className="mt-0.5 flex-none" />
+          <p>{notice}</p>
+        </div>
+      )}
+
+      {isLoading && (
+        <p className="mb-4 flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 size={15} className="animate-spin" /> Loading your reservations…
+        </p>
+      )}
 
       {/* Flights */}
       <section>
@@ -187,9 +219,7 @@ export default function ReservationsPanel({ tripId, formData }) {
         )}
       </section>
 
-      <p className="mt-6 text-center text-xs text-gray-500">
-        Reservations are included when you download the PDF, so you'll have them offline.
-      </p>
+      {footnote && <p className="mt-6 text-center text-xs text-gray-500">{footnote}</p>}
 
       {/* Add / edit */}
       <Modal open={!!editing} onClose={close} className="max-w-lg max-h-[90vh] overflow-y-auto p-6">

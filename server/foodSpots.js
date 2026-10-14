@@ -2,6 +2,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { locatePlaces } from "./geoapify.js";
 import { needsForPrompt } from "../shared/accessibility.js";
+import { logger } from "./logger.js";
+import { UserFacingError } from "./errors.js";
 
 function buildPrompt({ city, country, count, exclude, traveler }) {
   const dietary = needsForPrompt(traveler, { dietaryOnly: true });
@@ -31,7 +33,7 @@ Respond with ONLY valid JSON (no markdown):
 }`;
 }
 
-function parseSpots(message) {
+export function parseSpots(message) {
   const text = message.content
     .filter((block) => block.type === "text")
     .map((block) => block.text)
@@ -55,9 +57,9 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey, signal
     messages: [{ role: "user", content: buildPrompt({ city, country, count, exclude, traveler }) }],
   }, { signal });
 
-  console.log("Food spots response:", message.stop_reason, message.usage);
-  if (message.stop_reason === "max_tokens") throw new Error("The list got cut off. Please try again.");
-  if (message.stop_reason === "refusal") throw new Error("The AI declined to list places for this city.");
+  logger.info({ stopReason: message.stop_reason, usage: message.usage }, "Food spots response");
+  if (message.stop_reason === "max_tokens") throw new UserFacingError("The list got cut off. Please try again.");
+  if (message.stop_reason === "refusal") throw new UserFacingError("The AI declined to list places for this city.");
 
   // Belt and braces: drop anything already listed even if the model repeated it
   const seen = new Set(exclude.map((n) => n.toLowerCase()));
@@ -92,7 +94,7 @@ export async function foodSpotsForTrip(formData, keys) {
   const results = await Promise.all(
     cities.map((city) =>
       addFoodSpots({ city, country: formData.country, ...keys }).catch((err) => {
-        console.error(`Food spots for ${city} failed:`, err.message);
+        logger.error({ err, city }, "Food spots failed");
         return null;
       })
     )

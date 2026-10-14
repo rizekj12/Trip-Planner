@@ -7,9 +7,8 @@ import { savePending, saveTrip, saveFailed } from "./trips";
 import { usesMiles } from "./helpers";
 
 // Mock itinerary generator
-async function generateMockItinerary(formData) {
-  console.log("🎭 MOCK MODE: Using mock data instead of API");
-  console.log("Form data received:", formData);
+async function generateMockItinerary(_formData) {
+  // Mock mode: sample data instead of calling the API. Don't log formData: it holds reservations.
 
   // Simulate API delay (long enough to see the loading screen)
   await new Promise((resolve) => setTimeout(resolve, 6000));
@@ -26,7 +25,6 @@ async function generateMockItinerary(formData) {
     },
   };
 
-  console.log("✅ Mock itinerary generated with events");
   return mockItinerary;
 }
 
@@ -105,6 +103,22 @@ export const answerJoinRequest = (tripId, memberId, decision) =>
 export const getInvite = (token) => apiJson("GET", `/api/invites/${token}`);
 export const joinTrip = (token, guest) => apiJson("POST", `/api/invites/${token}/join`, guest || {}, { auth: !guest });
 export const getGuestTrip = (guestToken) => apiJson("GET", `/api/guest/${guestToken}`);
+
+// ---- A travel partner's own reservations (server/memberReservations.js) ----
+// Each person only ever gets their own back. Members use their sign-in; guests their link.
+// `who` is { tripId } for a signed-in member or { guestToken } for a guest.
+const myReservationsPath = ({ tripId, guestToken }) =>
+  guestToken ? `/api/guest/${guestToken}/reservations` : `/api/trips/${tripId}/my-reservations`;
+const asTraveler = (who) => ({ auth: !who.guestToken });
+
+// Each returns the traveler's full list afterwards: { flights, hotels }
+export const getMyReservations = (who) => apiJson("GET", myReservationsPath(who), null, asTraveler(who));
+export const addMyReservation = (who, kind, details) =>
+  apiJson("POST", myReservationsPath(who), { kind, details }, asTraveler(who));
+export const updateMyReservation = (who, id, details) =>
+  apiJson("PUT", `${myReservationsPath(who)}/${id}`, { details }, asTraveler(who));
+export const deleteMyReservation = (who, id) =>
+  apiJson("DELETE", `${myReservationsPath(who)}/${id}`, null, asTraveler(who));
 
 // Signed-in GET to our API (hotel search, address checks), parsed as JSON
 export const apiGet = (path) => apiJson("GET", path, null, { auth: true });

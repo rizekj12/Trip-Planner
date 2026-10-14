@@ -11,7 +11,9 @@ export default function SideNav({
   onSelectDay,
   onSelectSection,
   currentSection,
-  showReservations = true, // owner only: the codes are private
+  showReservations = true,
+  // "Reservations" for the organizer; "My reservations" for partners, who only see their own
+  reservationsLabel = "Reservations",
   showCrew = true, // the Travel Crew tab
 }) {
   const [daysOpen, setDaysOpen] = useState(true);
@@ -103,7 +105,7 @@ export default function SideNav({
                     style={{ borderColor: th.markerColor }}
                     onClick={() => onSelectSection("reservations")}
                   >
-                    <Ticket size={18} /> <span>Reservations</span>
+                    <Ticket size={18} /> <span>{reservationsLabel}</span>
                   </button>
                 )}
 

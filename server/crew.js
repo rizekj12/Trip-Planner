@@ -3,6 +3,7 @@
 // asking before touching anything. Tables: supabase/travel-crew.sql.
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { logger } from "./logger.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,6 +34,25 @@ export function withoutPrivateDetails(itineraryData = {}) {
       })),
     },
   };
+}
+
+const tripDates = (trip) => {
+  const cities = trip.itinerary_data?._form_data?.cities || [];
+  const ins = cities.map((c) => c.checkIn).filter(Boolean).sort();
+  const outs = cities.map((c) => c.checkOut).filter(Boolean).sort();
+  return { start: ins[0] || null, end: outs[outs.length - 1] || null };
+};
+
+// End of the trip's last day (UTC), or null if it has no dates
+const tripEndsAt = (trip) => {
+  const { end } = tripDates(trip);
+  return end ? Date.parse(`${end}T23:59:59Z`) : null;
+};
+
+// A guest's personal link stops working GUEST_LINK_DAYS_AFTER_TRIP days after the trip ends
+export function guestLinkExpired(trip) {
+  const ends = tripEndsAt(trip);
+  return !!ends && Date.now() > ends + GUEST_LINK_DAYS_AFTER_TRIP * DAY_MS;
 }
 
 const displayName = (user) =>
@@ -85,18 +105,6 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     return count || 0;
   };
 
-  const tripDates = (trip) => {
-    const cities = trip.itinerary_data?._form_data?.cities || [];
-    const ins = cities.map((c) => c.checkIn).filter(Boolean).sort();
-    const outs = cities.map((c) => c.checkOut).filter(Boolean).sort();
-    return { start: ins[0] || null, end: outs[outs.length - 1] || null };
-  };
-
-  // End of the trip's last day (UTC), or null if it has no dates
-  const tripEndsAt = (trip) => {
-    const { end } = tripDates(trip);
-    return end ? Date.parse(`${end}T23:59:59Z`) : null;
-  };
 
   // A new invite link lasts INVITE_LINK_DAYS, or until the trip ends if that's sooner
   const inviteExpiry = (trip) => {
@@ -245,7 +253,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
         ? await admin.from("trip_invites").update(changes).eq("trip_id", trip.id).select().single()
         : await admin.from("trip_invites").insert({ trip_id: trip.id, ...changes }).select().single();
       if (error) {
-        console.error("Invite link failed:", error);
+        logger.error({ err: error, tripId: trip.id }, "Invite link failed");
         return res.status(500).json({ error: "Couldn't create the invite link" });
       }
       invite = data;
@@ -370,7 +378,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
       .select("id")
       .single();
     if (error) {
-      console.error("Join failed:", error);
+      logger.error({ err: error, tripId: trip.id }, "Join failed");
       return res.status(500).json({ error: "Couldn't join the trip" });
     }
 
@@ -394,8 +402,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     const trip = guest && (await loadTrip(guest.trip_id));
     if (!trip) return res.status(404).json({ error: "This link is no longer valid" });
 
-    const ends = tripEndsAt(trip);
-    if (ends && Date.now() > ends + GUEST_LINK_DAYS_AFTER_TRIP * DAY_MS) {
+    if (guestLinkExpired(trip)) {
       return res.status(410).json({ error: "This trip ended a while ago, so its guest link has expired." });
     }
     if (guest.status !== "approved") {
@@ -444,7 +451,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     }
     const { error } = await admin.from("trip_members").update({ status: "approved" }).eq("id", member.id);
     if (error) {
-      console.error("Approve failed:", error);
+      logger.error({ err: error }, "Approve failed");
       return res.status(500).json({ error: "Couldn't approve the request" });
     }
     await notifier?.resolveJoinRequest(member.id, "approved");

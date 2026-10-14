@@ -15,14 +15,15 @@ An AI-powered travel planning web app. A signed-in user describes a trip, and th
   - New users see a "Where will your first trip take you?" welcome with popular destinations instead.
   - On phones, a bottom tab bar (Trips · Calendar · New · Profile).
 - **Trips calendar** (`/calendar?month=YYYY-MM`): in the dashboard's style, a month grid with every trip as a colored bar (past trips faded, drafts dashed), a month strip for jumping around the year (dots mark months with trips), Today / Previous trip / Next trip, and a side column with the month's trips (hover to highlight on the grid), what's coming up and the year at a glance. Covers the month the account was created to a year ahead.
-- **Travel Crew**: invite travel partners with a shareable link (copy, share sheet or email). Friends with an account join and see the trip on their dashboard; anyone else can join that one trip as a guest with just a name and email. Avatar bubbles show who's going. Partners and guests can view the trip but not change it, and never see the organizer's confirmation codes.
+- **Travel Crew**: invite travel partners with a shareable link (copy, share sheet or email). Friends with an account join and see the trip on their dashboard; anyone else can join that one trip as a guest with just a name and email. Avatar bubbles show who's going. Partners and guests can view the trip but not change it, and can keep their own flights and hotels in **My reservations**. Everyone only ever sees their own confirmation codes (see [#62](https://github.com/rizekj12/Trip-Planner/issues/62) for a known gap with the organizer's).
   - By default the organizer **approves each new traveler** (a setting in the invite window); until then the trip stays hidden from them.
   - Up to **10 travelers** besides the organizer. Invite links expire after 30 days or when the trip ends, whichever is first, and guest links stop working 30 days after the trip.
 - **Notifications**: a bell in the header with an unread count and the latest five notifications ("Sam would like to join your trip to Ireland", with Approve / Deny right there, plus itinerary ready or failed and approvals), and a full list at `/notifications`. Checked every minute.
 - **Itinerary view**: a per-day interactive map (stops and hotel), the day's stops in order, and tips and hotel details, with an **Invite travel partner** button and who's-going bubbles. A side menu opens four more sections:
   - **Local Events** happening during the trip, with details for each one.
   - **Food Spots**: the top 12 places to eat in each city, generated alongside the itinerary, with "Load 10 more". Each spot shows its cuisine, price, neighborhood and distance from the traveler's hotel, and is pinned on a map next to the hotel. A toggle sorts the list by "Closest to homebase".
-  - **Reservations** (organizer only): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
+  - **Reservations** (organizer): every flight and hotel with its confirmation code (tap to copy). Hotels from the questionnaire appear automatically; flights and other hotels can be added, edited or deleted.
+  - **My reservations** (partners and guests): the same screen for the flights and hotels *they* booked. Only that person can see them: not the organizer and not other travelers. They're included in the partner's own PDF.
   - **Travel Crew**: everyone on the trip with their photo, role and bio; the organizer can invite and remove people, approve or deny join requests, save people to their saved travelers, and see a member's emergency contact around the trip dates if that member shares it. Partners can leave.
 - **Offline PDF**: "Download PDF" (on the itinerary page and in each trip's ⋮ menu) builds a PDF with the reservations and codes, a map and stop list for every day, 10 local events, and 10 food spots per city.
 - **Accounts**: sign up or sign in with email and password or with Google, and password reset.
@@ -77,6 +78,7 @@ A single-page app in [`src/`](src/).
 | [`server/travelerProfile.js`](server/travelerProfile.js) | Reads the organizer's accessibility and dietary needs for the itinerary and food spot prompts |
 | [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
+| [`server/memberReservations.js`](server/memberReservations.js) | Partners' and guests' own reservations: add, edit, delete and list, always filtered to the person asking. Table: `member_reservations` (server-only, no browser access) |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, and removing people |
 | [`server/notifications.js`](server/notifications.js) | Creates in-app notifications (join requests, approvals, itinerary ready or failed); the browser reads them directly |
 
@@ -119,7 +121,7 @@ Everything lives in the trip row's `itinerary_data` JSON, so no database schema 
 | `_homebases` | Each city's hotel or homebase location, for distances and the map |
 | `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
 
-Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The server reads bios, shared emergency contacts and accessibility needs with the service role key.
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), along with a rule that lets members view (not edit) trips they've joined. [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/member-reservations.sql`](supabase/member-reservations.sql)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -216,11 +218,13 @@ GEOAPIFY_API_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 # Optional: origins allowed to call the API from a browser (default: localhost:3000)
 # CORS_ORIGINS=http://localhost:3000
+# Optional: log level (trace, debug, info, warn, error, silent). Default: debug locally, info in production
+# LOG_LEVEL=info
 # Optional: use sample data instead of calling Claude
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql) and [`supabase/profiles.sql`](supabase/profiles.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, and the profile page's tables). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql) and [`supabase/member-reservations.sql`](supabase/member-reservations.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, and travel partners' own reservations). Then:
 
 ```bash
 npm install
