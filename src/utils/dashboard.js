@@ -36,6 +36,15 @@ export function waitProgress(trip, range, today = todayIso()) {
   return Math.min(1, Math.max(0, daysBetween(created, today) / total));
 }
 
+// Tailwind classes for each badge tone
+export const BADGE_TONES = {
+  violet: "bg-violet-100 text-violet-800",
+  green: "bg-emerald-100 text-emerald-800",
+  amber: "bg-amber-100 text-amber-900",
+  red: "bg-red-100 text-red-800",
+  slate: "bg-slate-100 text-slate-700",
+};
+
 // Pill shown on an upcoming trip: { label, tone }
 export function tripBadge({ status, range }, today = todayIso()) {
   if (status === "draft") return { label: "Draft", tone: "slate" };
