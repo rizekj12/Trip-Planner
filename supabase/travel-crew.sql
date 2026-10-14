@@ -40,7 +40,7 @@ end $$;
 create index if not exists trip_members_user_id_idx on public.trip_members (user_id);
 
 -- Row-level security: only the server (service role) touches invites; a signed-in member can
--- see their own membership rows, which is what lets the policy below find shared trips.
+-- see their own membership rows (the app uses them to find which trips to load as shared).
 alter table public.trip_members enable row level security;
 alter table public.trip_invites enable row level security;
 
@@ -48,8 +48,7 @@ drop policy if exists "Members can see their own memberships" on public.trip_mem
 create policy "Members can see their own memberships" on public.trip_members
   for select using (user_id = auth.uid());
 
+-- Members don't read `trips` directly: the server's GET /api/trips/:id/shared gives them the
+-- trip without the organizer's reservations (issue #62). An earlier version created a
+-- "Members can view shared trips" policy here; it's removed so re-running this file is safe.
 drop policy if exists "Members can view shared trips" on public.trips;
-create policy "Members can view shared trips" on public.trips
-  for select using (
-    exists (select 1 from public.trip_members m where m.trip_id = trips.id and m.user_id = auth.uid())
-  );

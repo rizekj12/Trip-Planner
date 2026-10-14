@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { tripLengthDays } from "../../shared/tripLength.js";
+import { apiJson } from "./api";
 
 // Inserts a new trip row, or updates it when `id` is given
 async function upsertTrip(id, formData, extra) {
@@ -74,24 +75,78 @@ export function saveDraft({ id, formData }) {
   });
 }
 
+// How trips are read (issue #62):
+// - The user's own trips come straight from Supabase (row-level security: owner only).
+// - Trips shared with them come from the server (GET /api/trips/:id/shared), which leaves
+//   out the organizer's reservations and confirmation codes. Members can't select `trips`
+//   directly, so those never reach a partner's browser.
+// Both are filtered by user_id here as well, so a member never relies on the database to
+// hide another person's row.
+
+const currentUserId = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("Please sign in");
+  return session.user.id;
+};
+
+// A trip shared with the user (they're an approved member), without private details
+export const fetchSharedTrip = (id) => apiJson("GET", `/api/trips/${encodeURIComponent(id)}/shared`, null, { auth: true });
+
+// Every trip the user owns or has joined, newest first. user_id tells the dashboard which
+// ones are shared with (not owned by) the user.
 export async function fetchTrips() {
-  const { data, error } = await supabase
-    .from("trips")
-    // user_id tells the dashboard which trips are shared with (not owned by) the user
-    .select("id, user_id, destination, cities, duration, itinerary_data, created_at")
-    .order("created_at", { ascending: false });
+  const userId = await currentUserId();
+  const [own, shared] = await Promise.all([
+    supabase
+      .from("trips")
+      .select("id, user_id, destination, cities, duration, itinerary_data, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    fetchSharedTrips(userId),
+  ]);
+  if (own.error) throw own.error;
+  return [...own.data, ...shared].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+}
+
+// The trips the user has been approved to join, through the server. One that can't be loaded
+// (e.g. they were just removed) is left out rather than failing the whole list.
+async function fetchSharedTrips(userId) {
+  const { data: memberships, error } = await supabase
+    .from("trip_members")
+    .select("trip_id")
+    .eq("user_id", userId)
+    .eq("status", "approved");
+  if (error) throw error;
+  const trips = await Promise.all(
+    memberships.map((m) =>
+      fetchSharedTrip(m.trip_id).catch((err) => {
+        console.warn("Couldn't load shared trip", m.trip_id, err.message);
+        return null;
+      })
+    )
+  );
+  return trips.filter(Boolean);
+}
+
+// One of the user's own trips, in full, or null if it isn't theirs
+async function fetchOwnTrip(id) {
+  const userId = await currentUserId();
+  const { data, error } = await supabase.from("trips").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw error;
   return data;
 }
 
+// A trip the user owns (in full) or has joined (shared view, without private details)
 export async function fetchTrip(id) {
-  const { data, error } = await supabase
-    .from("trips")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (error) throw error;
-  return data;
+  return (await fetchOwnTrip(id)) || fetchSharedTrip(id);
+}
+
+// For changes: only the organizer's own trip, in full, so a shared view (with the private
+// details removed) can never be written back over the real data
+async function fetchTripToChange(id) {
+  const trip = await fetchOwnTrip(id);
+  if (!trip) throw new Error("Only the trip's organizer can change it");
+  return trip;
 }
 
 export async function deleteTrip(id) {
@@ -102,7 +157,7 @@ export async function deleteTrip(id) {
 // Applies `update(formData) => newFormData` to a trip's saved questionnaire answers (where
 // reservations live). Re-reads the row first so it builds on the latest saved version.
 export async function updateTripFormData(id, update) {
-  const trip = await fetchTrip(id);
+  const trip = await fetchTripToChange(id);
   const data = trip.itinerary_data || {};
   const itinerary_data = { ...data, _form_data: update(data._form_data || {}) };
   const { data: row, error } = await supabase
@@ -118,7 +173,7 @@ export async function updateTripFormData(id, update) {
 // Merges `patch` into a trip's itinerary_data, re-reading the row first so it builds on the
 // latest saved version (the server may have written food spots etc. in the meantime)
 export async function patchItineraryData(id, patch) {
-  const trip = await fetchTrip(id);
+  const trip = await fetchTripToChange(id);
   const { data: row, error } = await supabase
     .from("trips")
     .update({ itinerary_data: { ...trip.itinerary_data, ...patch } })

@@ -36,6 +36,17 @@ export function withoutPrivateDetails(itineraryData = {}) {
   };
 }
 
+// The columns of a trip a travel partner may receive, in the same shape as a `trips` row so
+// the app can use it like one. Allow-listed (a new column stays private until added here),
+// with the organizer's reservations and confirmation codes removed from itinerary_data.
+const SHARED_TRIP_COLUMNS = [
+  "id", "user_id", "destination", "cities", "duration", "travel_style", "vacation_type", "created_at", "updated_at",
+];
+export function sharedTripView(trip) {
+  const view = Object.fromEntries(SHARED_TRIP_COLUMNS.filter((k) => k in trip).map((k) => [k, trip[k]]));
+  return { ...view, itinerary_data: withoutPrivateDetails(trip.itinerary_data || {}) };
+}
+
 const tripDates = (trip) => {
   const cities = trip.itinerary_data?._form_data?.cities || [];
   const ins = cities.map((c) => c.checkIn).filter(Boolean).sort();
@@ -417,6 +428,26 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
       // Guests can see who's going (names, photos, roles; never emails)
       crew: { isOwner: false, people: await crewFor(trip, { viewerMemberId: guest.id }) },
     });
+  });
+
+  // A shared trip for one of its approved travel partners (issue #62). Members can't read
+  // `trips` directly (RLS is owner-only), so this is their only way in, and it never includes
+  // the organizer's reservations or confirmation codes.
+  app.get("/api/trips/:tripId/shared", async (req, res) => {
+    if (!ready(res)) return;
+    const user = await requestUser(req);
+    if (!user) return res.status(401).json({ error: "Please sign in" });
+
+    const membership = await membershipOf(req.params.tripId, user.id);
+    if (membership?.status !== "approved") return res.status(404).json({ error: "Trip not found" });
+    const { data: trip } = await admin
+      .from("trips")
+      .select(SHARED_TRIP_COLUMNS.concat("itinerary_data").join(", "))
+      .eq("id", req.params.tripId)
+      .maybeSingle();
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+
+    res.json(sharedTripView(trip));
   });
 
   // A pending request on one of the signed-in user's own trips: { trip, member }, or sends an error

@@ -2,7 +2,7 @@ import { days as mockDays } from "../data/days";
 import { spots as mockSpots } from "../data/spots";
 import { HOTELS } from "../data/hotels";
 import { sampleEvents } from "../data/events";
-import { supabase } from "./supabase";
+import { apiJson, apiRequest } from "./api";
 import { savePending, saveTrip, saveFailed } from "./trips";
 import { usesMiles } from "./helpers";
 
@@ -122,36 +122,3 @@ export const deleteMyReservation = (who, id) =>
 
 // Signed-in GET to our API (hotel search, address checks), parsed as JSON
 export const apiGet = (path) => apiJson("GET", path, null, { auth: true });
-
-async function apiJson(method, path, body, options) {
-  const response = await apiRequest(method, path, body, options);
-  return response.json().catch(() => ({}));
-}
-
-// Calls our Express API, with the user's login token when `auth` is set. Returns the
-// Response if it succeeded; otherwise throws with the server's error message.
-async function apiRequest(method, path, body, { auth = false } = {}) {
-  const headers = { "Content-Type": "application/json" };
-  if (auth) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  }
-  const backendUrl = import.meta.env.DEV ? "http://localhost:3001" : "";
-
-  let response;
-  try {
-    response = await fetch(`${backendUrl}${path}`, {
-      method,
-      headers,
-      body: body && method !== "GET" ? JSON.stringify(body) : undefined,
-    });
-  } catch {
-    throw new Error("Couldn't reach the server. Is the backend running?");
-  }
-
-  if (!response.ok) {
-    const { error } = await response.json().catch(() => ({}));
-    throw Object.assign(new Error(error || `Request failed (${response.status})`), { status: response.status });
-  }
-  return response;
-}

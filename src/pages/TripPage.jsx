@@ -195,7 +195,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
           <span className="text-sm font-medium">Menu</span>
         </button>
         {viewer !== "guest" && <button
-          onClick={() => pdf.mutate({ id: tripId, destination: formData.country })}
+          onClick={() => pdf.mutate({ id: tripId, destination: formData.country, isOwner: viewer === "owner" })}
           disabled={pdf.isPending}
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2
                bg-white/15 text-white backdrop-blur
