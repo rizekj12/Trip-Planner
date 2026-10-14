@@ -204,7 +204,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
                 <div className="md:col-span-3">
                   {/* isolate: Leaflet's layers use z-index up to 1000; keep them under the pinned day strip */}
                   <div className="isolate md:sticky md:top-32">
-                    <DayMap items={mapItems} heightClass="h-64 sm:h-80 md:h-[480px]" />
+                    <DayMap items={mapItems} heightClass="h-[22rem] sm:h-96 md:h-[480px]" />
                   </div>
                 </div>
                 <div className="md:col-span-2" {...swipe}>
