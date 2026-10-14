@@ -66,7 +66,7 @@ export function guestLinkExpired(trip) {
   return !!ends && Date.now() > ends + GUEST_LINK_DAYS_AFTER_TRIP * DAY_MS;
 }
 
-const displayName = (user) =>
+export const displayName = (user) =>
   (user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Traveler").trim();
 
 export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {

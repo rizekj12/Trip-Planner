@@ -1,8 +1,7 @@
-// Gets a chosen photo or PDF ready to attach to a travel document (issue #55).
-// Photos are redrawn onto a canvas and saved as a new JPEG: that drops all metadata (EXIF,
-// including the GPS location a phone camera records), applies the photo's rotation, and
-// shrinks very large photos. The server strips metadata again and checks the file's content.
+// Gets a chosen photo or PDF ready to attach to a travel document (issue #55). Photos are
+// re-encoded as JPEG (src/utils/photoFile.js), which drops their metadata, e.g. GPS location.
 import { ATTACHMENT_MAX_BYTES } from "./profile";
+import { resizeToJpeg } from "./photoFile";
 
 const MAX_SIDE = 2400; // px; plenty to read a passport page
 const JPEG_QUALITY = 0.9;
@@ -18,21 +17,7 @@ export async function prepareAttachment(file) {
   }
   if (!file.type.startsWith("image/")) throw new Error("Attach a photo or a PDF.");
 
-  let bitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    throw new Error("This photo format isn't supported here. Please use a JPEG or PNG.");
-  }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close?.();
-
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
-  if (!blob) throw new Error("Couldn't read this photo. Please try another.");
+  const blob = await resizeToJpeg(file, MAX_SIDE, JPEG_QUALITY);
   if (blob.size > ATTACHMENT_MAX_BYTES) throw tooBig();
   const name = (file.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
   return new File([blob], name, { type: "image/jpeg" });

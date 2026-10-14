@@ -15,6 +15,7 @@ import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { registerMemberReservationRoutes } from "./memberReservations.js";
 import { registerTravelDocumentRoutes } from "./travelDocuments.js";
+import { registerTripPhotoRoutes } from "./tripPhotos.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
@@ -95,6 +96,12 @@ registerTravelDocumentRoutes(app, {
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   encryptionKeys: process.env.DOCUMENT_ENCRYPTION_KEYS,
+});
+
+// The trip's shared photo album (organizer, members and guests)
+registerTripPhotoRoutes(app, {
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 });
 
 // Health check endpoint
