@@ -3,35 +3,51 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../utils/supabase";
 import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData, markPdfDownloaded } from "../utils/trips";
 import { startGeneration, loadMoreFoodSpots, downloadTripPdf } from "../utils/aiService";
+import { useAuth } from "../context/AuthContext";
 
-// While an itinerary is being generated, Supabase Realtime tells us the moment the trip row
-// changes; polling this often is only a fallback (e.g. if Realtime is blocked or not enabled)
+// While an itinerary is being generated:
+// - on the organizer's own trips, Supabase Realtime tells us the moment the row changes, and
+//   polling is only a fallback (e.g. if Realtime is blocked or not enabled);
+// - travel partners can't read the row (or get Realtime events for it, issue #62), so a shared
+//   trip is re-fetched from the server's shared view on a shorter interval instead.
 const PENDING_POLL_MS = 15_000;
+const SHARED_PENDING_POLL_MS = 5_000;
+
+// How often to re-check these trips: sooner while a shared one is generating
+function pollInterval(trips, userId) {
+  const pending = trips.filter((t) => t && tripStatus(t) === "pending");
+  if (pending.some((t) => t.user_id !== userId)) return SHARED_PENDING_POLL_MS;
+  return pending.length ? PENDING_POLL_MS : false;
+}
+
+// Ids of the user's own trips that are generating (the ones Realtime can tell us about)
+const ownPendingIds = (trips, userId) =>
+  trips.filter((t) => t && t.user_id === userId && tripStatus(t) === "pending").map((t) => t.id);
 
 export function useTrips() {
+  const { user } = useAuth();
   const query = useQuery({
     queryKey: ["trips"],
     queryFn: fetchTrips,
-    refetchInterval: (query) =>
-      query.state.data?.some((t) => tripStatus(t) === "pending") ? PENDING_POLL_MS : false,
+    refetchInterval: (query) => pollInterval(query.state.data || [], user?.id),
   });
-  useLiveUpdates((query.data || []).filter((t) => tripStatus(t) === "pending").map((t) => t.id));
+  useLiveUpdates(ownPendingIds(query.data || [], user?.id));
   return query;
 }
 
 export function useTrip(id) {
+  const { user } = useAuth();
   const query = useQuery({
     queryKey: ["trip", id],
     queryFn: () => fetchTrip(id),
     enabled: !!id,
-    refetchInterval: (query) =>
-      tripStatus(query.state.data) === "pending" ? PENDING_POLL_MS : false,
+    refetchInterval: (query) => pollInterval([query.state.data], user?.id),
   });
-  useLiveUpdates(tripStatus(query.data) === "pending" ? [id] : []);
+  useLiveUpdates(ownPendingIds([query.data], user?.id));
   return query;
 }
 
-// Refetches as soon as any of these trips' rows change (e.g. generation finished)
+// Refetches as soon as any of these (own) trips' rows change (e.g. generation finished)
 let channelCount = 0;
 function useLiveUpdates(tripIds) {
   const qc = useQueryClient();
@@ -98,14 +114,18 @@ export function useLoadFoodSpots(tripId) {
   });
 }
 
-// Builds and downloads a trip's offline PDF. Call mutate(trip).
+// Builds and downloads a trip's offline PDF. Call mutate(trip): a trip row, or
+// { id, destination, isOwner }.
 export function useDownloadPdf() {
   const qc = useQueryClient();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (trip) => {
       await downloadTripPdf({ tripId: trip.id, filename: pdfFilename(trip.destination) });
-      // Not worth failing the download over
-      await markPdfDownloaded(trip.id).catch(console.error);
+      // The checklist mark lives on the trip, which only its organizer can change. Not worth
+      // failing the download over.
+      const isOwner = trip.isOwner ?? trip.user_id === user?.id;
+      if (isOwner) await markPdfDownloaded(trip.id).catch(console.error);
     },
     // Picks up the download mark, plus any food spots the server filled in while building it
     onSuccess: (_, trip) => {
