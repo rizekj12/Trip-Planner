@@ -36,6 +36,25 @@ export function withoutPrivateDetails(itineraryData = {}) {
   };
 }
 
+const tripDates = (trip) => {
+  const cities = trip.itinerary_data?._form_data?.cities || [];
+  const ins = cities.map((c) => c.checkIn).filter(Boolean).sort();
+  const outs = cities.map((c) => c.checkOut).filter(Boolean).sort();
+  return { start: ins[0] || null, end: outs[outs.length - 1] || null };
+};
+
+// End of the trip's last day (UTC), or null if it has no dates
+const tripEndsAt = (trip) => {
+  const { end } = tripDates(trip);
+  return end ? Date.parse(`${end}T23:59:59Z`) : null;
+};
+
+// A guest's personal link stops working GUEST_LINK_DAYS_AFTER_TRIP days after the trip ends
+export function guestLinkExpired(trip) {
+  const ends = tripEndsAt(trip);
+  return !!ends && Date.now() > ends + GUEST_LINK_DAYS_AFTER_TRIP * DAY_MS;
+}
+
 const displayName = (user) =>
   (user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split("@")[0] || "Traveler").trim();
 
@@ -86,18 +105,6 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     return count || 0;
   };
 
-  const tripDates = (trip) => {
-    const cities = trip.itinerary_data?._form_data?.cities || [];
-    const ins = cities.map((c) => c.checkIn).filter(Boolean).sort();
-    const outs = cities.map((c) => c.checkOut).filter(Boolean).sort();
-    return { start: ins[0] || null, end: outs[outs.length - 1] || null };
-  };
-
-  // End of the trip's last day (UTC), or null if it has no dates
-  const tripEndsAt = (trip) => {
-    const { end } = tripDates(trip);
-    return end ? Date.parse(`${end}T23:59:59Z`) : null;
-  };
 
   // A new invite link lasts INVITE_LINK_DAYS, or until the trip ends if that's sooner
   const inviteExpiry = (trip) => {
@@ -395,8 +402,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     const trip = guest && (await loadTrip(guest.trip_id));
     if (!trip) return res.status(404).json({ error: "This link is no longer valid" });
 
-    const ends = tripEndsAt(trip);
-    if (ends && Date.now() > ends + GUEST_LINK_DAYS_AFTER_TRIP * DAY_MS) {
+    if (guestLinkExpired(trip)) {
       return res.status(410).json({ error: "This trip ended a while ago, so its guest link has expired." });
     }
     if (guest.status !== "approved") {

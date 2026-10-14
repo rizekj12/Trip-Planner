@@ -13,6 +13,7 @@ import { addFoodSpots } from "./foodSpots.js";
 import { geocodeCity, locateHomebase } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
+import { registerMemberReservationRoutes } from "./memberReservations.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
@@ -78,6 +79,12 @@ registerCrewRoutes(app, {
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   notifier,
+});
+
+// Travel partners' own reservations (each person only ever sees their own)
+const memberReservations = registerMemberReservationRoutes(app, {
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 });
 
 // Health check endpoint
@@ -272,8 +279,11 @@ app.post("/api/trip-pdf", async (req, res) => {
     if (user && trip.user_id === user.id) {
       await fillMissingFoodSpots(supabase, trip);
     } else {
-      // A travel partner's copy: leave out the owner's reservations and confirmation codes
-      trip.itinerary_data = withoutPrivateDetails(trip.itinerary_data);
+      // A travel partner's copy: leave out the owner's reservations and confirmation codes,
+      // and include the partner's own instead (server/memberReservations.js)
+      const shared = withoutPrivateDetails(trip.itinerary_data);
+      const mine = user ? await memberReservations.forUser(trip.id, user.id) : { flights: [], hotels: [] };
+      trip.itinerary_data = { ...shared, _form_data: { ...shared._form_data, reservations: mine } };
     }
     const doc = await buildTripPdf(trip, { geoapifyKey: process.env.GEOAPIFY_API_KEY, miles: !!miles });
     res.setHeader("Content-Type", "application/pdf");

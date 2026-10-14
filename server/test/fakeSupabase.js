@@ -13,14 +13,12 @@
 let tables = {};
 let users = new Map();
 let tokens = new Map();
-let nextId = 1;
 
 export const db = {
   reset(initialTables = {}, { users: userList = [], tokens: tokenMap = {} } = {}) {
     tables = Object.fromEntries(Object.entries(initialTables).map(([t, rows]) => [t, rows.map((r) => ({ ...r }))]));
     users = new Map(userList.map((u) => [u.id, u]));
     tokens = new Map(Object.entries(tokenMap));
-    nextId = 1;
   },
   rows(table) {
     return tables[table] || [];
@@ -100,7 +98,7 @@ class Query {
       if (this.countMode) return { data: this.head ? null : clone(result), count: result.length, error: null };
     } else if (this.action === "insert") {
       const list = (Array.isArray(this.payload) ? this.payload : [this.payload]).map((v) => ({
-        id: v.id ?? `row-${nextId++}`,
+        id: v.id ?? crypto.randomUUID(),
         created_at: new Date().toISOString(),
         ...v,
       }));
@@ -116,7 +114,7 @@ class Query {
           if (!this.ignoreDuplicates) Object.assign(existing, v);
           return existing;
         }
-        const row = { id: v.id ?? `row-${nextId++}`, created_at: new Date().toISOString(), ...v };
+        const row = { id: v.id ?? crypto.randomUUID(), created_at: new Date().toISOString(), ...v };
         rows.push(row);
         return row;
       });

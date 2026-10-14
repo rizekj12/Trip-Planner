@@ -9,6 +9,7 @@ import SkyBackground from "../components/SkyBackground";
 import EventsPanel from "../components/EventsPanel";
 import FoodSpotsPanel from "../components/FoodSpotsPanel";
 import ReservationsPanel from "../components/reservations/ReservationsPanel";
+import MyReservationsPanel from "../components/reservations/MyReservationsPanel";
 import ProfileMenu from "../components/ProfileMenu";
 import CrewBubbles from "../components/crew/CrewBubbles";
 import CrewPanel from "../components/crew/CrewPanel";
@@ -95,17 +96,17 @@ function FailedScreen({ tripId, formData, error, canRetry }) {
   );
 }
 
-// viewer: "owner" (everything), "member" (a travel partner: view-only, no reservations),
-// or "guest" (no account: view-only, opened from their personal link). `crew` is the
-// guest's copy of who's going (signed-in viewers load it themselves).
-export function TripView({ tripId, itinerary, formData, foodSpots, homebases, viewer = "owner", crew }) {
+// viewer: "owner" (everything), "member" (a travel partner: view-only trip, plus their own
+// private reservations), or "guest" (no account: the same, opened from their personal link,
+// `guestToken`). `crew` is the guest's copy of who's going (signed-in viewers load it themselves).
+export function TripView({ tripId, itinerary, formData, foodSpots, homebases, viewer = "owner", crew, guestToken }) {
   const [tab, setTab] = useState(itinerary.days[0].key);
   const [navOpen, setNavOpen] = useState(false);
   const pdf = useDownloadPdf();
   // ?section=reservations (etc.) opens straight on that section, e.g. from the dashboard checklist
   const [searchParams] = useSearchParams();
   const [section, setSection] = useState(() =>
-    ["events", "food", "crew", ...(viewer === "owner" ? ["reservations"] : [])].includes(searchParams.get("section"))
+    ["events", "food", "crew", "reservations"].includes(searchParams.get("section"))
       ? searchParams.get("section")
       : "days"
   );
@@ -225,8 +226,14 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
           >
             {section === "events" ? (
               <EventsPanel events={itinerary.events || []} />
-            ) : section === "reservations" && viewer === "owner" ? (
-              <ReservationsPanel tripId={tripId} formData={formData} />
+            ) : section === "reservations" ? (
+              // Everyone sees only their own codes: the organizer's live with the trip, a
+              // partner's in their own private list (server/memberReservations.js)
+              viewer === "owner" ? (
+                <ReservationsPanel tripId={tripId} formData={formData} />
+              ) : (
+                <MyReservationsPanel tripId={tripId} guestToken={viewer === "guest" ? guestToken : undefined} />
+              )
             ) : section === "crew" ? (
               <CrewPanel tripId={tripId} destination={formData.country} crew={crew} />
             ) : section === "food" ? (
@@ -270,7 +277,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
           setNavOpen(false);
         }}
         currentSection={section}
-        showReservations={viewer === "owner"}
+        reservationsLabel={viewer === "owner" ? "Reservations" : "My reservations"}
         showCrew
       />
 
