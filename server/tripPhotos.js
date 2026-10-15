@@ -11,7 +11,7 @@
 // raw body: the first X-Thumbnail-Length bytes are the thumbnail). The server checks both are
 // JPEG or PNG by their bytes and strips metadata again (server/fileScrub.js), since phone
 // photos carry the GPS location they were taken at. Files go to the private "trip-photos"
-// bucket (supabase/trip-photos.sql); the browser gets short-lived signed links to them.
+// bucket (supabase/migrations); the browser gets short-lived signed links to them.
 //
 // Routes
 //   Signed-in:  GET|POST /api/trips/:tripId/photos
@@ -311,7 +311,7 @@ export function registerTripPhotoRoutes(app, { supabaseUrl, serviceKey }) {
     const { viewer } = req;
     if (!viewer.isOwner) return res.status(403).json({ error: "Only the trip's organizer can empty the album" });
     const { data, error } = await admin.from("trip_photos").select("id, path, thumb_path").eq("trip_id", viewer.trip.id);
-    // No album table yet (supabase/trip-photos.sql not run): nothing to empty, so trips can still be deleted
+    // No album table yet (migrations not applied): nothing to empty, so trips can still be deleted
     if (error && ["42P01", "PGRST205"].includes(error.code)) return res.json({ ok: true });
     if (error) return failed(res, error, "Couldn't delete the trip's photos");
     if (data?.length) {

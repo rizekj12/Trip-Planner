@@ -5,7 +5,7 @@
 //   - The organizer's reservations stay in the trip's form data (src/utils/reservations.js)
 //     and are never shown to members or guests.
 //   - A member's or guest's reservations live in member_reservations
-//     (supabase/member-reservations.sql), keyed by their trip_members row, and are only ever
+//     (supabase/migrations), keyed by their trip_members row, and are only ever
 //     returned to that same person: never to the organizer or other travelers.
 // The table has row-level security with no policies, so only this server (service role)
 // can read it; every route below works out who is asking and filters by their member row.

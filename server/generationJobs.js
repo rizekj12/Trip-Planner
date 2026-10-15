@@ -1,5 +1,5 @@
 // Durable itinerary generation (issue #29). Each generation is a row in generation_jobs
-// (supabase/generation-jobs.sql). While this process works on it, it refreshes the row's
+// (supabase/migrations). While this process works on it, it refreshes the row's
 // heartbeat; if the server restarts or redeploys mid-generation the heartbeat goes stale, and
 // the sweeper (on startup and every minute, on whichever server is running) retries the job
 // once, then marks the trip failed in the database and gives back the daily generation slot.
@@ -51,7 +51,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
     });
     if (error) {
       logger.error({ err: error, tripId }, "Couldn't record generation job");
-      throw new Error("Couldn't start generation (run supabase/generation-jobs.sql)");
+      throw new Error("Couldn't start generation (apply supabase/migrations)");
     }
     run({ trip_id: String(tripId), user_id: userId, reservation_id: reservationId });
   }

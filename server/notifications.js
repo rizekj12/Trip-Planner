@@ -1,6 +1,6 @@
 // In-app notifications (issue #28). The server writes them with the service role key;
 // users read their own and mark them read from the browser (see
-// supabase/invite-approvals-notifications.sql).
+// supabase/migrations).
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "./logger.js";
 

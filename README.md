@@ -122,7 +122,7 @@ If the server restarts or redeploys mid-generation, the job's heartbeat (refresh
 
 ### What's stored on a trip
 
-Since [#31](https://github.com/rizekj12/Trip-Planner/issues/31) ([`supabase/split-trip-data.sql`](supabase/split-trip-data.sql)):
+Since [#31](https://github.com/rizekj12/Trip-Planner/issues/31) (see [`supabase/migrations`](supabase/migrations)):
 
 | Where | Contents |
 |---|---|
@@ -135,7 +135,7 @@ Since [#31](https://github.com/rizekj12/Trip-Planner/issues/31) ([`supabase/spli
 
 [`shared/tripRow.js`](shared/tripRow.js) turns a row into what the app uses (`trip.foodSpots`, `trip.homebases`).
 
-Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), Members can't read `trips` directly: only the owner can (row-level security). The app reads a shared trip through the server's `GET /api/trips/:id/shared`, which checks the person is an approved member and removes the organizer's reservations, confirmation codes and notes, and finds which trips to load from the member's own `trip_members` rows ([#62](https://github.com/rizekj12/Trip-Planner/issues/62); [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) removes the old direct-read policy). [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The exception is `travel_documents`, which the browser can't query at all: it goes through the server's `/api/documents`, and document numbers are stored only encrypted (`number_encrypted`) plus their last 4 characters ([#56](https://github.com/rizekj12/Trip-Planner/issues/56)). Attachments ([#55](https://github.com/rizekj12/Trip-Planner/issues/55)) are encrypted the same way (bound to the owner and the document) and kept in the private Storage bucket `travel-documents`, which has no access policies, so only the server can read it; `attachment_path` and friends on `travel_documents` describe the file. The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/member-reservations.sql`](supabase/member-reservations.sql)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
+Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, defined in [`supabase/migrations`](supabase/migrations). Members can't read `trips` directly: only the owner can (row-level security). The app reads a shared trip through the server's `GET /api/trips/:id/shared`, which checks the person is an approved member and removes the organizer's reservations, confirmation codes and notes, and finds which trips to load from the member's own `trip_members` rows ([#62](https://github.com/rizekj12/Trip-Planner/issues/62)). [`supabase/migrations`](supabase/migrations) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/migrations`](supabase/migrations)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The exception is `travel_documents`, which the browser can't query at all: it goes through the server's `/api/documents`, and document numbers are stored only encrypted (`number_encrypted`) plus their last 4 characters ([#56](https://github.com/rizekj12/Trip-Planner/issues/56)). Attachments ([#55](https://github.com/rizekj12/Trip-Planner/issues/55)) are encrypted the same way (bound to the owner and the document) and kept in the private Storage bucket `travel-documents`, which has no access policies, so only the server can read it; `attachment_path` and friends on `travel_documents` describe the file. The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/migrations`](supabase/migrations)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
 
 A mock mode (`VITE_USE_MOCK_DATA=true`) skips the API and returns sample data for UI work.
 
@@ -250,7 +250,30 @@ DOCUMENT_ENCRYPTION_KEYS=1:...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql) [`supabase/document-attachments.sql`](supabase/document-attachments.sql), [`supabase/trip-photos.sql`](supabase/trip-photos.sql) and [`supabase/split-trip-data.sql`](supabase/split-trip-data.sql) (then [`supabase/split-trip-data-cleanup.sql`](supabase/split-trip-data-cleanup.sql) once the matching app version is deployed), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, server-only, encrypted travel documents, the private bucket for their attachments, the trip photo album, and trip status columns plus food spots). Then:
+### Database (Supabase)
+
+The whole schema (tables, indexes, row-level security, triggers, storage buckets and their policies) is in [`supabase/migrations`](supabase/migrations), managed with the [Supabase CLI](https://supabase.com/docs/guides/local-development) (installed by `npm install`; run it with `npx supabase`). `20261015200000_baseline.sql` is the live database as of [#30](https://github.com/rizekj12/Trip-Planner/issues/30); later files are changes on top of it.
+
+**A fresh local database** (needs Docker Desktop running):
+
+```bash
+npx supabase start      # builds Postgres, Auth, Storage etc. from the migrations
+npx supabase status     # API URL, anon key and service_role key for .env
+```
+
+Then point `.env` at it: `VITE_SUPABASE_URL=http://127.0.0.1:54321`, `VITE_SUPABASE_ANON_KEY` = the anon key, `SUPABASE_SERVICE_ROLE_KEY` = the service_role key. Sign up with email and password (Google sign-in isn't configured locally); emails such as password resets show up in Mailpit at http://127.0.0.1:54324, and Studio is at http://127.0.0.1:54323. `npx supabase stop` shuts it down.
+
+**Changing the schema**: never edit an applied migration or change tables in the dashboard. Instead:
+
+```bash
+npx supabase migration new add_something   # creates supabase/migrations/<timestamp>_add_something.sql
+npx supabase db reset                       # rebuilds the local database from all migrations, to try it
+npx supabase db push                        # applies new migrations to the live project
+```
+
+`db push` needs the project linked once per machine: `npx supabase login`, then `npx supabase link --project-ref djicichfonhfjgjduuxg` from the project folder. Deploy app code that needs a new column only after its migration is pushed.
+
+### App
 
 ```bash
 npm install

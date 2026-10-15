@@ -155,7 +155,7 @@ export default function ProfilePage() {
               </div>
             ) : profile.isError ? (
               <p className="text-sm text-red-600">
-                Couldn't load your profile: {profile.error.message}. (Has supabase/profiles.sql been run?)
+                Couldn't load your profile: {profile.error.message}. (Have the migrations in supabase/migrations been applied?)
               </p>
             ) : tab === "safety" ? (
               <SafetySection profile={profile.data} />
