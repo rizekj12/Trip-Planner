@@ -19,7 +19,8 @@ import { registerTripPhotoRoutes } from "./tripPhotos.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
-import { patchItineraryData } from "./tripData.js";
+import { updateTrip, loadFoodSpots, saveFoodSpots } from "./tripData.js";
+import { toTrip } from "../shared/tripRow.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -129,7 +130,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
 
   const { data: trip, error } = await supabase
     .from("trips")
-    .select("id, user_id, destination, itinerary_data")
+    .select("id, user_id, destination, status, itinerary_data")
     .eq("id", tripId)
     .single();
 
@@ -145,8 +146,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
   }
 
   // A trip is generated once; the client marks it pending (new or retry) before calling this
-  const status = trip.itinerary_data?._status;
-  if (status !== "pending" && status !== "failed") {
+  if (trip.status !== "pending" && trip.status !== "failed") {
     return res.status(409).json({ error: "This trip's itinerary has already been generated" });
   }
 
@@ -227,10 +227,8 @@ app.post("/api/trips/:tripId/events", guards.limits.ai, async (req, res) => {
     return res.status(503).json({ error: "Event listings aren't available right now. Please try again later." });
   }
   try {
-    await patchItineraryData(supabase, trip.id, {
-      events: found.events,
-      _events_source: found.source,
-      _events_checked_at: found.checkedAt,
+    await updateTrip(supabase, trip.id, {
+      patch: { events: found.events, _events_source: found.source, _events_checked_at: found.checkedAt },
     });
   } catch (err) {
     logger.error({ err, tripId: trip.id }, "Couldn't save refreshed events");
@@ -241,8 +239,8 @@ app.post("/api/trips/:tripId/events", guards.limits.ai, async (req, res) => {
 
 // Food spots for one city of a trip. The first call returns 12 places; each later call
 // adds 10 more, skipping ones already listed. Also looks up the city's homebase location
-// if it hasn't been yet. Results are saved on the trip (itinerary_data._food_spots[city],
-// _homebases[city]) so each is only fetched once. `homebaseOnly: true` skips the new spots,
+// if it hasn't been yet. Results are saved in the city's trip_food_spots row (spots and
+// homebase) so each is only fetched once. `homebaseOnly: true` skips the new spots,
 // for trips whose spots were saved before homebases were tracked.
 app.post("/api/food-spots", async (req, res) => {
   const { tripId, city, homebaseOnly } = req.body;
@@ -276,8 +274,15 @@ app.post("/api/food-spots", async (req, res) => {
     return res.status(400).json({ error: "That city isn't part of this trip" });
   }
 
-  const existing = data._food_spots?.[city] || [];
-  const homebases = data._homebases || {};
+  let saved;
+  try {
+    saved = await loadFoodSpots(supabase, trip.id);
+  } catch (err) {
+    logger.error({ err, tripId, city }, "Couldn't read food spots");
+    return res.status(500).json({ error: "Couldn't load food spots. Please try again." });
+  }
+  const existing = saved.foodSpots[city] || [];
+  const homebases = saved.homebases;
   const geoapifyKey = process.env.GEOAPIFY_API_KEY;
   const cityForm = data._form_data.cities.find((c) => c.name === city);
 
@@ -298,10 +303,8 @@ app.post("/api/food-spots", async (req, res) => {
       city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey).catch(() => undefined),
     ]);
 
-    await patchItineraryData(supabase, tripId, {
-      _food_spots: { ...data._food_spots, [city]: spots },
-      ...(homebase !== undefined && { _homebases: { ...homebases, [city]: homebase } }),
-    });
+    // Only this city's row: other cities, and the rest of the trip, can't be overwritten
+    await saveFoodSpots(supabase, trip.id, city, { spots, homebase });
 
     res.json({ spots, homebase: homebase ?? null });
   } catch (err) {
@@ -323,18 +326,20 @@ app.post("/api/trip-pdf", async (req, res) => {
   }
 
   const supabase = supabaseAsUser(token);
-  const { data: trip, error } = await supabase
+  const { data: row, error } = await supabase
     .from("trips")
     .select("id, user_id, destination, itinerary_data")
     .eq("id", tripId)
     .single();
-  if (error || !trip) return res.status(404).json({ error: "Trip not found" });
+  if (error || !row) return res.status(404).json({ error: "Trip not found" });
+  const trip = toTrip(row);
   if (!trip.itinerary_data?.days?.length) {
     return res.status(400).json({ error: "This trip doesn't have an itinerary yet" });
   }
 
   try {
     const { data: { user } = {} } = await supabase.auth.getUser(token);
+    Object.assign(trip, await loadFoodSpots(supabase, trip.id));
     if (user && trip.user_id === user.id) {
       await fillMissingFoodSpots(supabase, trip);
     } else {
@@ -356,39 +361,38 @@ app.post("/api/trip-pdf", async (req, res) => {
 });
 
 // Older trips (made before food spots came with the itinerary) may be missing food spots
-// or homebase locations for some cities. Fetch those now, in parallel, and save them on the
-// trip so the PDF and the Food Spots tab both have them. Updates `trip` in place; a city
-// that fails is simply left out.
+// or homebase locations for some cities. Fetch those now, in parallel, and save each city's
+// row so the PDF and the Food Spots tab both have them. Updates trip.foodSpots and
+// trip.homebases in place; a city that fails is simply left out.
 async function fillMissingFoodSpots(supabase, trip) {
-  const data = trip.itinerary_data;
-  const form = data._form_data || {};
-  const foodSpots = { ...data._food_spots };
-  const homebases = { ...data._homebases };
+  const form = trip.itinerary_data._form_data || {};
   const geoapifyKey = process.env.GEOAPIFY_API_KEY;
 
-  const tasks = (form.cities || [])
-    .filter((c) => c.name)
-    .flatMap((c) => [
-      ANTHROPIC_API_KEY && !foodSpots[c.name]?.length &&
-        addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey })
-          .then((spots) => { foodSpots[c.name] = spots; })
-          .catch((err) => logger.error({ err, city: c.name }, "Food spots failed")),
-      !(c.name in homebases) &&
-        locateHomebase(c, geoapifyKey)
-          .then((homebase) => { homebases[c.name] = homebase; })
-          .catch(() => {}),
-    ])
-    .filter(Boolean);
-  if (!tasks.length) return;
+  const filled = await Promise.all(
+    (form.cities || [])
+      .filter((c) => c.name)
+      .map(async (c) => {
+        const [spots, homebase] = await Promise.all([
+          ANTHROPIC_API_KEY && !trip.foodSpots[c.name]?.length
+            ? addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey }).catch((err) => {
+                logger.error({ err, city: c.name }, "Food spots failed");
+                return undefined;
+              })
+            : undefined,
+          !(c.name in trip.homebases) ? locateHomebase(c, geoapifyKey).catch(() => undefined) : undefined,
+        ]);
+        return { city: c.name, spots, homebase };
+      })
+  );
 
-  await Promise.all(tasks);
-  const patch = { _food_spots: foodSpots, _homebases: homebases };
-  try {
-    trip.itinerary_data = await patchItineraryData(supabase, trip.id, patch);
-  } catch (err) {
-    // Still use what was fetched for this PDF; it'll be fetched again next time
-    logger.error({ err, tripId: trip.id }, "Failed to save food spots");
-    trip.itinerary_data = { ...data, ...patch };
+  for (const { city, spots, homebase } of filled) {
+    if (spots === undefined && homebase === undefined) continue;
+    if (spots !== undefined) trip.foodSpots[city] = spots;
+    if (homebase !== undefined) trip.homebases[city] = homebase;
+    // Still used for this PDF if saving fails; it'll be fetched again next time
+    await saveFoodSpots(supabase, trip.id, city, { spots, homebase }).catch((err) =>
+      logger.error({ err, tripId: trip.id, city }, "Failed to save food spots")
+    );
   }
 }
 

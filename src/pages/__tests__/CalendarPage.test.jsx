@@ -19,7 +19,8 @@ const trip = (id, destination, checkIn, checkOut, extra = {}) => ({
   user_id: "me",
   destination,
   cities: ["City"],
-  itinerary_data: { _status: "ready", _form_data: { cities: [{ name: "City", checkIn, checkOut }] } },
+  status: "ready",
+  itinerary_data: { _form_data: { cities: [{ name: "City", checkIn, checkOut }] } },
   ...extra,
 });
 

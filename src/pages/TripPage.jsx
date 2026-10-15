@@ -34,7 +34,7 @@ export default function TripPage() {
   if (isLoading) return <LoadingScreen />;
   if (error || !trip) return <LoadingScreen message="Trip not found." />;
 
-  const { _form_data, _draft, _status, _started_at, _error, _food_spots, _homebases, ...itinerary } = trip.itinerary_data || {};
+  const { _form_data, ...itinerary } = trip.itinerary_data || {};
   const formData = _form_data || { country: trip.destination, cities: [] };
   // Travel partners can see shared trips but not change them (see supabase/travel-crew.sql)
   const viewer = trip.user_id === user?.id ? "owner" : "member";
@@ -45,7 +45,7 @@ export default function TripPage() {
     case "pending":
       return <GeneratingScreen formData={formData} />;
     case "failed":
-      return <FailedScreen tripId={tripId} formData={formData} error={_error} canRetry={viewer === "owner"} />;
+      return <FailedScreen tripId={tripId} formData={formData} error={trip.error} canRetry={viewer === "owner"} />;
   }
 
   if (!itinerary.days?.length) return <LoadingScreen message="This trip has no itinerary." />;
@@ -54,8 +54,8 @@ export default function TripPage() {
       tripId={tripId}
       itinerary={itinerary}
       formData={formData}
-      foodSpots={_food_spots || {}}
-      homebases={_homebases || {}}
+      foodSpots={trip.foodSpots || {}}
+      homebases={trip.homebases || {}}
       viewer={viewer}
     />
   );

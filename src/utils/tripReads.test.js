@@ -36,7 +36,7 @@ vi.mock("./api", () => ({ apiJson: (...args) => apiJson(...args) }));
 
 const { fetchTrip, fetchTrips, updateTripFormData } = await import("./trips");
 
-const ownTrip = { id: "own", user_id: ME, created_at: "2026-02-01", itinerary_data: { _form_data: { reservations: { flights: [{ confirmationCode: "MINE" }] } } } };
+const ownTrip = { id: "own", user_id: ME, created_at: "2026-02-01", revision: 3, itinerary_data: { _form_data: { reservations: { flights: [{ confirmationCode: "MINE" }] } } } };
 const sharedRow = { id: "shared", user_id: "organizer", created_at: "2026-03-01", itinerary_data: { _form_data: { reservations: { flights: [{ confirmationCode: "THEIRS" }] } } } };
 // What the server's shared view returns for that trip (no reservations)
 const sharedView = { id: "shared", user_id: "organizer", created_at: "2026-03-01", itinerary_data: { _form_data: { cities: [] } } };
@@ -63,7 +63,7 @@ const tripSelects = () => queries.filter((q) => q.table === "trips" && q.action 
 
 describe("fetchTrip", () => {
   test("the user's own trip comes from Supabase, in full", async () => {
-    expect(await fetchTrip("own")).toEqual(ownTrip);
+    expect(await fetchTrip("own")).toEqual({ ...ownTrip, foodSpots: {}, homebases: {} });
     expect(apiJson).not.toHaveBeenCalled();
   });
 
@@ -89,6 +89,13 @@ describe("fetchTrips", () => {
 });
 
 describe("changing a trip", () => {
+  test("only lands if nobody saved the trip since it was read (issue #31)", async () => {
+    await updateTripFormData("own", (f) => ({ ...f, country: "Japan" }));
+    const write = queries.find((q) => q.table === "trips" && q.action === "update");
+    expect(write.filters).toEqual(expect.arrayContaining([["id", "own"], ["user_id", ME], ["revision", 3]]));
+    expect(write.patch.itinerary_data._form_data).toMatchObject({ country: "Japan", reservations: { flights: [{ confirmationCode: "MINE" }] } });
+  });
+
   test("is refused for a shared trip, so the shared view is never written back", async () => {
     await expect(updateTripFormData("shared", (f) => f)).rejects.toThrow("Only the trip's organizer");
     expect(queries.some((q) => q.action === "update")).toBe(false);

@@ -87,7 +87,7 @@ A single-page app in [`src/`](src/).
 | [`server/tripPhotos.js`](server/tripPhotos.js) | The trip's shared photo album: the organizer, members and guests add photos (tagged to a day, with a caption); the person who added one can change it, they or the organizer can delete it. Metadata is stripped, files live in the private `trip-photos` bucket and the browser gets one-hour signed links |
 | [`server/fileScrub.js`](server/fileScrub.js) | Checks an uploaded file by its bytes (JPEG, PNG or PDF only) and strips photo metadata such as GPS location |
 | [`server/documentCrypto.js`](server/documentCrypto.js) | AES-256-GCM encryption of document numbers with `DOCUMENT_ENCRYPTION_KEYS` (versioned for rotation; `server/scripts/reencryptDocuments.js` moves old values to the newest key) |
-| [`server/tripData.js`](server/tripData.js) | Merging changes into a trip's `itinerary_data` without overwriting edits made meanwhile |
+| [`server/tripData.js`](server/tripData.js) | Writing trips with a `revision` check so concurrent changes aren't lost, and reading and saving a trip's food spots (`trip_food_spots`) |
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/memberReservations.js`](server/memberReservations.js) | Partners' and guests' own reservations: add, edit, delete and list, always filtered to the person asking. Table: `member_reservations` (server-only, no browser access) |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, a partner's shared view of a trip (`GET /api/trips/:id/shared`, without the organizer's reservations), and removing people |
@@ -115,23 +115,25 @@ flowchart LR
    - asks Claude for 12 food spots per city and finds each one on the map with Geoapify,
    - searches Ticketmaster for local events in each city during its stay, and lets Claude pick the best fits (`events`, `_events_source`, `_events_checked_at`),
    - looks up each city's hotel or homebase location.
-4. The server merges everything into the trip with status *ready* (or *failed* with the error), re-reading the row first so edits made in the meantime aren't overwritten, and notifies the user.
+4. The server saves each city's food spots, then merges the itinerary into the trip and sets its status to *ready* (or *failed* with the error). The write only lands if nobody else saved the trip since it was read (its `revision`); otherwise it re-reads and tries again, so edits made in the meantime aren't overwritten. Then it notifies the user.
 5. The progress screen and the dashboard hear about the change through Supabase Realtime (or a 15-second poll as a fallback) and switch to the itinerary as soon as it's ready, even if the user left and came back. Travel partners don't get Realtime for the organizer's trip; their app re-fetches the shared view every 5 seconds while it's generating.
 
 If the server restarts or redeploys mid-generation, the job's heartbeat (refreshed every 30 seconds) goes stale. A sweeper, run on startup and every minute, retries the job once and then marks the trip *failed* in the database, giving back the daily generation slot. Trips left *pending* whose generation never started are marked failed after 15 minutes.
 
 ### What's stored on a trip
 
-Everything lives in the trip row's `itinerary_data` JSON, so no database schema changes were needed:
+Since [#31](https://github.com/rizekj12/Trip-Planner/issues/31) ([`supabase/split-trip-data.sql`](supabase/split-trip-data.sql)):
 
-| Key | Contents |
+| Where | Contents |
 |---|---|
-| `days`, `spots`, `events` | The itinerary from Claude |
-| `_form_data` | The questionnaire answers, including `reservations` (flights and hand-added hotels) and each hotel's confirmation code |
-| `_status`, `_error` | `pending` / `ready` / `failed` (drafts are marked with `_draft`) |
-| `_food_spots` | Food spots per city, with coordinates |
-| `_homebases` | Each city's hotel or homebase location, for distances and the map |
-| `_pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
+| `trips.status`, `error`, `started_at` | `draft` / `pending` / `ready` / `failed`, why generation failed, and when it was requested |
+| `trips.pdf_downloaded_at` | When the offline PDF was last downloaded, for the dashboard checklist |
+| `trips.revision` | Bumped by the database on every update. Writes to `itinerary_data` check it ([`server/tripData.js`](server/tripData.js) `updateTrip`, `patchTrip` in [`src/utils/trips.js`](src/utils/trips.js)), so two writers can't overwrite each other |
+| `trips.itinerary_data` → `days`, `spots`, `events` | The itinerary from Claude |
+| `trips.itinerary_data` → `_form_data` | The questionnaire answers, including `reservations` (flights and hand-added hotels) and each hotel's confirmation code |
+| `trip_food_spots` | One row per trip and city: its food spots (with coordinates) and its hotel or homebase location. Owner-only (row-level security); partners get them through the server |
+
+[`shared/tripRow.js`](shared/tripRow.js) turns a row into what the app uses (`trip.foodSpots`, `trip.homebases`).
 
 Travel Crew is the exception: who's on a trip lives in its own tables, `trip_members` and `trip_invites`, created by [`supabase/travel-crew.sql`](supabase/travel-crew.sql), Members can't read `trips` directly: only the owner can (row-level security). The app reads a shared trip through the server's `GET /api/trips/:id/shared`, which checks the person is an approved member and removes the organizer's reservations, confirmation codes and notes, and finds which trips to load from the member's own `trip_members` rows ([#62](https://github.com/rizekj12/Trip-Planner/issues/62); [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) removes the old direct-read policy). [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) adds join requests (`trip_members.status`: pending or approved; only approved members can view the trip), invite link expiry and the approval setting, and the `notifications` table (each user reads and marks read only their own). A user's name, photo and home country are stored on their login (`user_metadata`). Everything else on the profile page lives in [`supabase/profiles.sql`](supabase/profiles.sql)'s tables, each readable and writable only by its owner: `profiles` (phone, birthday, gender, bio, accessibility needs, emergency contact), `travel_documents` and `saved_travelers`. The exception is `travel_documents`, which the browser can't query at all: it goes through the server's `/api/documents`, and document numbers are stored only encrypted (`number_encrypted`) plus their last 4 characters ([#56](https://github.com/rizekj12/Trip-Planner/issues/56)). Attachments ([#55](https://github.com/rizekj12/Trip-Planner/issues/55)) are encrypted the same way (bound to the owner and the document) and kept in the private Storage bucket `travel-documents`, which has no access policies, so only the server can read it; `attachment_path` and friends on `travel_documents` describe the file. The server reads bios, shared emergency contacts and accessibility needs with the service role key. Travel partners' own reservations live in `member_reservations` ([`supabase/member-reservations.sql`](supabase/member-reservations.sql)), one row per flight or hotel, tied to the person's `trip_members` row (so leaving a trip deletes them). The browser can't query it at all; the server returns each person only their own rows.
 
@@ -248,7 +250,7 @@ DOCUMENT_ENCRYPTION_KEYS=1:...
 # VITE_USE_MOCK_DATA=true
 ```
 
-Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql) [`supabase/document-attachments.sql`](supabase/document-attachments.sql) and [`supabase/trip-photos.sql`](supabase/trip-photos.sql), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, server-only, encrypted travel documents, the private bucket for their attachments, and the trip photo album). Then:
+Run [`supabase/travel-crew.sql`](supabase/travel-crew.sql), then [`supabase/generation-limits.sql`](supabase/generation-limits.sql), [`supabase/invite-approvals-notifications.sql`](supabase/invite-approvals-notifications.sql) [`supabase/generation-jobs.sql`](supabase/generation-jobs.sql), [`supabase/profiles.sql`](supabase/profiles.sql), [`supabase/member-reservations.sql`](supabase/member-reservations.sql) and [`supabase/fix-shared-trip-access.sql`](supabase/fix-shared-trip-access.sql) [`supabase/encrypt-travel-documents.sql`](supabase/encrypt-travel-documents.sql) [`supabase/document-attachments.sql`](supabase/document-attachments.sql), [`supabase/trip-photos.sql`](supabase/trip-photos.sql) and [`supabase/split-trip-data.sql`](supabase/split-trip-data.sql) (then [`supabase/split-trip-data-cleanup.sql`](supabase/split-trip-data-cleanup.sql) once the matching app version is deployed), once in Supabase's SQL Editor (they create the Travel Crew tables and sharing rules, the log behind the daily itinerary cap, join requests and notifications, generation jobs plus Realtime for trips, the profile page's tables, travel partners' own reservations, removing partners' direct access to trip rows, server-only, encrypted travel documents, the private bucket for their attachments, the trip photo album, and trip status columns plus food spots). Then:
 
 ```bash
 npm install

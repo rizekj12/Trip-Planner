@@ -60,8 +60,7 @@ export function tripBadge({ status, range }, today = todayIso()) {
 // Each item links somewhere (`to`) or triggers the PDF download (`action: "pdf"`).
 // On a shared trip the flights and hotel are the organizer's, so those items are left out.
 export function beforeYouGo({ trip, status }, { isOwner = true } = {}) {
-  const data = trip.itinerary_data || {};
-  const form = data._form_data || {};
+  const form = trip.itinerary_data?._form_data || {};
   const flights = form.reservations?.flights?.length || 0;
   const hotelCode = getHotels(form).some((h) => h.confirmationCode);
   const reservations = `/trip/${trip.id}?section=reservations`;
@@ -76,8 +75,8 @@ export function beforeYouGo({ trip, status }, { isOwner = true } = {}) {
     { key: "hotel", done: hotelCode, label: hotelCode ? "Hotel confirmation saved" : "Add your hotel confirmation", to: reservations },
     {
       key: "pdf",
-      done: !!data._pdf_downloaded_at,
-      label: data._pdf_downloaded_at ? "Offline PDF downloaded" : "Download your offline PDF",
+      done: !!trip.pdf_downloaded_at,
+      label: trip.pdf_downloaded_at ? "Offline PDF downloaded" : "Download your offline PDF",
       action: status === "ready" ? "pdf" : null,
     },
   ];

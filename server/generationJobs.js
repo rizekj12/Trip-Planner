@@ -8,7 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateItinerary } from "./itinerary.js";
 import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
-import { patchItineraryData } from "./tripData.js";
+import { updateTrip, saveFoodSpots } from "./tripData.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -106,15 +106,19 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
         homebasesForTrip(formData, geoapifyKey),
         eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal }),
       ]);
-      await patchItineraryData(admin, tripId, {
-        ...itinerary,
-        events: localEvents.events,
-        _events_source: localEvents.source,
-        _events_checked_at: localEvents.checkedAt,
-        _status: "ready",
-        _error: null,
-        _food_spots: foodSpots,
-        _homebases: homebases,
+      // Food spots first, so they're there the moment the trip shows as ready
+      const cities = new Set([...Object.keys(foodSpots || {}), ...Object.keys(homebases || {})]);
+      for (const city of cities) {
+        await saveFoodSpots(admin, tripId, city, { spots: foodSpots?.[city], homebase: homebases?.[city] });
+      }
+      await updateTrip(admin, tripId, {
+        columns: { status: "ready", error: null },
+        patch: {
+          ...itinerary,
+          events: localEvents.events,
+          _events_source: localEvents.source,
+          _events_checked_at: localEvents.checkedAt,
+        },
       });
       await finish(job, "done");
       await notifier?.notify(job.user_id, "itinerary_ready", { tripId, data: { destination } });
@@ -143,7 +147,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
     await guards.releaseGeneration(job.reservation_id).catch((err) =>
       logger.error({ err, tripId: job.trip_id }, "Couldn't release generation")
     );
-    await patchItineraryData(admin, job.trip_id, { _status: "failed", _error: message }).catch((err) =>
+    await updateTrip(admin, job.trip_id, { columns: { status: "failed", error: message } }).catch((err) =>
       logger.error({ err, tripId: job.trip_id }, "Couldn't mark trip as failed")
     );
     await finish(job, "failed", message);
@@ -180,10 +184,10 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
 
       const { data: trip } = await admin
         .from("trips")
-        .select("destination, itinerary_data")
+        .select("destination, status")
         .eq("id", job.trip_id)
         .maybeSingle();
-      if (!trip || trip.itinerary_data?._status !== "pending") {
+      if (!trip || trip.status !== "pending") {
         await finish(job, "done"); // deleted, or already settled some other way
         continue;
       }
@@ -204,12 +208,12 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
   async function failUnstartedTrips() {
     const { data: pending, error } = await admin
       .from("trips")
-      .select("id, itinerary_data")
-      .eq("itinerary_data->>_status", "pending");
+      .select("id, started_at")
+      .eq("status", "pending");
     if (error) return logger.error({ err: error }, "Pending trip sweep failed");
 
     const old = pending.filter((t) => {
-      const started = Date.parse(t.itinerary_data?._started_at);
+      const started = Date.parse(t.started_at);
       return !started || Date.now() - started > UNSTARTED_AFTER_MS;
     });
     if (!old.length) return;
@@ -221,9 +225,8 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
 
     for (const trip of old) {
       if (running.has(String(trip.id))) continue;
-      await patchItineraryData(admin, trip.id, {
-        _status: "failed",
-        _error: "Generation didn't start. Please try again.",
+      await updateTrip(admin, trip.id, {
+        columns: { status: "failed", error: "Generation didn't start. Please try again." },
       }).catch((err) => logger.error({ err, tripId: trip.id }, "Couldn't mark trip as failed"));
     }
   }

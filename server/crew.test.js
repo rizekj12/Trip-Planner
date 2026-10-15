@@ -29,17 +29,19 @@ beforeEach(() => {
       trip_members: members(),
       trip_invites: [{ trip_id: TRIP_ID, token: INVITE_TOKEN, expires_at: inFuture(10), require_approval: false }],
       profiles: [],
+      trip_food_spots: [],
     },
     { users: USERS, tokens: TOKENS }
   );
 });
 
 describe("withoutPrivateDetails", () => {
-  test("removes reservations, hotel codes and notes, and the PDF timestamp", () => {
-    const shared = withoutPrivateDetails(readyTrip().itinerary_data);
+  test("removes reservations, hotel codes and notes, and keys from before issue #31", () => {
+    const shared = withoutPrivateDetails({ ...readyTrip().itinerary_data, _pdf_downloaded_at: "2030-01-01", _status: "ready" });
     expect(leaksSecrets(shared)).toEqual([]);
     expect(shared._form_data.reservations).toBeUndefined();
     expect(shared._pdf_downloaded_at).toBeUndefined();
+    expect(shared._status).toBeUndefined();
   });
 
   test("keeps what partners need: the itinerary, cities, hotel name and address", () => {
@@ -75,7 +77,7 @@ describe("GET /api/trips/:tripId/shared", () => {
     const res = await request(app).get(url).set(auth("token-member"));
     expect(res.status).toBe(200);
     expect(leaksSecrets(res.body)).toEqual([]);
-    expect(res.text).not.toMatch(/confirmationCode|reservations|_pdf_downloaded_at/);
+    expect(res.text).not.toMatch(/confirmationCode|reservations|pdf_downloaded_at|revision/);
     // Still everything the trip page needs, in the shape of a trips row
     expect(res.body).toMatchObject({ id: TRIP_ID, user_id: OWNER.id, destination: "Japan" });
     expect(res.body.itinerary_data.days).toHaveLength(1);
@@ -198,6 +200,20 @@ describe("joining with an invite link", () => {
     }));
     db.rows("trip_members").push(...extra);
     expect((await join({}, "token-stranger")).status).toBe(409);
+  });
+});
+
+describe("status and food spots for travel partners (issue #31)", () => {
+  beforeEach(() => {
+    db.rows("trip_food_spots").push({ trip_id: TRIP_ID, city: "Tokyo", spots: [{ name: "Ramen" }], homebase: null, homebase_checked_at: "2030-01-01" });
+  });
+
+  test("members and guests get the trip's status and food spots", async () => {
+    const member = await request(app).get(`/api/trips/${TRIP_ID}/shared`).set(auth("token-member"));
+    expect(member.body).toMatchObject({ status: "ready", foodSpots: { Tokyo: [{ name: "Ramen" }] }, homebases: { Tokyo: null } });
+    const guest = await request(app).get(`/api/guest/${GUEST_TOKEN}`);
+    expect(guest.body.trip).toMatchObject({ status: "ready", foodSpots: { Tokyo: [{ name: "Ramen" }] } });
+    expect(guest.text).not.toMatch(/pdf_downloaded_at|revision/);
   });
 });
 

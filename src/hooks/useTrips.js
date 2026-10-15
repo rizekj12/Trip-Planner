@@ -104,11 +104,8 @@ export function useLoadFoodSpots(tripId) {
     onSuccess: ({ spots, homebase }, { city }) => {
       qc.setQueryData(["trip", tripId], (trip) => trip && {
         ...trip,
-        itinerary_data: {
-          ...trip.itinerary_data,
-          _food_spots: { ...trip.itinerary_data._food_spots, [city]: spots },
-          _homebases: { ...trip.itinerary_data._homebases, [city]: homebase },
-        },
+        foodSpots: { ...trip.foodSpots, [city]: spots },
+        homebases: { ...trip.homebases, [city]: homebase },
       });
     },
   });

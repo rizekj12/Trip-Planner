@@ -41,7 +41,7 @@ beforeEach(() => {
 });
 
 const pendingTrip = () => {
-  db.rows("trips")[0].itinerary_data._status = "pending";
+  db.rows("trips")[0].status = "pending";
 };
 
 describe("POST /api/generate-itinerary", () => {
@@ -113,7 +113,9 @@ describe("POST /api/food-spots", () => {
     const res = await more("token-owner");
     expect(res.status).toBe(200);
     expect(mocks.addFoodSpots).toHaveBeenCalledTimes(1);
-    expect(db.rows("trips")[0].itinerary_data._food_spots.Tokyo).toEqual([{ name: "New spot" }]);
+    expect(db.rows("trip_food_spots")).toMatchObject([{ trip_id: TRIP_ID, city: "Tokyo", spots: [{ name: "New spot" }] }]);
+    // Saved in the city's own row; the trip itself wasn't rewritten
+    expect(db.rows("trips")[0].revision).toBe(0);
   });
 });
 
@@ -170,8 +172,7 @@ describe("POST /api/trip-pdf", () => {
   });
 
   test("the organizer's own PDF keeps their codes", async () => {
-    db.rows("trips")[0].itinerary_data._food_spots = { Tokyo: [{ name: "Saved" }] };
-    db.rows("trips")[0].itinerary_data._homebases = { Tokyo: null };
+    db.rows("trip_food_spots").push({ trip_id: TRIP_ID, city: "Tokyo", spots: [{ name: "Saved" }], homebase: null, homebase_checked_at: "2030-01-01T00:00:00Z" });
     await pdf("token-owner");
     expect(leaksSecrets(mocks.pdfTrips[0])).not.toEqual([]);
   });

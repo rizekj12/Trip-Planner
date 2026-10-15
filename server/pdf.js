@@ -79,9 +79,11 @@ function dayMarkers(day, spots) {
   return { stops, markers };
 }
 
+// `trip`: a trips row (itinerary_data with _form_data) plus its foodSpots and homebases
+// ({ city: ... }, see shared/tripRow.js)
 export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
-  const { _form_data: form = {}, _food_spots: foodSpots = {}, _homebases: homebases = {}, ...itinerary } =
-    trip.itinerary_data || {};
+  const { _form_data: form = {}, ...itinerary } = trip.itinerary_data || {};
+  const { foodSpots = {}, homebases = {} } = trip;
   const days = itinerary.days || [];
   const spots = itinerary.spots || {};
   const country = form.country || trip.destination || "";
