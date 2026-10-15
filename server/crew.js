@@ -4,6 +4,8 @@
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "./logger.js";
+import { loadFoodSpots } from "./tripData.js";
+import { withoutLegacyKeys } from "../shared/tripRow.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,7 +24,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Itinerary data without the owner's private details (reservations, confirmation codes),
 // for anyone who isn't the trip's owner
 export function withoutPrivateDetails(itineraryData = {}) {
-  const { _form_data: form = {}, _pdf_downloaded_at, ...rest } = itineraryData;
+  const { _form_data: form = {}, ...rest } = withoutLegacyKeys(itineraryData);
   const { reservations, ...publicForm } = form;
   return {
     ...rest,
@@ -39,12 +41,15 @@ export function withoutPrivateDetails(itineraryData = {}) {
 // The columns of a trip a travel partner may receive, in the same shape as a `trips` row so
 // the app can use it like one. Allow-listed (a new column stays private until added here),
 // with the organizer's reservations and confirmation codes removed from itinerary_data.
+// The organizer's pdf_downloaded_at (their checklist) is left out.
 const SHARED_TRIP_COLUMNS = [
   "id", "user_id", "destination", "cities", "duration", "travel_style", "vacation_type", "created_at", "updated_at",
+  "status", "error", "started_at",
 ];
-export function sharedTripView(trip) {
+// `food`: the trip's { foodSpots, homebases } (server/tripData.js loadFoodSpots)
+export function sharedTripView(trip, food = { foodSpots: {}, homebases: {} }) {
   const view = Object.fromEntries(SHARED_TRIP_COLUMNS.filter((k) => k in trip).map((k) => [k, trip[k]]));
-  return { ...view, itinerary_data: withoutPrivateDetails(trip.itinerary_data || {}) };
+  return { ...view, itinerary_data: withoutPrivateDetails(trip.itinerary_data || {}), foodSpots: food.foodSpots, homebases: food.homebases };
 }
 
 const tripDates = (trip) => {
@@ -92,7 +97,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
   const loadTrip = async (tripId) => {
     const { data } = await admin
       .from("trips")
-      .select("id, user_id, destination, cities, itinerary_data")
+      .select("id, user_id, destination, cities, status, error, started_at, itinerary_data")
       .eq("id", tripId)
       .maybeSingle();
     return data;
@@ -424,7 +429,15 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     res.json({
       status: "approved",
       guestName: guest.name,
-      trip: { id: trip.id, destination: trip.destination, itinerary_data: withoutPrivateDetails(trip.itinerary_data) },
+      trip: {
+        id: trip.id,
+        destination: trip.destination,
+        status: trip.status,
+        error: trip.error,
+        started_at: trip.started_at,
+        itinerary_data: withoutPrivateDetails(trip.itinerary_data),
+        ...(await loadFoodSpots(admin, trip.id)),
+      },
       // Guests can see who's going (names, photos, roles; never emails)
       crew: { isOwner: false, people: await crewFor(trip, { viewerMemberId: guest.id }) },
     });
@@ -447,7 +460,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
       .maybeSingle();
     if (!trip) return res.status(404).json({ error: "Trip not found" });
 
-    res.json(sharedTripView(trip));
+    res.json(sharedTripView(trip, await loadFoodSpots(admin, trip.id)));
   });
 
   // A pending request on one of the signed-in user's own trips: { trip, member }, or sends an error

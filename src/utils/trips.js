@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import { tripLengthDays } from "../../shared/tripLength.js";
 import { apiJson } from "./api";
 import { emptyTripAlbum } from "./photos";
+import { toTrip, withoutLegacyKeys, TRIP_STATUS_COLUMNS } from "../../shared/tripRow.js";
 
 // Inserts a new trip row, or updates it when `id` is given
 async function upsertTrip(id, formData, extra) {
@@ -23,7 +24,7 @@ async function upsertTrip(id, formData, extra) {
 
   const { data, error } = await query.select().single();
   if (error) throw error;
-  return data;
+  return toTrip(data, []);
 }
 
 // A pending trip older than this is shown as failed. Only a last resort: the server itself
@@ -31,31 +32,32 @@ async function upsertTrip(id, formData, extra) {
 // well within this time (10 minutes per attempt, two attempts).
 const PENDING_TIMEOUT_MS = 30 * 60 * 1000;
 
-// "draft" | "pending" | "ready" | "failed" — stored inside itinerary_data so no schema change is needed.
-// Rows saved before statuses existed have no _status and count as ready.
+// "draft" | "pending" | "ready" | "failed", from the trip's status column (issue #31)
 export function tripStatus(trip) {
-  const data = trip?.itinerary_data || {};
-  if (data._draft) return "draft";
-  if (data._status === "failed") return "failed";
-  if (data._status === "pending") {
-    const age = Date.now() - new Date(data._started_at).getTime();
+  const status = trip?.status || "ready";
+  if (status === "pending") {
+    const age = Date.now() - new Date(trip.started_at).getTime();
     return age > PENDING_TIMEOUT_MS ? "failed" : "pending";
   }
-  return "ready";
+  return status;
 }
 
 export function saveTrip({ id, country, formData, itinerary }) {
   return upsertTrip(id, formData, {
     destination: country,
+    status: "ready",
+    error: null,
     // store form_data nested so we can read dates back on the dashboard
-    itinerary_data: { ...itinerary, _form_data: formData, _status: "ready" },
+    itinerary_data: { ...itinerary, _form_data: formData },
   });
 }
 
 export function saveFailed({ id, formData, error }) {
   return upsertTrip(id, formData, {
     destination: formData.country || null,
-    itinerary_data: { _form_data: formData, _status: "failed", _error: error },
+    status: "failed",
+    error,
+    itinerary_data: { _form_data: formData },
   });
 }
 
@@ -63,7 +65,10 @@ export function saveFailed({ id, formData, error }) {
 export function savePending({ id, formData }) {
   return upsertTrip(id, formData, {
     destination: formData.country || null,
-    itinerary_data: { _form_data: formData, _status: "pending", _started_at: new Date().toISOString() },
+    status: "pending",
+    error: null,
+    started_at: new Date().toISOString(),
+    itinerary_data: { _form_data: formData },
   });
 }
 
@@ -72,7 +77,8 @@ export function savePending({ id, formData }) {
 export function saveDraft({ id, formData }) {
   return upsertTrip(id, formData, {
     destination: formData.country || null,
-    itinerary_data: { _form_data: formData, _draft: true },
+    status: "draft",
+    itinerary_data: { _form_data: formData },
   });
 }
 
@@ -100,13 +106,13 @@ export async function fetchTrips() {
   const [own, shared] = await Promise.all([
     supabase
       .from("trips")
-      .select("id, user_id, destination, cities, duration, itinerary_data, created_at")
+      .select(["id", "user_id", "destination", "cities", "duration", "itinerary_data", "created_at", ...TRIP_STATUS_COLUMNS].join(", "))
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     fetchSharedTrips(userId),
   ]);
   if (own.error) throw own.error;
-  return [...own.data, ...shared].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+  return [...own.data.map((row) => toTrip(row)), ...shared].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
 }
 
 // The trips the user has been approved to join, through the server. One that can't be loaded
@@ -129,25 +135,20 @@ async function fetchSharedTrips(userId) {
   return trips.filter(Boolean);
 }
 
-// One of the user's own trips, in full, or null if it isn't theirs
+// One of the user's own trips, in full with its food spots, or null if it isn't theirs
 async function fetchOwnTrip(id) {
   const userId = await currentUserId();
   const { data, error } = await supabase.from("trips").select("*").eq("id", id).eq("user_id", userId).maybeSingle();
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  const food = await supabase.from("trip_food_spots").select("city, spots, homebase, homebase_checked_at").eq("trip_id", id);
+  if (food.error) throw food.error;
+  return toTrip(data, food.data);
 }
 
 // A trip the user owns (in full) or has joined (shared view, without private details)
 export async function fetchTrip(id) {
   return (await fetchOwnTrip(id)) || fetchSharedTrip(id);
-}
-
-// For changes: only the organizer's own trip, in full, so a shared view (with the private
-// details removed) can never be written back over the real data
-async function fetchTripToChange(id) {
-  const trip = await fetchOwnTrip(id);
-  if (!trip) throw new Error("Only the trip's organizer can change it");
-  return trip;
 }
 
 export async function deleteTrip(id) {
@@ -159,36 +160,54 @@ export async function deleteTrip(id) {
 }
 
 // Applies `update(formData) => newFormData` to a trip's saved questionnaire answers (where
-// reservations live). Re-reads the row first so it builds on the latest saved version.
+// reservations live), building on the latest saved version. Organizer only.
 export async function updateTripFormData(id, update) {
-  const trip = await fetchTripToChange(id);
-  const data = trip.itinerary_data || {};
-  const itinerary_data = { ...data, _form_data: update(data._form_data || {}) };
-  const { data: row, error } = await supabase
-    .from("trips")
-    .update({ itinerary_data })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return row;
-}
-
-// Merges `patch` into a trip's itinerary_data, re-reading the row first so it builds on the
-// latest saved version (the server may have written food spots etc. in the meantime)
-export async function patchItineraryData(id, patch) {
-  const trip = await fetchTripToChange(id);
-  const { data: row, error } = await supabase
-    .from("trips")
-    .update({ itinerary_data: { ...trip.itinerary_data, ...patch } })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return row;
+  await patchTrip(id, { patch: (data) => ({ _form_data: update(data._form_data || {}) }) });
+  return fetchTrip(id);
 }
 
 // Remembered so the dashboard's "Before you go" checklist can tick it off
 export function markPdfDownloaded(id) {
-  return patchItineraryData(id, { _pdf_downloaded_at: new Date().toISOString() });
+  return patchTrip(id, { columns: { pdf_downloaded_at: new Date().toISOString() } });
+}
+
+const MAX_WRITE_ATTEMPTS = 4;
+
+// Writes to one of the user's own trips: `columns` and/or `patch` (an object, or a function
+// of the current itinerary_data) merged into itinerary_data. Same rules as the server's
+// updateTrip (server/tripData.js): itinerary_data writes only land if nobody else saved the
+// trip since it was read (its `revision`); otherwise it re-reads and tries again.
+async function patchTrip(id, { columns = {}, patch }) {
+  const userId = await currentUserId();
+  if (!patch) {
+    const { data, error } = await supabase.from("trips").update(columns).eq("id", id).eq("user_id", userId).select("id");
+    if (error) throw error;
+    if (!data?.length) throw new Error("Only the trip's organizer can change it");
+    return;
+  }
+  for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt++) {
+    const { data: row, error: readError } = await supabase
+      .from("trips")
+      .select("itinerary_data, revision")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (readError) throw readError;
+    if (!row) throw new Error("Only the trip's organizer can change it");
+
+    const current = withoutLegacyKeys(row.itinerary_data);
+    const merged = { ...current, ...(typeof patch === "function" ? patch(current) : patch) };
+    const revision = row.revision ?? 0;
+    const { data, error } = await supabase
+      .from("trips")
+      .update({ ...columns, itinerary_data: merged, revision: revision + 1 })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .eq("revision", revision)
+      .select("id");
+    if (error) throw error;
+    if (data?.length) return;
+    // Someone else saved the trip in between: go again on top of their change
+  }
+  throw new Error("This trip kept changing while saving. Please try again.");
 }
