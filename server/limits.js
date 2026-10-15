@@ -98,7 +98,7 @@ export function createGuards({ supabaseUrl, anonKey, serviceKey, dailyLimit = da
       .order("created_at");
     if (error) {
       logger.error({ err: error }, "Couldn't read generation log");
-      return { status: 500, error: "Generation limits aren't set up on the server (run supabase/generation-limits.sql)" };
+      return { status: 500, error: "Generation limits aren't set up on the server (apply supabase/migrations)" };
     }
 
     if (recent.length >= dailyLimit) {

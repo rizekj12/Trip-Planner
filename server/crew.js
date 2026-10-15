@@ -1,6 +1,6 @@
 // Travel Crew: invite links, joining a trip (with an account or as a guest), the crew list,
 // and the guest's view-only trip. Uses the service role key, so every route checks who is
-// asking before touching anything. Tables: supabase/travel-crew.sql.
+// asking before touching anything. Tables: supabase/migrations.
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { logger } from "./logger.js";
@@ -131,7 +131,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
 
   const ownerOf = async (trip) => (await admin.auth.admin.getUserById(trip.user_id)).data?.user || null;
 
-  // Profile details (supabase/profiles.sql) for people with accounts, by user id. Empty if the
+  // Profile details (supabase/migrations) for people with accounts, by user id. Empty if the
   // table isn't set up yet.
   const profilesFor = async (userIds) => {
     if (!userIds.length) return new Map();
