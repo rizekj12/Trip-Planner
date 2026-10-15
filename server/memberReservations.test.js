@@ -192,8 +192,7 @@ describe("PDF", () => {
 
   test("the organizer's PDF doesn't include partners' reservations", async () => {
     await addMine("token-member", "flight", MEMBER_FLIGHT);
-    db.rows("trips")[0].itinerary_data._food_spots = { Tokyo: [] };
-    db.rows("trips")[0].itinerary_data._homebases = { Tokyo: null };
+    db.rows("trip_food_spots").push({ trip_id: TRIP_ID, city: "Tokyo", spots: [{ name: "Saved" }], homebase: null, homebase_checked_at: "2030-01-01T00:00:00Z" });
     await request(app).post("/api/trip-pdf").set(auth("token-owner")).send({ tripId: TRIP_ID });
     expect(JSON.stringify(mocks.pdfTrips[0])).not.toContain("MEMBER-CODE-9");
   });

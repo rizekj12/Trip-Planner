@@ -35,7 +35,7 @@ export default function GuestTripPage() {
   }
 
   const { trip, guestName, crew } = guest.data;
-  const { _form_data, _food_spots, _homebases, ...itinerary } = trip.itinerary_data || {};
+  const { _form_data, ...itinerary } = trip.itinerary_data || {};
   if (tripStatus(trip) !== "ready" || !itinerary.days?.length) {
     return <LoadingScreen message="The itinerary isn't ready yet — check back soon." />;
   }
@@ -49,8 +49,8 @@ export default function GuestTripPage() {
         tripId={trip.id}
         itinerary={itinerary}
         formData={_form_data || { country: trip.destination, cities: [] }}
-        foodSpots={_food_spots || {}}
-        homebases={_homebases || {}}
+        foodSpots={trip.foodSpots || {}}
+        homebases={trip.homebases || {}}
         viewer="guest"
         crew={crew}
         guestToken={token}
