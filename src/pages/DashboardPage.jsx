@@ -70,7 +70,7 @@ export default function DashboardPage() {
   const today = todayIso();
   const calendarMonth = monthOf(next && next.range.start > today ? next.range.start : today);
 
-  // Trips friends invited the user to (supabase/travel-crew.sql): view-only, so no Retry/Delete
+  // Trips friends invited the user to (supabase/migrations): view-only, so no Retry/Delete
   const isShared = (trip) => trip.user_id && trip.user_id !== user?.id;
 
   const menuActions = ({ trip, status }) => [

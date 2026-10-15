@@ -36,7 +36,7 @@ export default function TripPage() {
 
   const { _form_data, ...itinerary } = trip.itinerary_data || {};
   const formData = _form_data || { country: trip.destination, cities: [] };
-  // Travel partners can see shared trips but not change them (see supabase/travel-crew.sql)
+  // Travel partners can see shared trips but not change them (see supabase/migrations)
   const viewer = trip.user_id === user?.id ? "owner" : "member";
 
   switch (tripStatus(trip)) {

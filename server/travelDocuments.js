@@ -1,6 +1,6 @@
 // Travel documents (profile page): passport, Known Traveler Number, insurance and so on.
 // Private to their owner. Since issue #56 the browser can't touch travel_documents directly
-// (RLS with no policies, see supabase/encrypt-travel-documents.sql); everything goes through
+// (RLS with no policies, see supabase/migrations); everything goes through
 // these routes, which encrypt document numbers before they're stored (server/documentCrypto.js).
 //
 // The list only ever carries the last 4 characters of a number. The full number is decrypted

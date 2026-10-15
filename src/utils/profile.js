@@ -1,5 +1,5 @@
 // The signed-in user's profile details, travel documents and saved travelers
-// (supabase/profiles.sql). Row-level security limits every query to the user's own rows.
+// (supabase/migrations). Row-level security limits every query to the user's own rows.
 // Travel documents go through the server instead, which encrypts their numbers (issue #56).
 import { supabase } from "./supabase";
 import { apiJson, apiRequest } from "./api";

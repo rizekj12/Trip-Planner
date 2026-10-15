@@ -3,10 +3,10 @@
 //   trips.revision                                      bumped on every update (optimistic concurrency)
 //   trips.itinerary_data                                the itinerary (days, spots, events) + _form_data
 //   trip_food_spots                                     one row per city: spots + homebase
-// See supabase/split-trip-data.sql.
+// See supabase/migrations.
 
-// Keys that used to live in itinerary_data. Never written anymore; removed when read (and by
-// supabase/split-trip-data-cleanup.sql) so a stale copy can't be written back.
+// Keys that used to live in itinerary_data. Never written anymore, and already removed from
+// the live data; also dropped when read, so a stale copy can't be written back.
 export const LEGACY_KEYS = ["_status", "_error", "_started_at", "_draft", "_pdf_downloaded_at", "_food_spots", "_homebases"];
 
 export function withoutLegacyKeys(data) {
