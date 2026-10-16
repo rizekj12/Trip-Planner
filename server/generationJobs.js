@@ -5,7 +5,7 @@
 // once, then marks the trip failed in the database and gives back the daily generation slot.
 import crypto from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { generateItinerary } from "./itinerary.js";
+import { generateItinerary, withHotels } from "./itinerary.js";
 import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
 import { updateTrip, saveFoodSpots } from "./tripData.js";
@@ -101,11 +101,14 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       const traveler = await travelerNeeds(admin, job.user_id);
       // Local events come from Ticketmaster, not the model (server/events.js, issue #36)
       const [itinerary, foodSpots, homebases, localEvents] = await Promise.all([
-        generateItinerary(formData, anthropicKey, { signal, traveler }),
+        generateItinerary(formData, anthropicKey, { signal, traveler, geoapifyKey, tripId }),
         foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler }),
         homebasesForTrip(formData, geoapifyKey),
         eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal }),
       ]);
+      // Each day's hotel pin comes from the traveler's own hotel or address, not the model
+      withHotels(itinerary, formData, homebases);
+
       // Food spots first, so they're there the moment the trip shows as ready
       const cities = new Set([...Object.keys(foodSpots || {}), ...Object.keys(homebases || {})]);
       for (const city of cities) {

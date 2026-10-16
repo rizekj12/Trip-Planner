@@ -33,7 +33,9 @@ export async function geocodeCity(city, country, apiKey) {
   return result ? { lat: result.lat, lon: result.lon } : null;
 }
 
-async function geocodePlace(text, center, apiKey) {
+// The best confident venue or building match for `text` within SEARCH_RADIUS_M of `center`
+// ({ lat, lon }), as { coords: [lat, lon], address }, or null when there isn't one
+export async function geocodePlace(text, center, apiKey) {
   const near = `${center.lon},${center.lat}`;
   const url =
     `${GEOCODE_URL}?text=${encodeURIComponent(text)}&format=json&limit=1` +
