@@ -74,7 +74,8 @@ A single-page app in [`src/`](src/).
 | File | What it does |
 |---|---|
 | [`server/index.js`](server/index.js) | Express routes (reading and writing trips as the signed-in user), the 14-day trip limit, and serving the built frontend in production |
-| [`server/itinerary.js`](server/itinerary.js) | Builds the itinerary prompt, calls Claude, parses the JSON |
+| [`server/itinerary.js`](server/itinerary.js) | Builds the itinerary prompt, calls Claude with a JSON schema (structured outputs), validates the reply with zod and converts it to the stored shape |
+| [`server/verifyStops.js`](server/verifyStops.js) | Checks each stop's coordinates against Geoapify: corrects pins that are off, unpins ones that are far from their city and can't be found |
 | [`server/events.js`](server/events.js) | Searches Ticketmaster around each city for its dates, de-duplicates shows, and lets Claude pick and describe ones that fit (only from the real listings) |
 | [`server/foodSpots.js`](server/foodSpots.js) | Asks Claude for a city's best places to eat, then locates them on the map |
 | [`server/geoapify.js`](server/geoapify.js) | Geocoding, homebase lookup and static maps, rate-limited to the free tier (≤ 4 requests/s) |
@@ -111,7 +112,7 @@ flowchart LR
 1. The user finishes the questionnaire. The browser saves the trip to Supabase with status *pending* and its form answers.
 2. The browser calls `POST /api/generate-itinerary` with only the trip id and the user's login token, then opens `/trip/:id`, which shows the progress screen.
 3. The server checks the user owns the trip, records a **generation job** (`generation_jobs`), replies right away, and continues in the background. In parallel, with a 10-minute time limit, it:
-   - streams the itinerary from Claude (the prompt includes flight routes and times, but never confirmation codes),
+   - streams the itinerary from Claude as structured output: a JSON schema the reply must match (days, stops, and each place's address and coordinates, with cities limited to the trip's own), validated with zod. The prompt includes flight routes and times, but never confirmation codes. Token usage is logged per trip. Each stop is then looked up with Geoapify: a confident match more than 1 km away moves the pin, and a stop that can't be found and is over 50 km from its city keeps its place in the plan but loses its pin ([`server/verifyStops.js`](server/verifyStops.js)). Each day's hotel pin comes from the traveler's own hotel or address, never from the model,
    - asks Claude for 12 food spots per city and finds each one on the map with Geoapify,
    - searches Ticketmaster for local events in each city during its stay, and lets Claude pick the best fits (`events`, `_events_source`, `_events_checked_at`),
    - looks up each city's hotel or homebase location.

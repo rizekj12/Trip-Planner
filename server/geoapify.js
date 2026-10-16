@@ -33,7 +33,9 @@ export async function geocodeCity(city, country, apiKey) {
   return result ? { lat: result.lat, lon: result.lon } : null;
 }
 
-async function geocodePlace(text, center, apiKey) {
+// The best confident venue or building match for `text` within SEARCH_RADIUS_M of `center`
+// ({ lat, lon }), as { coords: [lat, lon], address }, or null when there isn't one
+export async function geocodePlace(text, center, apiKey) {
   const near = `${center.lon},${center.lat}`;
   const url =
     `${GEOCODE_URL}?text=${encodeURIComponent(text)}&format=json&limit=1` +
@@ -67,26 +69,40 @@ export async function locatePlaces(spots, { city, country }, apiKey) {
   return spots.map((s) => (located.has(s) ? { ...s, ...located.get(s) } : s));
 }
 
+const validCoords = (c) => Array.isArray(c) && c.length === 2 && c.every(Number.isFinite);
+
 // Coordinates of the traveler's hotel or custom address in one city, as { type, name, coords },
-// or null when they skipped it or the address can't be pinned. Throws on a network error.
-export async function locateHomebase(cityForm, apiKey) {
-  const { homebaseType, hotel, customAddress } = cityForm || {};
-  const address =
-    homebaseType === "hotel" ? hotel?.address : homebaseType === "custom" ? customAddress : null;
-  if (!address || !apiKey) return null;
+// or null when they skipped it or it can't be pinned. Tries, in order:
+//   1. coordinates saved in the questionnaire (hotel search result or validated address)
+//   2. geocoding the address
+//   3. for a hotel, a venue search by its name around the city
+// `country` narrows the city for (3). Throws on a network error.
+export async function locateHomebase(cityForm, apiKey, { country } = {}) {
+  const { homebaseType, hotel, customAddress, customCoords, name: cityName } = cityForm || {};
+  if (homebaseType !== "hotel" && homebaseType !== "custom") return null;
+  const isHotel = homebaseType === "hotel";
+  const homebase = (coords) => ({ type: homebaseType, name: isHotel ? hotel?.name || "Your hotel" : "Your homebase", coords });
 
-  const url = `${GEOCODE_URL}?text=${encodeURIComponent(address)}&format=json&limit=1&apiKey=${apiKey}`;
-  const result = (await rateLimitedFetchJson(url)).results?.[0];
-  // Same bar as address validation: precise enough to pin, not just a country or state
-  const precise =
-    result && !["country", "state"].includes(result.result_type) && (result.rank?.confidence ?? 0) >= 0.4;
-  if (!precise) return null;
+  const saved = isHotel ? hotel?.coords : customCoords;
+  if (validCoords(saved)) return homebase(saved);
 
-  return {
-    type: homebaseType,
-    name: homebaseType === "hotel" ? hotel.name || "Your hotel" : "Your homebase",
-    coords: [result.lat, result.lon],
-  };
+  const address = isHotel ? hotel?.address : customAddress;
+  if (!apiKey) return null;
+  if (address) {
+    const url = `${GEOCODE_URL}?text=${encodeURIComponent(address)}&format=json&limit=1&apiKey=${apiKey}`;
+    const result = (await rateLimitedFetchJson(url)).results?.[0];
+    // Same bar as address validation: precise enough to pin, not just a country or state
+    const precise =
+      result && !["country", "state"].includes(result.result_type) && (result.rank?.confidence ?? 0) >= 0.4;
+    if (precise) return homebase([result.lat, result.lon]);
+  }
+
+  if (isHotel && hotel?.name && cityName) {
+    const center = await geocodeCity(cityName, country, apiKey);
+    const match = center && (await geocodePlace(`${hotel.name}, ${cityName}`, center, apiKey));
+    if (match) return homebase(match.coords);
+  }
+  return null;
 }
 
 // locateHomebase for every city in a trip: { [city]: homebase | null }. Never throws; a city
@@ -95,7 +111,7 @@ export async function homebasesForTrip(formData, apiKey) {
   const entries = await Promise.all(
     (formData.cities || [])
       .filter((c) => c.name)
-      .map(async (c) => [c.name, await locateHomebase(c, apiKey).catch(() => undefined)])
+      .map(async (c) => [c.name, await locateHomebase(c, apiKey, { country: formData.country }).catch(() => undefined)])
   );
   return Object.fromEntries(entries.filter(([, homebase]) => homebase !== undefined));
 }

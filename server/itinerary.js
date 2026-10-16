@@ -1,11 +1,14 @@
-// Builds the itinerary prompt, calls Claude, and parses the JSON reply.
+// Builds the itinerary prompt, calls Claude with a JSON schema (structured outputs), validates
+// the reply and checks each stop's coordinates (issue #35).
 // Runs on the server so generation keeps going even if the user closes the page.
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 
 import { tripLengthDays } from "../shared/tripLength.js";
 import { needsForPrompt } from "../shared/accessibility.js";
 import { logger } from "./logger.js";
 import { UserFacingError } from "./errors.js";
+import { verifyStops } from "./verifyStops.js";
 
 // Helper functions
 
@@ -41,6 +44,89 @@ export function buildFlightsBlock(formData) {
 FLIGHTS:
 ${lines.join("\n")}
 `;
+}
+
+const MODEL = "claude-sonnet-5";
+
+// The trip's city names, in order, without repeats
+const cityNamesOf = (formData) => [...new Set((formData.cities || []).map((c) => c.name).filter(Boolean))];
+
+// What Claude must return. Structured outputs only allow objects with fixed keys, so spots
+// come back as a list (the app keeps them as a map keyed by `key`) and coordinates as lat/lon
+// fields. `city` can only be one of the trip's cities. Image placeholders and search links
+// aren't asked for, and hotels come from the trip's own data; Claude's guess at where each
+// hotel is (`homebases`) is only used when it can't be located (see withHotels).
+//
+// Two forms of the same schema: the JSON schema sent to the API (written out by hand, since
+// the SDK's zod converter turns `enum` into a description and the API would no longer enforce
+// it), and the zod schema the reply is validated with, which also checks coordinate ranges.
+const FIELDS = {
+  dayCity: "The city the traveler is in (sleeps in) that day",
+  dayTitle: "A short description of the day",
+  stops: "Keys of the spots visited this day, in visiting order",
+  notes: "Practical tips for the day",
+  key: "Short unique id, lowercase letters, digits and underscores, e.g. senso_ji",
+  title: "The place's name",
+  address: "Street address",
+  spotCity: "The trip city this place is in or visited from",
+  lat: "Latitude, -90 to 90",
+  lon: "Longitude, -180 to 180",
+  homebases: "For each city above that lists a hotel or homebase: your best estimate of where it is. Empty if none",
+};
+
+export function itineraryJsonSchema(cityNames) {
+  const object = (properties) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
+  const text = (description) => ({ type: "string", description });
+  const city = (description) => ({ type: "string", enum: cityNames, description });
+  return object({
+    days: {
+      type: "array",
+      items: object({
+        city: city(FIELDS.dayCity),
+        title: text(FIELDS.dayTitle),
+        stops: { type: "array", items: { type: "string" }, description: FIELDS.stops },
+        notes: { type: "array", items: { type: "string" }, description: FIELDS.notes },
+      }),
+    },
+    spots: {
+      type: "array",
+      items: object({
+        key: text(FIELDS.key),
+        title: text(FIELDS.title),
+        address: text(FIELDS.address),
+        city: city(FIELDS.spotCity),
+        lat: { type: "number", description: FIELDS.lat },
+        lon: { type: "number", description: FIELDS.lon },
+      }),
+    },
+    homebases: {
+      type: "array",
+      description: FIELDS.homebases,
+      items: object({
+        city: city("The city whose hotel or homebase this is"),
+        lat: { type: "number", description: FIELDS.lat },
+        lon: { type: "number", description: FIELDS.lon },
+      }),
+    },
+  });
+}
+
+export function itinerarySchema(cityNames) {
+  const city = z.enum(cityNames);
+  return z.object({
+    days: z.array(z.object({ city, title: z.string(), stops: z.array(z.string()), notes: z.array(z.string()) })),
+    spots: z.array(
+      z.object({
+        key: z.string(),
+        title: z.string(),
+        address: z.string(),
+        city,
+        lat: z.number().min(-90).max(90),
+        lon: z.number().min(-180).max(180),
+      })
+    ),
+    homebases: z.array(z.object({ city, lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })),
+  });
 }
 
 // `traveler`: the organizer's accessibility and dietary needs from their profile, if any
@@ -80,42 +166,11 @@ PREFERENCES:
 - Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
 - Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
 ${needsBlock}
-Respond with ONLY valid JSON (no markdown):
-
-{
-  "days": [
-    {
-      "key": "d1",
-      "date": "Day 1 (City)",
-      "title": "Day description",
-      "hotel": {
-        "name": "Hotel name",
-        "address": "Hotel address",
-        "coords": [lat, lon],
-        "key": "hotel_key"
-      },
-      "markers": ["spot1", "spot2"],
-      "notes": ["Tip 1", "Tip 2"]
-    }
-  ],
-  "spots": {
-    "spot1": {
-      "title": "Place Name",
-      "coords": [lat, lon],
-      "img": null,
-      "address": "Address",
-      "links": {
-        "youtube": "https://youtube.com/search?q=Place+Name",
-        "maps": "https://www.google.com/maps/search/?api=1&query=Place+Name"
-      }
-    }
-  }
-}
-
 ITINERARY REQUIREMENTS:
-- Include ${numDays} days with 3-5 activities per day
-- Use real GPS coordinates
-- Leave "img" as null; don't invent image URLs
+- Exactly ${numDays} days, in order, with 3-5 stops per day
+- List every place you use under "spots" once, and refer to it from a day's "stops" by its key
+- Only use real places; give each one's street address and its actual latitude and longitude
+  (they're checked against a map service)
 - Match travel style: ${formData.travelStyle}${
     needs
       ? `
@@ -132,42 +187,90 @@ ITINERARY REQUIREMENTS:
   }`;
 }
 
-export function parseItineraryResponse(message) {
+const searchLinks = (title) => ({
+  youtube: `https://youtube.com/search?q=${encodeURIComponent(title)}`,
+  maps: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`,
+});
+
+// Claude's validated reply in the shape the app stores: days with markers, and spots as a map
+// with [lat, lon] coords. Stops that name a missing spot are dropped, as are days beyond the
+// trip's length. Each spot keeps its `city` for the coordinate check (server/verifyStops.js).
+export function toItinerary(parsed, numDays) {
+  const spots = {};
+  for (const spot of parsed.spots) {
+    if (!spot.key || spots[spot.key]) continue;
+    spots[spot.key] = {
+      title: spot.title,
+      address: spot.address,
+      city: spot.city,
+      coords: [spot.lat, spot.lon],
+      img: null,
+      links: searchLinks(spot.title),
+    };
+  }
+
+  const days = (numDays ? parsed.days.slice(0, numDays) : parsed.days).map((day, i) => ({
+    key: `d${i + 1}`,
+    date: `Day ${i + 1} (${day.city})`,
+    city: day.city,
+    title: day.title,
+    markers: [...new Set(day.stops)].filter((key) => spots[key]),
+    notes: day.notes,
+    hotel: null,
+  }));
+
+  // Claude's guesses at where each city's hotel or homebase is, for withHotels; not stored
+  const homebaseEstimates = Object.fromEntries(parsed.homebases.map((h) => [h.city, [h.lat, h.lon]]));
+
+  // Events come from a real events API (server/events.js), not the model
+  return { days, spots, events: [], homebaseEstimates };
+}
+
+// Gives each day its city's hotel or homebase from the questionnaire. The pin is where the
+// generation job located it (`homebases`: { city: { coords } | null }, from saved
+// coordinates, the address or the hotel's name; server/geoapify.js locateHomebase), or,
+// when that failed, Claude's estimate, marked `location: "estimated"`. Removes the estimates
+// from the itinerary so they aren't stored.
+export function withHotels(itinerary, formData, homebases = {}) {
+  const byName = new Map((formData.cities || []).map((c) => [c.name, c]));
+  const estimates = itinerary.homebaseEstimates || {};
+  delete itinerary.homebaseEstimates;
+  itinerary.days = itinerary.days.map((day) => {
+    const city = byName.get(day.city);
+    if (!city || !["hotel", "custom"].includes(city.homebaseType)) return { ...day, hotel: null };
+    const isHotel = city.homebaseType === "hotel";
+    const located = homebases[day.city]?.coords;
+    const coords = located || estimates[day.city] || null;
+    return {
+      ...day,
+      hotel: {
+        key: `homebase_${String(day.city).toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+        name: isHotel ? city.hotel?.name || "Your hotel" : "Your homebase",
+        address: isHotel ? city.hotel?.address || "" : city.customAddress || "",
+        coords,
+        location: located ? "verified" : coords ? "estimated" : null,
+      },
+    };
+  });
+  return itinerary;
+}
+
+// The structured reply, validated against `schema` (itinerarySchema), or throws a
+// UserFacingError. Checks the stop reason first: a cut-off or declined reply doesn't match the
+// schema, and deserves its own message.
+export function parseItineraryResponse(message, schema, numDays) {
+  if (message.stop_reason === "max_tokens") {
+    throw new UserFacingError("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
+  }
+  if (message.stop_reason === "refusal") {
+    throw new UserFacingError("The AI declined to generate this itinerary.");
+  }
   try {
-    // Skip thinking blocks; join text in case the reply was split across blocks
     const text = message.content
       .filter((block) => block.type === "text")
       .map((block) => block.text)
       .join("");
-    // Ignore any prose or ``` fences around the JSON object
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end <= start) {
-      throw new Error("No JSON object in AI response");
-    }
-
-    const itinerary = JSON.parse(text.slice(start, end + 1));
-
-    if (!itinerary.days || !Array.isArray(itinerary.days)) {
-      throw new Error("Invalid itinerary structure: missing days array");
-    }
-
-    if (!itinerary.spots || typeof itinerary.spots !== "object") {
-      throw new Error("Invalid itinerary structure: missing spots object");
-    }
-
-    // Events come from a real events API now (server/events.js), not the model; drop any it
-    // adds anyway rather than show invented dates and links
-    itinerary.events = [];
-
-    itinerary.days = itinerary.days.map((day) => ({
-      ...day,
-      markers: day.markers || [],
-      notes: day.notes || [],
-      hotel: day.hotel || null,
-    }));
-
-    return itinerary;
+    return toItinerary(schema.parse(JSON.parse(text)), numDays);
   } catch (error) {
     logger.error({ err: error, stopReason: message.stop_reason }, "Failed to parse itinerary");
     throw new UserFacingError("Failed to parse AI response. Please try again.", { cause: error });
@@ -176,26 +279,34 @@ export function parseItineraryResponse(message) {
 
 // `signal` (an AbortSignal) stops the request, e.g. when generation runs too long.
 // `traveler` ({ needs, notes }) adds the organizer's accessibility and dietary needs.
-export async function generateItinerary(formData, apiKey, { signal, traveler } = {}) {
+// `geoapifyKey` checks each stop's coordinates; `tripId` labels the logs.
+export async function generateItinerary(formData, apiKey, { signal, traveler, geoapifyKey, tripId } = {}) {
   const client = new Anthropic({ apiKey });
-  // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count
-  // against max_tokens, so leave plenty of room for a multi-day itinerary.
+  const numDays = tripLengthDays(formData.cities) ?? 0;
+  const cityNames = cityNamesOf(formData);
+  // Stream so a large max_tokens doesn't hit HTTP timeouts. Thinking tokens count against
+  // max_tokens, so leave plenty of room for a multi-day itinerary. A plain JSON schema format
+  // (no parser attached) means the SDK doesn't try to parse a cut-off or declined reply before
+  // parseItineraryResponse has checked why it stopped.
   const message = await client.messages
     .stream({
-      model: "claude-sonnet-5",
+      model: MODEL,
       max_tokens: 64000,
+      output_config: { format: { type: "json_schema", schema: itineraryJsonSchema(cityNames) } },
       messages: [{ role: "user", content: buildPrompt(formData, traveler) }],
     }, { signal })
     .finalMessage();
 
-  logger.info({ stopReason: message.stop_reason, usage: message.usage }, "Itinerary response");
+  // Token usage per trip, to track what generation costs
+  const { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens } = message.usage || {};
+  logger.info(
+    { tripId, model: message.model, stopReason: message.stop_reason, input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens },
+    "Itinerary response"
+  );
 
-  if (message.stop_reason === "max_tokens") {
-    throw new UserFacingError("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
+  const itinerary = parseItineraryResponse(message, itinerarySchema(cityNames), numDays);
+  if (itinerary.days.length !== numDays) {
+    logger.warn({ tripId, expected: numDays, got: itinerary.days.length }, "Itinerary has a different number of days than the trip");
   }
-  if (message.stop_reason === "refusal") {
-    throw new UserFacingError("The AI declined to generate this itinerary.");
-  }
-
-  return parseItineraryResponse(message);
+  return verifyStops(itinerary, formData, geoapifyKey, { tripId });
 }
