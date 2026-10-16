@@ -51,7 +51,12 @@ export default function AccommodationStep({ formData, updateFormData }) {
         try {
             const result = await validateAddress(address);
             setLastChecked((prev) => ({ ...prev, [cacheKey]: address }));
-            patchCity(index, { [statusField]: result.valid ? 'valid' : 'invalid' });
+            // Keep where the address is, so the itinerary can pin it without another lookup
+            const coords = result.valid && Number.isFinite(result.lat) && Number.isFinite(result.lon) ? [result.lat, result.lon] : null;
+            patchCity(index, {
+                [statusField]: result.valid ? 'valid' : 'invalid',
+                ...(kind === 'hotel' ? { hotel: { coords } } : { customCoords: coords }),
+            });
         } catch {
             // Our own validation service failing shouldn't block the user
             setLastChecked((prev) => ({ ...prev, [cacheKey]: address }));
@@ -152,7 +157,7 @@ export default function AccommodationStep({ formData, updateFormData }) {
                                     <input
                                         type="text"
                                         value={city.hotel.address}
-                                        onChange={(e) => patchCity(index, { hotel: { address: e.target.value }, hotelAddressStatus: 'idle' })}
+                                        onChange={(e) => patchCity(index, { hotel: { address: e.target.value, coords: null }, hotelAddressStatus: 'idle' })}
                                         onBlur={() => validateCityAddress(index, 'hotel')}
                                         placeholder="e.g., 3-10-11 Sotokanda, Tokyo 110-0021"
                                         className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${addressBorderClass(city.hotelAddressStatus)}`}
@@ -201,7 +206,7 @@ export default function AccommodationStep({ formData, updateFormData }) {
                                     <input
                                         type="text"
                                         value={city.customAddress}
-                                        onChange={(e) => patchCity(index, { customAddress: e.target.value, customAddressStatus: 'idle' })}
+                                        onChange={(e) => patchCity(index, { customAddress: e.target.value, customCoords: null, customAddressStatus: 'idle' })}
                                         onBlur={() => validateCityAddress(index, 'custom')}
                                         placeholder="e.g., 123 Main St, Tokyo"
                                         className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${addressBorderClass(city.customAddressStatus)}`}
@@ -270,7 +275,11 @@ export default function AccommodationStep({ formData, updateFormData }) {
                 onClose={() => setHotelSearchIndex(null)}
                 onSelect={(hotel) => {
                     patchCity(hotelSearchIndex, {
-                        hotel: { name: hotel.name, address: hotel.address },
+                        hotel: {
+                            name: hotel.name,
+                            address: hotel.address,
+                            coords: Number.isFinite(hotel.lat) && Number.isFinite(hotel.lon) ? [hotel.lat, hotel.lon] : null,
+                        },
                         hotelAddressStatus: 'valid',
                     });
                     setLastChecked((prev) => ({ ...prev, [`${hotelSearchIndex}-hotel`]: hotel.address }));

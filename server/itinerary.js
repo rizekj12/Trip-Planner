@@ -53,8 +53,9 @@ const cityNamesOf = (formData) => [...new Set((formData.cities || []).map((c) =>
 
 // What Claude must return. Structured outputs only allow objects with fixed keys, so spots
 // come back as a list (the app keeps them as a map keyed by `key`) and coordinates as lat/lon
-// fields. `city` can only be one of the trip's cities. Hotels, image placeholders and search
-// links aren't asked for: they're filled in from the trip's own data.
+// fields. `city` can only be one of the trip's cities. Image placeholders and search links
+// aren't asked for, and hotels come from the trip's own data; Claude's guess at where each
+// hotel is (`homebases`) is only used when it can't be located (see withHotels).
 //
 // Two forms of the same schema: the JSON schema sent to the API (written out by hand, since
 // the SDK's zod converter turns `enum` into a description and the API would no longer enforce
@@ -70,6 +71,7 @@ const FIELDS = {
   spotCity: "The trip city this place is in or visited from",
   lat: "Latitude, -90 to 90",
   lon: "Longitude, -180 to 180",
+  homebases: "For each city above that lists a hotel or homebase: your best estimate of where it is. Empty if none",
 };
 
 export function itineraryJsonSchema(cityNames) {
@@ -97,6 +99,15 @@ export function itineraryJsonSchema(cityNames) {
         lon: { type: "number", description: FIELDS.lon },
       }),
     },
+    homebases: {
+      type: "array",
+      description: FIELDS.homebases,
+      items: object({
+        city: city("The city whose hotel or homebase this is"),
+        lat: { type: "number", description: FIELDS.lat },
+        lon: { type: "number", description: FIELDS.lon },
+      }),
+    },
   });
 }
 
@@ -114,6 +125,7 @@ export function itinerarySchema(cityNames) {
         lon: z.number().min(-180).max(180),
       })
     ),
+    homebases: z.array(z.object({ city, lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })),
   });
 }
 
@@ -207,28 +219,36 @@ export function toItinerary(parsed, numDays) {
     hotel: null,
   }));
 
+  // Claude's guesses at where each city's hotel or homebase is, for withHotels; not stored
+  const homebaseEstimates = Object.fromEntries(parsed.homebases.map((h) => [h.city, [h.lat, h.lon]]));
+
   // Events come from a real events API (server/events.js), not the model
-  return { days, spots, events: [] };
+  return { days, spots, events: [], homebaseEstimates };
 }
 
-// Gives each day its city's hotel or homebase from the questionnaire, pinned where the
-// generation job located it (`homebases`: { city: { coords } | null }, server/geoapify.js),
-// or at the hotel search result's coordinates. Claude isn't asked for hotels, so their pins
-// can't be invented.
+// Gives each day its city's hotel or homebase from the questionnaire. The pin is where the
+// generation job located it (`homebases`: { city: { coords } | null }, from saved
+// coordinates, the address or the hotel's name; server/geoapify.js locateHomebase), or,
+// when that failed, Claude's estimate, marked `location: "estimated"`. Removes the estimates
+// from the itinerary so they aren't stored.
 export function withHotels(itinerary, formData, homebases = {}) {
   const byName = new Map((formData.cities || []).map((c) => [c.name, c]));
+  const estimates = itinerary.homebaseEstimates || {};
+  delete itinerary.homebaseEstimates;
   itinerary.days = itinerary.days.map((day) => {
     const city = byName.get(day.city);
     if (!city || !["hotel", "custom"].includes(city.homebaseType)) return { ...day, hotel: null };
     const isHotel = city.homebaseType === "hotel";
-    const formCoords = isHotel && Number.isFinite(city.hotel?.lat) ? [city.hotel.lat, city.hotel.lon] : null;
+    const located = homebases[day.city]?.coords;
+    const coords = located || estimates[day.city] || null;
     return {
       ...day,
       hotel: {
         key: `homebase_${String(day.city).toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
         name: isHotel ? city.hotel?.name || "Your hotel" : "Your homebase",
         address: isHotel ? city.hotel?.address || "" : city.customAddress || "",
-        coords: homebases[day.city]?.coords || formCoords,
+        coords,
+        location: located ? "verified" : coords ? "estimated" : null,
       },
     };
   });

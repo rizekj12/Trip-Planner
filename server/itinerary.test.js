@@ -84,6 +84,7 @@ describe("parseItineraryResponse", () => {
   const VALID = {
     days: [{ city: "Tokyo", title: "Arrive", stops: ["senso_ji", "skytree"], notes: ["Rest"] }],
     spots: [spot("senso_ji", { title: "Senso-ji" }), spot("skytree")],
+    homebases: [{ city: "Tokyo", lat: 35.67, lon: 139.76 }],
   };
   const parse = (body, numDays = 1, stop_reason = "end_turn") => parseItineraryResponse(reply(JSON.stringify(body), stop_reason), format, numDays);
 
@@ -104,6 +105,7 @@ describe("parseItineraryResponse", () => {
     expect(itinerary.spots.senso_ji).toMatchObject({ title: "Senso-ji", coords: [35.7, 139.8], img: null, city: "Tokyo" });
     expect(itinerary.spots.senso_ji.links.maps).toContain("query=Senso-ji");
     expect(itinerary.events).toEqual([]);
+    expect(itinerary.homebaseEstimates).toEqual({ Tokyo: [35.67, 139.76] });
   });
 
   test("drops stops that name a missing spot, repeats, and days beyond the trip", () => {
@@ -113,6 +115,7 @@ describe("parseItineraryResponse", () => {
         { city: "Tokyo", title: "Extra", stops: [], notes: [] },
       ],
       spots: [spot("senso_ji"), spot("senso_ji", { title: "Duplicate" })],
+      homebases: [],
     };
     const itinerary = parse(body, 1);
     expect(itinerary.days).toHaveLength(1);
@@ -140,24 +143,36 @@ describe("parseItineraryResponse", () => {
 describe("withHotels", () => {
   const trip = () => ({
     cities: [
-      { name: "Tokyo", homebaseType: "hotel", hotel: { name: "Hotel Sakura", address: "1-1 Ginza", lat: 35.67, lon: 139.76 } },
+      { name: "Tokyo", homebaseType: "hotel", hotel: { name: "Hotel Sakura", address: "1-1 Ginza" } },
       { name: "Kyoto", homebaseType: "custom", customAddress: "Friend's flat" },
       { name: "Osaka", homebaseType: "none" },
     ],
   });
-  const days = () => ({ days: ["Tokyo", "Kyoto", "Osaka", "Nara"].map((city, i) => ({ key: `d${i + 1}`, city, hotel: null })) });
+  const itinerary = (homebaseEstimates = {}) => ({
+    days: ["Tokyo", "Kyoto", "Osaka", "Nara"].map((city, i) => ({ key: `d${i + 1}`, city, hotel: null })),
+    homebaseEstimates,
+  });
 
-  test("each day gets its city's hotel or homebase from the questionnaire", () => {
-    const { days: [tokyo, kyoto, osaka, nara] } = withHotels(days(), trip(), { Kyoto: { coords: [35.0, 135.7] } });
-    expect(tokyo.hotel).toMatchObject({ name: "Hotel Sakura", address: "1-1 Ginza", coords: [35.67, 139.76], key: "homebase_tokyo" });
-    expect(kyoto.hotel).toMatchObject({ name: "Your homebase", address: "Friend's flat", coords: [35.0, 135.7] });
+  test("each day gets its city's hotel or homebase, pinned where it was located", () => {
+    const { days: [tokyo, kyoto, osaka, nara] } = withHotels(itinerary(), trip(), { Tokyo: { coords: [35.67, 139.76] }, Kyoto: { coords: [35.0, 135.7] } });
+    expect(tokyo.hotel).toEqual({ key: "homebase_tokyo", name: "Hotel Sakura", address: "1-1 Ginza", coords: [35.67, 139.76], location: "verified" });
+    expect(kyoto.hotel).toMatchObject({ name: "Your homebase", address: "Friend's flat", coords: [35.0, 135.7], location: "verified" });
     expect(osaka.hotel).toBeNull();
     expect(nara.hotel).toBeNull();
   });
 
-  test("the located homebase wins over the hotel search coordinates", () => {
-    const { days: [tokyo] } = withHotels(days(), trip(), { Tokyo: { coords: [35.68, 139.77] } });
-    expect(tokyo.hotel.coords).toEqual([35.68, 139.77]);
+  test("falls back to Claude's estimate, marked as such, and doesn't store the estimates", () => {
+    const result = withHotels(itinerary({ Tokyo: [35.66, 139.75], Osaka: [34.69, 135.5] }), trip(), { Tokyo: null });
+    expect(result.days[0].hotel).toMatchObject({ coords: [35.66, 139.75], location: "estimated" });
+    // Kyoto: not located and no estimate; Osaka has no homebase, so its estimate is ignored
+    expect(result.days[1].hotel).toMatchObject({ coords: null, location: null });
+    expect(result.days[2].hotel).toBeNull();
+    expect(result.homebaseEstimates).toBeUndefined();
+  });
+
+  test("a located homebase wins over Claude's estimate", () => {
+    const { days: [tokyo] } = withHotels(itinerary({ Tokyo: [1, 1] }), trip(), { Tokyo: { coords: [35.68, 139.77] } });
+    expect(tokyo.hotel).toMatchObject({ coords: [35.68, 139.77], location: "verified" });
   });
 });
 

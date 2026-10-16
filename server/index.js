@@ -300,7 +300,7 @@ app.post("/api/food-spots", async (req, res) => {
             traveler: await travelerNeeds(supabase, user.id),
           }),
       // undefined = lookup failed, try again next time; null = nothing to pin
-      city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey).catch(() => undefined),
+      city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey, { country: data._form_data.country }).catch(() => undefined),
     ]);
 
     // Only this city's row: other cities, and the rest of the trip, can't be overwritten
@@ -379,7 +379,7 @@ async function fillMissingFoodSpots(supabase, trip) {
                 return undefined;
               })
             : undefined,
-          !(c.name in trip.homebases) ? locateHomebase(c, geoapifyKey).catch(() => undefined) : undefined,
+          !(c.name in trip.homebases) ? locateHomebase(c, geoapifyKey, { country: form.country }).catch(() => undefined) : undefined,
         ]);
         return { city: c.name, spots, homebase };
       })

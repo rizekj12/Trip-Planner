@@ -22,6 +22,7 @@ const { generateItinerary } = await import("./itinerary.js");
 const body = {
   days: [1, 2, 3, 4].map((n) => ({ city: "Tokyo", title: `Day ${n}`, stops: ["senso_ji"], notes: [] })),
   spots: [{ key: "senso_ji", title: "Senso-ji", address: "2-3-1 Asakusa", city: "Tokyo", lat: 35.71, lon: 139.79 }],
+  homebases: [{ city: "Tokyo", lat: 35.67, lon: 139.76 }],
 };
 const usage = { input_tokens: 1200, output_tokens: 5400, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
 
