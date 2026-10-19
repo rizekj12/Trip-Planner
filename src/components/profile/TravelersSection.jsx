@@ -5,7 +5,7 @@ import Modal from "../Modal";
 import CrewAvatar from "../crew/CrewAvatar";
 import CountryFlag from "../CountryFlag";
 import { useAuth } from "../../context/AuthContext";
-import { useSavedTravelers, useSaveTraveler, useDeleteTraveler } from "../../hooks/useProfile";
+import { useSavedTravelers, useSaveTraveler, useDeleteTraveler, useSavedTravelerStatus } from "../../hooks/useProfile";
 import { useTrips } from "../../hooks/useTrips";
 import { inviteUrl } from "../../hooks/useCrew";
 import { getInviteToken } from "../../utils/aiService";
@@ -19,6 +19,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // "Saved travelers": people the user travels with, ready to invite to a new trip
 export default function TravelersSection() {
   const travelers = useSavedTravelers();
+  // Who's been on a trip with you; the list still shows without it
+  const statuses = useSavedTravelerStatus().data || {};
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState(null); // a traveler, {} for a new one, or null
   const [inviting, setInviting] = useState(null); // the traveler being invited
@@ -77,7 +79,7 @@ export default function TravelersSection() {
         <ul className="mt-4">
           {shown.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-3.5 border-b border-slate-200 px-1 py-3.5 last:border-b-0">
-              <CrewAvatar person={{ name: t.name }} size="h-12 w-12" textSize="text-sm" />
+              <CrewAvatar person={{ name: t.name, avatarUrl: statuses[t.id]?.avatarUrl }} size="h-12 w-12" textSize="text-sm" />
               <div className="min-w-0 flex-[1_1_200px]">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-extrabold text-slate-900">{t.name}</span>
@@ -86,6 +88,7 @@ export default function TravelersSection() {
                   )}
                 </div>
                 <div className="mt-0.5 truncate text-sm text-slate-600">{t.email || "No email saved"}</div>
+                <TravelerStatus status={statuses[t.id]} />
               </div>
               <button onClick={() => setInviting(t)} className={`${secondaryButton} min-h-[40px] px-3.5 py-2 text-sm`}>
                 <Plane size={15} />
@@ -114,6 +117,26 @@ export default function TravelersSection() {
       <Modal open={!!inviting} onClose={() => setInviting(null)} className="max-h-[90vh] max-w-md overflow-y-auto p-6">
         {inviting && <InviteToTrip traveler={inviting} onClose={() => setInviting(null)} />}
       </Modal>
+    </div>
+  );
+}
+
+// "On Trip Planner · 3 trips together", "Joined as a guest · 1 trip together" or "No trips
+// together yet". Only trips you share count, so it never says whether someone you haven't
+// traveled with has an account.
+export function TravelerStatus({ status }) {
+  if (!status) return null;
+  const trips = status.tripsTogether;
+  const together = `${trips} trip${trips === 1 ? "" : "s"} together`;
+  const [dot, text] = status.onTripPlanner
+    ? ["bg-emerald-500", `On Trip Planner · ${together}`]
+    : trips
+      ? ["bg-slate-400", `Joined as a guest · ${together}`]
+      : ["bg-slate-300", "No trips together yet"];
+  return (
+    <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+      <span className={`h-2 w-2 flex-none rounded-full ${dot}`} aria-hidden="true" />
+      {text}
     </div>
   );
 }

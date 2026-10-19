@@ -16,6 +16,7 @@ import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { registerMemberReservationRoutes } from "./memberReservations.js";
 import { registerTravelDocumentRoutes } from "./travelDocuments.js";
 import { registerTripPhotoRoutes } from "./tripPhotos.js";
+import { registerSavedTravelerRoutes } from "./savedTravelers.js";
 import { createGuards } from "./limits.js";
 import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
@@ -101,6 +102,12 @@ registerTravelDocumentRoutes(app, {
 
 // The trip's shared photo album (organizer, members and guests)
 registerTripPhotoRoutes(app, {
+  supabaseUrl: SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+});
+
+// Which saved travelers share trips with the user, and saving crew members linked to accounts
+registerSavedTravelerRoutes(app, {
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
 });

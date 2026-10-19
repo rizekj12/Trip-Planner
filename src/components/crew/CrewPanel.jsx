@@ -4,7 +4,7 @@ import { UserPlus, Loader2, X, LogOut, Check, Hourglass, BookmarkPlus, BookmarkC
 import CrewAvatar from "./CrewAvatar";
 import InviteModal from "./InviteModal";
 import { useCrew, useRemoveCrewMember, useAnswerJoinRequest } from "../../hooks/useCrew";
-import { useSavedTravelers, useSaveTraveler } from "../../hooks/useProfile";
+import { useSavedTravelers, useSaveCrewMember } from "../../hooks/useProfile";
 import { theme } from "../../utils/theme";
 
 const ROLE_LABEL = { owner: "Organizer", member: "Member", guest: "Guest" };
@@ -24,7 +24,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
   const answer = useAnswerJoinRequest();
   // The organizer can save people to their profile's saved travelers, to invite them again
   const savedTravelers = useSavedTravelers();
-  const saveTraveler = useSaveTraveler();
+  const saveTraveler = useSaveCrewMember();
   const savedEmails = new Set((savedTravelers.data || []).map((t) => t.email).filter(Boolean));
   const [inviteOpen, setInviteOpen] = useState(false);
   const everyone = crew.data?.people || [];
@@ -126,7 +126,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_STYLE[p.role]}`}>{ROLE_LABEL[p.role]}</span>
                 {isOwner && p.role !== "owner" && p.email && !savedTravelers.isError && (
                   <button
-                    onClick={() => !saved && saveTraveler.mutate({ name: p.name, email: p.email, relation: "Friend" })}
+                    onClick={() => !saved && saveTraveler.mutate({ tripId, memberId: p.id })}
                     disabled={saved || saveTraveler.isPending}
                     className={`rounded-lg p-1.5 ${saved ? "text-violet-600" : "text-gray-400 hover:bg-violet-50 hover:text-violet-700"}`}
                     aria-label={saved ? `${p.name} is in your saved travelers` : `Save ${p.name} to your travelers`}

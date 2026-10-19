@@ -2,8 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import {
   fetchProfile, saveProfile, fetchDocuments, saveDocument, deleteDocument,
-  fetchSavedTravelers, saveTraveler, deleteTraveler,
+  fetchSavedTravelers, saveTraveler, deleteTraveler, fetchSavedTravelerStatus, saveCrewMember,
 } from "../utils/profile";
+
+// Saved travelers and their status change together
+const refreshTravelers = (qc) => {
+  qc.invalidateQueries({ queryKey: ["savedTravelers"] });
+  qc.invalidateQueries({ queryKey: ["savedTravelerStatus"] });
+};
 
 // The signed-in user's profile details ({ id } only until they first save)
 export function useProfile() {
@@ -56,7 +62,22 @@ export function useSaveTraveler() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (traveler) => saveTraveler(user.id, traveler),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["savedTravelers"] }),
+    onSuccess: () => refreshTravelers(qc),
+  });
+}
+
+// { [savedTravelerId]: { onTripPlanner, tripsTogether, avatarUrl? } }
+export function useSavedTravelerStatus() {
+  const { user } = useAuth();
+  return useQuery({ queryKey: ["savedTravelerStatus", user?.id], queryFn: fetchSavedTravelerStatus, enabled: !!user, staleTime: 60_000 });
+}
+
+// mutate({ tripId, memberId }): save someone from a trip's crew, linked to their account
+export function useSaveCrewMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tripId, memberId }) => saveCrewMember(tripId, memberId),
+    onSuccess: () => refreshTravelers(qc),
   });
 }
 
@@ -64,6 +85,6 @@ export function useDeleteTraveler() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: deleteTraveler,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["savedTravelers"] }),
+    onSuccess: () => refreshTravelers(qc),
   });
 }
