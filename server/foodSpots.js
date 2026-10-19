@@ -47,17 +47,20 @@ export function parseSpots(message) {
   return spots.filter((s) => s?.name);
 }
 
-async function generateFoodSpots({ city, country, count, exclude, apiKey, signal, traveler }) {
+const MODEL = "claude-sonnet-5";
+
+async function generateFoodSpots({ city, country, count, exclude, apiKey, signal, traveler, usage }) {
   const client = new Anthropic({ apiKey });
   const message = await client.messages.create({
-    model: "claude-sonnet-5",
+    model: MODEL,
     max_tokens: 16000,
     // Recalling well-known restaurants doesn't need deep reasoning; low effort keeps it fast
     output_config: { effort: "low" },
     messages: [{ role: "user", content: buildPrompt({ city, country, count, exclude, traveler }) }],
   }, { signal });
 
-  logger.info({ stopReason: message.stop_reason, usage: message.usage }, "Food spots response");
+  usage?.add(MODEL, message.usage);
+  logger.info({ city, stopReason: message.stop_reason, usage: message.usage }, "Food spots response");
   if (message.stop_reason === "max_tokens") throw new UserFacingError("The list got cut off. Please try again.");
   if (message.stop_reason === "refusal") throw new UserFacingError("The AI declined to list places for this city.");
 
@@ -73,9 +76,11 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey, signal
 
 // Next batch for one city (12 the first time, then 10 more), with map coordinates from
 // Geoapify for any spot not looked up yet. Returns the city's full list.
-// `traveler` ({ needs }) keeps the list to places that suit the traveler's dietary needs
-export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal, traveler }) {
+// `traveler` ({ needs }) keeps the list to places that suit the traveler's dietary needs.
+// `usage` (server/usage.js) collects the call's token usage.
+export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal, traveler, usage }) {
   const spots = await generateFoodSpots({
+    usage,
     city,
     country,
     count: existing.length ? 10 : 12,

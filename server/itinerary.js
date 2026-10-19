@@ -48,6 +48,10 @@ ${lines.join("\n")}
 }
 
 const MODEL = "claude-sonnet-5";
+// Measured on a detailed 2-day trip with every extra (issue #47): high (the default) 7,076
+// output tokens / 89 s, medium 3,198 / 33 s with the same quality, low 1,360 / 15 s but it
+// ignored preferences (crowds, opening hours). Most of the difference is thinking.
+const EFFORT = "medium";
 
 // The trip's city names, in order, without repeats
 const cityNamesOf = (formData) => [...new Set((formData.cities || []).map((c) => c.name).filter(Boolean))];
@@ -300,8 +304,9 @@ export function parseItineraryResponse(message, schema, numDays, output) {
 
 // `signal` (an AbortSignal) stops the request, e.g. when generation runs too long.
 // `traveler` ({ needs, notes }) adds the organizer's accessibility and dietary needs.
-// `geoapifyKey` checks each stop's coordinates; `tripId` labels the logs.
-export async function generateItinerary(formData, apiKey, { signal, traveler, geoapifyKey, tripId } = {}) {
+// `geoapifyKey` checks each stop's coordinates; `tripId` labels the logs; `usage`
+// (server/usage.js) collects the call's token usage.
+export async function generateItinerary(formData, apiKey, { signal, traveler, geoapifyKey, tripId, usage } = {}) {
   const client = new Anthropic({ apiKey });
   const numDays = tripLengthDays(formData.cities) ?? 0;
   const cityNames = cityNamesOf(formData);
@@ -313,12 +318,13 @@ export async function generateItinerary(formData, apiKey, { signal, traveler, ge
     .stream({
       model: MODEL,
       max_tokens: 64000,
-      output_config: { format: { type: "json_schema", schema: itineraryJsonSchema(cityNames) } },
+      output_config: { effort: EFFORT, format: { type: "json_schema", schema: itineraryJsonSchema(cityNames) } },
       messages: [{ role: "user", content: buildPrompt(formData, traveler) }],
     }, { signal })
     .finalMessage();
 
   // Token usage per trip, to track what generation costs
+  usage?.add(MODEL, message.usage);
   const { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens } = message.usage || {};
   logger.info(
     { tripId, model: message.model, stopReason: message.stop_reason, input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens },

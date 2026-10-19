@@ -22,6 +22,7 @@ import { createNotifier } from "./notifications.js";
 import { createGenerationJobs } from "./generationJobs.js";
 import { updateTrip, loadFoodSpots, saveFoodSpots } from "./tripData.js";
 import { toTrip } from "../shared/tripRow.js";
+import { createUsageTracker } from "./usage.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -189,6 +190,13 @@ app.post("/api/generate-itinerary", async (req, res) => {
   res.status(202).json({ status: "pending" });
 });
 
+// Logs the token usage of on-demand Claude calls for a trip (generation itself is logged and
+// saved by server/generationJobs.js)
+function logAiCost(tripId, what, usage) {
+  const summary = usage.summary();
+  if (summary.calls) logger.info({ tripId, what, ...summary }, "AI cost");
+}
+
 function checkAiConfig() {
   if (!ANTHROPIC_API_KEY) return "API key not configured on server";
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return "Supabase not configured on server";
@@ -225,11 +233,14 @@ app.post("/api/trips/:tripId/events", guards.limits.ai, async (req, res) => {
   const fresh = data._events_source && Date.now() - Date.parse(data._events_checked_at || 0) < EVENTS_REFRESH_MS;
   if (fresh) return res.json({ events: data.events || [], source: data._events_source, checkedAt: data._events_checked_at });
 
+  const usage = createUsageTracker();
   const found = await eventsForTrip(data._form_data, {
     ticketmasterKey: process.env.TICKETMASTER_API_KEY,
     geoapifyKey: process.env.GEOAPIFY_API_KEY,
     anthropicKey: ANTHROPIC_API_KEY,
+    usage,
   });
+  logAiCost(trip.id, "events refresh", usage);
   if (found.source === "unavailable") {
     return res.status(503).json({ error: "Event listings aren't available right now. Please try again later." });
   }
@@ -293,6 +304,7 @@ app.post("/api/food-spots", async (req, res) => {
   const geoapifyKey = process.env.GEOAPIFY_API_KEY;
   const cityForm = data._form_data.cities.find((c) => c.name === city);
 
+  const usage = createUsageTracker();
   try {
     const [spots, homebase] = await Promise.all([
       homebaseOnly
@@ -305,11 +317,13 @@ app.post("/api/food-spots", async (req, res) => {
             geoapifyKey,
             // Only the owner gets here, so these are their own dietary needs
             traveler: await travelerNeeds(supabase, user.id),
+            usage,
           }),
       // undefined = lookup failed, try again next time; null = nothing to pin
       city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey, { country: data._form_data.country }).catch(() => undefined),
     ]);
 
+    logAiCost(trip.id, "more food spots", usage);
     // Only this city's row: other cities, and the rest of the trip, can't be overwritten
     await saveFoodSpots(supabase, trip.id, city, { spots, homebase });
 
@@ -374,6 +388,7 @@ app.post("/api/trip-pdf", async (req, res) => {
 async function fillMissingFoodSpots(supabase, trip) {
   const form = trip.itinerary_data._form_data || {};
   const geoapifyKey = process.env.GEOAPIFY_API_KEY;
+  const usage = createUsageTracker();
 
   const filled = await Promise.all(
     (form.cities || [])
@@ -381,7 +396,7 @@ async function fillMissingFoodSpots(supabase, trip) {
       .map(async (c) => {
         const [spots, homebase] = await Promise.all([
           ANTHROPIC_API_KEY && !trip.foodSpots[c.name]?.length
-            ? addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey }).catch((err) => {
+            ? addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey, usage }).catch((err) => {
                 logger.error({ err, city: c.name }, "Food spots failed");
                 return undefined;
               })
@@ -391,6 +406,7 @@ async function fillMissingFoodSpots(supabase, trip) {
         return { city: c.name, spots, homebase };
       })
   );
+  logAiCost(trip.id, "food spots for the PDF", usage);
 
   for (const { city, spots, homebase } of filled) {
     if (spots === undefined && homebase === undefined) continue;

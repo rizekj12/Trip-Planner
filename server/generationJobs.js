@@ -9,6 +9,7 @@ import { generateItinerary, withHotels } from "./itinerary.js";
 import { foodSpotsForTrip } from "./foodSpots.js";
 import { homebasesForTrip } from "./geoapify.js";
 import { updateTrip, saveFoodSpots } from "./tripData.js";
+import { createUsageTracker } from "./usage.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -82,6 +83,8 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
     const timer = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     let destination = null;
+    // Token usage of every Claude call for this trip, saved with the job (issue #47)
+    const usage = createUsageTracker();
     try {
       const { data: trip, error } = await admin
         .from("trips")
@@ -101,10 +104,10 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       const traveler = await travelerNeeds(admin, job.user_id);
       // Local events come from Ticketmaster, not the model (server/events.js, issue #36)
       const [itinerary, foodSpots, homebases, localEvents] = await Promise.all([
-        generateItinerary(formData, anthropicKey, { signal, traveler, geoapifyKey, tripId }),
-        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler }),
+        generateItinerary(formData, anthropicKey, { signal, traveler, geoapifyKey, tripId, usage }),
+        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler, usage }),
         homebasesForTrip(formData, geoapifyKey),
-        eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal }),
+        eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal, usage }),
       ]);
       // Each day's hotel pin comes from the traveler's own hotel or address, not the model
       withHotels(itinerary, formData, homebases);
@@ -133,7 +136,17 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
     } finally {
       clearInterval(heartbeat);
       clearTimeout(timer);
+      await recordUsage(job, usage.summary());
     }
+  }
+
+  // Logs what generating this trip cost, and saves it on the job so cost per trip can be
+  // queried (generation_jobs.usage). Never throws: a missing column or failed write is logged.
+  async function recordUsage(job, summary) {
+    if (!summary.calls) return;
+    logger.info({ tripId: job.trip_id, attempt: job.attempts, ...summary }, "Generation cost");
+    const { error } = await admin.from("generation_jobs").update({ usage: summary }).eq("trip_id", job.trip_id);
+    if (error) logger.warn({ err: error, tripId: job.trip_id }, "Couldn't save generation cost");
   }
 
   async function finish(job, status, lastError = null) {
