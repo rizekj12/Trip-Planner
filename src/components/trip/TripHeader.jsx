@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Loader2, Plane } from "lucide-react";
 import CrewBubbles from "../crew/CrewBubbles";
 import { getCountryFlagOnly } from "../../utils/countryFlags";
 import { formatRange } from "../../utils/calendar";
+import { placeName, useHomeCountry } from "../../utils/tripName";
 
 // Navy trip header: back link, travelers and actions, the trip's name and dates, and the
 // section tabs (always visible, so nothing is hidden behind a menu). Scrolls away on phones;
@@ -11,6 +12,8 @@ import { formatRange } from "../../utils/calendar";
 export default function TripHeader({ tripId, formData, days, viewer, crew, sections, section, onSection, pdf }) {
   const country = formData.country || "Your trip";
   const cities = (formData.cities || []).map((c) => c.name).filter(Boolean);
+  // Its cities when the trip is in the viewer's own country ("3 days in New York")
+  const name = placeName({ country: formData.country, cities }, useHomeCountry()) || country;
   const range = days[0]?.iso ? { start: days[0].iso, end: days[days.length - 1].iso } : null;
 
   return (
@@ -35,7 +38,7 @@ export default function TripHeader({ tripId, formData, days, viewer, crew, secti
           )}
 
           <div className="flex items-center gap-2">
-            <CrewBubbles tripId={tripId} destination={formData.country} crew={crew} />
+            <CrewBubbles tripId={tripId} destination={name} crew={crew} />
             {viewer === "guest" ? (
               <Link to="/" className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-violet-800 hover:bg-violet-50">
                 Create a free account
@@ -63,7 +66,7 @@ export default function TripHeader({ tripId, formData, days, viewer, crew, secti
             </p>
           )}
           <h1 className="mt-1 text-[26px] font-extrabold leading-tight tracking-tight sm:text-4xl">
-            {getCountryFlagOnly(country)} {days.length} days in {country}
+            {getCountryFlagOnly(country)} {days.length} days in {name}
           </h1>
           {range && (
             <p className="mt-1 text-sm text-slate-300 sm:text-[15px]">

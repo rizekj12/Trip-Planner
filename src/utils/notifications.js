@@ -1,6 +1,7 @@
 // In-app notifications (issue #28). The server creates them; the browser reads its own and
 // marks them read directly through Supabase (row-level security limits it to the user's rows).
 import { supabase } from "./supabase";
+import { placeName } from "../../shared/tripName.js";
 
 export const NOTIFICATIONS_PAGE_SIZE = 50;
 
@@ -22,9 +23,12 @@ export async function markNotificationsRead(ids) {
   if (error) throw error;
 }
 
-// One line of text for a notification, e.g. "Sam would like to join your trip to Ireland"
-export function notificationText({ type, data = {} }) {
-  const trip = data.destination ? `your trip to ${data.destination}` : "your trip";
+// One line of text for a notification, e.g. "Sam would like to join your trip to Ireland".
+// `homeCountry` (the reader's) names a trip in their own country after its cities
+// ("your trip to New York"); notifications from before cities were saved use the country.
+export function notificationText({ type, data = {} }, homeCountry = null) {
+  const place = placeName({ country: data.destination, cities: data.cities }, homeCountry);
+  const trip = place ? `your trip to ${place}` : "your trip";
   switch (type) {
     case "join_request":
       if (data.resolution === "approved") return `${data.name} joined ${trip}`;
@@ -33,11 +37,11 @@ export function notificationText({ type, data = {} }) {
     case "member_joined":
       return `${data.name} joined ${trip}`;
     case "join_approved":
-      return `${data.owner_name || "The organizer"} approved you to join the trip to ${data.destination || "their trip"}`;
+      return `${data.owner_name || "The organizer"} approved you to join the trip to ${place || "their trip"}`;
     case "itinerary_ready":
-      return `Your itinerary for ${data.destination || "your trip"} is ready`;
+      return `Your itinerary for ${place || "your trip"} is ready`;
     case "itinerary_failed":
-      return `We couldn't create your itinerary for ${data.destination || "your trip"}. You can try again.`;
+      return `We couldn't create your itinerary for ${place || "your trip"}. You can try again.`;
     default:
       return "You have a new notification";
   }

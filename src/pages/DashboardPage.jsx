@@ -4,6 +4,7 @@ import { Plus, Trash2, MoreVertical, RotateCcw, Download, Loader2, Compass, LogO
 import { useTrips, useDeleteTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useAuth } from "../context/AuthContext";
+import { tripName, useHomeCountry } from "../utils/tripName";
 import AppHeader from "../components/AppHeader";
 import BottomTabBar from "../components/BottomTabBar";
 import TripThumb from "../components/dashboard/TripThumb";
@@ -56,6 +57,7 @@ const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] s
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const homeCountry = useHomeCountry();
   const { data: trips = [], isLoading: loading } = useTrips();
   const deleteMutation = useDeleteTrip();
   const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
@@ -176,7 +178,7 @@ export default function DashboardPage() {
                         />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-2 truncate font-extrabold">
-                            <span className="truncate">{getCountryFlagOnly(trip.destination)} {trip.destination || "Untitled trip"}</span>
+                            <span className="truncate">{getCountryFlagOnly(trip.destination)} {tripName(trip, homeCountry) || "Untitled trip"}</span>
                             {isShared(trip) && (
                               <span className="flex-none rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Shared</span>
                             )}
@@ -223,7 +225,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="px-3 py-2.5">
                           <div className="truncate text-sm font-bold">
-                            {getCountryFlagOnly(trip.destination)} {trip.destination}
+                            {getCountryFlagOnly(trip.destination)} {tripName(trip, homeCountry)}
                           </div>
                           <div className="text-xs text-slate-600">
                             {new Date(`${range.start}T00:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}

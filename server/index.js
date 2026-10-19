@@ -356,7 +356,11 @@ app.post("/api/trip-pdf", async (req, res) => {
       const mine = user ? await memberReservations.forUser(trip.id, user.id) : { flights: [], hotels: [] };
       trip.itinerary_data = { ...shared, _form_data: { ...shared._form_data, reservations: mine } };
     }
-    const doc = await buildTripPdf(trip, { geoapifyKey: process.env.GEOAPIFY_API_KEY, miles: !!miles });
+    const doc = await buildTripPdf(trip, {
+      geoapifyKey: process.env.GEOAPIFY_API_KEY,
+      miles: !!miles,
+      homeCountry: user?.user_metadata?.home_country || null,
+    });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="trip-${tripId}.pdf"`);
     doc.pipe(res);

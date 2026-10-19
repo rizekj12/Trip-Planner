@@ -6,11 +6,13 @@ import CrewBubbles from "../crew/CrewBubbles";
 import { getCountryFlagOnly } from "../../utils/countryFlags";
 import { formatRange } from "../../utils/calendar";
 import { countdown, waitProgress, beforeYouGo } from "../../utils/dashboard";
+import { tripName, useHomeCountry } from "../../utils/tripName";
 
 const RING = 2 * Math.PI * 48; // circumference of the progress ring
 
 // The hero of the dashboard: next trip's photo, days to go, and a "Before you go" checklist
 export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwner = true }) {
+  const homeCountry = useHomeCountry();
   const { trip, range, status } = entry;
   const count = countdown(range);
   const progress = count.mode === "during" ? 1 : waitProgress(trip, range);
@@ -54,7 +56,7 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwne
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-extrabold tracking-tight sm:text-3xl">
-              {getCountryFlagOnly(trip.destination)} {trip.destination}
+              {getCountryFlagOnly(trip.destination)} {tripName(trip, homeCountry)}
             </h1>
             {cities.length > 0 && <p className="truncate font-medium text-slate-600">{cities.join(" · ")}</p>}
             <p className="text-sm font-semibold text-slate-700">{formatRange(range)}</p>
@@ -109,7 +111,7 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwne
             </button>
           )}
           <div className="ml-auto">
-            <CrewBubbles tripId={trip.id} destination={trip.destination} tone="light" />
+            <CrewBubbles tripId={trip.id} destination={tripName(trip, homeCountry)} tone="light" />
           </div>
         </div>
       </div>

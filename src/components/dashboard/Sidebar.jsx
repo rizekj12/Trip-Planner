@@ -4,11 +4,13 @@ import TripThumb from "./TripThumb";
 import { getCountryFlagOnly } from "../../utils/countryFlags";
 import { FEATURED_DESTINATIONS } from "../../data/destinationImages";
 import { WEEKDAYS, monthWeeks, monthLabel, todayIso } from "../../utils/calendar";
+import { tripName, useHomeCountry } from "../../utils/tripName";
 
 const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)]";
 
 // One month with trip days highlighted; links to the full calendar on that month
 export function MiniCalendar({ month, trips }) {
+  const homeCountry = useHomeCountry();
   const today = todayIso();
   const prefix = `${month.year}-${String(month.month + 1).padStart(2, "0")}`;
   const dated = trips.filter((t) => t.range && t.status !== "draft");
@@ -47,7 +49,7 @@ export function MiniCalendar({ month, trips }) {
           {inMonth.map((t) => (
             <li key={t.trip.id} className="flex items-center gap-2 text-[13px] text-slate-700">
               <span className="h-3 w-3 rounded bg-violet-600" />
-              {getCountryFlagOnly(t.trip.destination)} {t.trip.destination}
+              {getCountryFlagOnly(t.trip.destination)} {tripName(t.trip, homeCountry)}
             </li>
           ))}
         </ul>
