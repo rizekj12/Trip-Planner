@@ -1,7 +1,10 @@
 import React from 'react';
 import { Sunrise, Moon, Shuffle, Mountain, Palmtree, Zap, Scale } from 'lucide-react';
+import { usePreferences } from './preferenceForm';
+import { OptionalField, ScaleSlider, CheckOption } from './PreferenceInputs';
 
 export default function StyleStep({ formData, updateFormData }) {
+    const [preferences, setPreference] = usePreferences(formData, updateFormData);
     const travelStyles = [
         {
             id: 'early_bird',
@@ -116,6 +119,18 @@ export default function StyleStep({ formData, updateFormData }) {
                     })}
                 </div>
             </div>
+
+            {/* Detailed plans (issue #90) */}
+            {preferences.planDetail === 'detailed' && (
+                <div className="space-y-6 border-t border-gray-100 pt-6">
+                    <OptionalField label="How planned should each day be?" field={preferences.structure} onChange={(f) => setPreference('structure', f)}>
+                        {(value, setValue) => <ScaleSlider scale="structure" label="Day structure" value={value} onChange={setValue} />}
+                    </OptionalField>
+                    <CheckOption checked={preferences.openAfternoons} onChange={(v) => setPreference('openAfternoons', v)} hint="Some afternoons left unplanned for whatever you find">
+                        Leave room for spontaneity
+                    </CheckOption>
+                </div>
+            )}
         </div>
     );
 }

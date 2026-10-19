@@ -44,6 +44,14 @@ describe("withoutPrivateDetails", () => {
     expect(shared._status).toBeUndefined();
   });
 
+  test("leaves out the organizer's preferences (budget, special occasion, ...)", () => {
+    const data = readyTrip().itinerary_data;
+    data._form_data.preferences = { budget: { value: { min: 1, max: 9000 }, noPreference: false }, occasion: { value: { type: "birthday", note: "Surprise for Max" }, noPreference: false } };
+    const shared = withoutPrivateDetails(data);
+    expect(shared._form_data.preferences).toBeUndefined();
+    expect(JSON.stringify(shared)).not.toContain("Surprise for Max");
+  });
+
   test("keeps what partners need: the itinerary, cities, hotel name and address", () => {
     const shared = withoutPrivateDetails(readyTrip().itinerary_data);
     expect(shared.days).toHaveLength(1);

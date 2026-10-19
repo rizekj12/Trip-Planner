@@ -30,6 +30,43 @@ describe("buildPrompt", () => {
   });
 });
 
+describe("buildPrompt with preferences (issue #90)", () => {
+  test("a trip without preferences (made before #90) says no preference for every question", () => {
+    const prompt = buildPrompt(formData());
+    expect(prompt).toContain("- Budget: no preference — choose sensible mid-range options");
+    expect(prompt).toContain("- Interests: no preference");
+    expect(prompt).toContain("Set every spot's estimatedCost to null");
+    expect(prompt.match(/no preference —/g).length).toBeGreaterThan(15);
+  });
+
+  test("answers are spelled out", () => {
+    const preferences = {
+      planDetail: "detailed",
+      arrivalTime: { value: "15:30", noPreference: false },
+      budget: { value: { min: 100, max: 250, per: "day", currency: "EUR" }, noPreference: false },
+      interests: { value: { food: 3, history: 1 }, noPreference: false },
+      avoid: { value: "crowds", noPreference: false },
+      pets: true,
+      output: { costs: true, rainyDay: true },
+    };
+    const prompt = buildPrompt({ ...formData(), preferences });
+    expect(prompt).toContain("- Arrival time on day 1: 15:30 local time");
+    expect(prompt).toContain("- Budget: 100–250 EUR per day");
+    expect(prompt).toContain("- Interests: food & drink (must), history & museums (some)");
+    expect(prompt).toContain('- Avoid: "crowds"');
+    expect(prompt).toContain("Traveling with a pet");
+    expect(prompt).toContain("Give each spot an estimatedCost");
+    expect(prompt).toContain("Give each day a rainyDayBackup");
+  });
+
+  test("a Quick plan ignores detailed answers", () => {
+    const preferences = { planDetail: "quick", budget: { value: { min: 1, max: 2 }, noPreference: false }, output: { costs: true } };
+    const prompt = buildPrompt({ ...formData(), preferences });
+    expect(prompt).toContain("- Budget: no preference");
+    expect(prompt).toContain("Set every spot's estimatedCost to null");
+  });
+});
+
 describe("buildFlightsBlock", () => {
   test("is empty without dated flights", () => {
     expect(buildFlightsBlock({})).toBe("");
@@ -80,9 +117,10 @@ describe("parseItineraryResponse", () => {
   // Parsing failures are logged; keep test output quiet
   vi.spyOn(console, "error").mockImplementation(() => {});
   const format = itinerarySchema(["Tokyo"]);
-  const spot = (key, extra = {}) => ({ key, title: key, address: `${key} street`, city: "Tokyo", lat: 35.7, lon: 139.8, ...extra });
+  const spot = (key, extra = {}) => ({ key, title: key, address: `${key} street`, city: "Tokyo", lat: 35.7, lon: 139.8, estimatedCost: null, ...extra });
+  const day = (extra = {}) => ({ city: "Tokyo", title: "Arrive", stops: [], notes: [], rainyDayBackup: null, ...extra });
   const VALID = {
-    days: [{ city: "Tokyo", title: "Arrive", stops: ["senso_ji", "skytree"], notes: ["Rest"] }],
+    days: [day({ stops: ["senso_ji", "skytree"], notes: ["Rest"] })],
     spots: [spot("senso_ji", { title: "Senso-ji" }), spot("skytree")],
     homebases: [{ city: "Tokyo", lat: 35.67, lon: 139.76 }],
   };
@@ -111,8 +149,8 @@ describe("parseItineraryResponse", () => {
   test("drops stops that name a missing spot, repeats, and days beyond the trip", () => {
     const body = {
       days: [
-        { city: "Tokyo", title: "One", stops: ["senso_ji", "ghost", "senso_ji"], notes: [] },
-        { city: "Tokyo", title: "Extra", stops: [], notes: [] },
+        day({ title: "One", stops: ["senso_ji", "ghost", "senso_ji"] }),
+        day({ title: "Extra" }),
       ],
       spots: [spot("senso_ji"), spot("senso_ji", { title: "Duplicate" })],
       homebases: [],

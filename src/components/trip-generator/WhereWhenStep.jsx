@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, X } from 'lucide-react';
 import { CITIES_BY_COUNTRY } from '../../data/countriesAndCities';
 import DestinationPicker from './DestinationPicker';
+import TripBasics from './TripBasics';
 import { MAX_TRIP_DAYS, tripLengthDays, latestCheckOut } from '../../../shared/tripLength.js';
 import { useClickOutside } from '../../hooks/useClickOutside';
 
@@ -205,6 +206,8 @@ export default function WhereWhenStep({ formData, updateFormData }) {
                     )}
                 </div>
             </div>
+
+            <TripBasics formData={formData} updateFormData={updateFormData} />
         </div>
     );
 }

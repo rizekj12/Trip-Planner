@@ -20,8 +20,8 @@ const { logger } = await import("./logger.js");
 const { generateItinerary } = await import("./itinerary.js");
 
 const body = {
-  days: [1, 2, 3, 4].map((n) => ({ city: "Tokyo", title: `Day ${n}`, stops: ["senso_ji"], notes: [] })),
-  spots: [{ key: "senso_ji", title: "Senso-ji", address: "2-3-1 Asakusa", city: "Tokyo", lat: 35.71, lon: 139.79 }],
+  days: [1, 2, 3, 4].map((n) => ({ city: "Tokyo", title: `Day ${n}`, stops: ["senso_ji"], notes: [], rainyDayBackup: "Museum day" })),
+  spots: [{ key: "senso_ji", title: "Senso-ji", address: "2-3-1 Asakusa", city: "Tokyo", lat: 35.71, lon: 139.79, estimatedCost: "Free" }],
   homebases: [{ city: "Tokyo", lat: 35.67, lon: 139.76 }],
 };
 const usage = { input_tokens: 1200, output_tokens: 5400, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
@@ -57,4 +57,18 @@ test("logs token usage with the trip id", async () => {
 test("a reply cut off by max_tokens is reported as such", async () => {
   sdk.reply = { ...sdk.reply, stop_reason: "max_tokens", content: [{ type: "text", text: JSON.stringify(body).slice(0, 40) }] };
   await expect(generateItinerary(formData(), "anthropic-key")).rejects.toThrow("too long and got cut off");
+});
+
+test("extras are kept only when the traveler asked for them", async () => {
+  const plain = await generateItinerary(formData(), "anthropic-key");
+  expect(plain.spots.senso_ji.estimatedCost).toBeUndefined();
+  expect(plain.spots.senso_ji.links.booking).toBeUndefined();
+  expect(plain.days[0].rainyDayBackup).toBeUndefined();
+
+  const preferences = { planDetail: "detailed", output: { costs: true, bookingLinks: true, rainyDay: true } };
+  const extras = await generateItinerary({ ...formData(), preferences }, "anthropic-key");
+  expect(extras.spots.senso_ji.estimatedCost).toBe("Free");
+  expect(extras.spots.senso_ji.links.booking).toContain("google.com/search?q=Senso-ji%20Tokyo%20tickets");
+  expect(extras.days[0].rainyDayBackup).toBe("Museum day");
+  expect(sdk.requests[1].messages[0].content).toContain("Give each spot an estimatedCost");
 });
