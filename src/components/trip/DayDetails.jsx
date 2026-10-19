@@ -1,5 +1,5 @@
 import React from "react";
-import { BedDouble, MapPin, PlayCircle } from "lucide-react";
+import { BedDouble, MapPin, PlayCircle, Ticket, CloudRain } from "lucide-react";
 import { gmaps } from "../../utils/helpers";
 
 const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
@@ -33,6 +33,11 @@ export default function DayDetails({ day, spots }) {
                       {spot.title}
                     </p>
                     {spot.address && <p className="mt-0.5 text-sm text-slate-600">{spot.address}</p>}
+                    {spot.estimatedCost && (
+                      <p className="mt-0.5 text-sm font-semibold text-emerald-800">
+                        <span className="sr-only">Estimated cost: </span>≈ {spot.estimatedCost}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[13px] font-bold">
                       <a
                         href={links.maps || gmaps(`${spot.title} ${spot.address || ""}`)}
@@ -42,6 +47,11 @@ export default function DayDetails({ day, spots }) {
                       >
                         <MapPin size={14} /> Directions
                       </a>
+                      {links.booking && (
+                        <a href={links.booking} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-violet-800 hover:underline">
+                          <Ticket size={14} /> Book
+                        </a>
+                      )}
                       {links.youtube && (
                         <a href={links.youtube} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-violet-800 hover:underline">
                           <PlayCircle size={14} /> Videos
@@ -66,6 +76,15 @@ export default function DayDetails({ day, spots }) {
               <li key={i}>{n}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {day.rainyDayBackup && (
+        <section className={card} aria-labelledby="day-rain">
+          <h3 id="day-rain" className="mb-2 flex items-center gap-2 text-lg font-extrabold">
+            <CloudRain size={18} className="text-sky-700" aria-hidden="true" /> If it rains
+          </h3>
+          <p className="text-[15px] leading-relaxed text-slate-700">{day.rainyDayBackup}</p>
         </section>
       )}
 

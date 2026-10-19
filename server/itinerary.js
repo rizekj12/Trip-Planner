@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { tripLengthDays } from "../shared/tripLength.js";
 import { needsForPrompt } from "../shared/accessibility.js";
+import { normalizePreferences, preferenceLines } from "../shared/tripPreferences.js";
 import { logger } from "./logger.js";
 import { UserFacingError } from "./errors.js";
 import { verifyStops } from "./verifyStops.js";
@@ -72,11 +73,14 @@ const FIELDS = {
   lat: "Latitude, -90 to 90",
   lon: "Longitude, -180 to 180",
   homebases: "For each city above that lists a hotel or homebase: your best estimate of where it is. Empty if none",
+  estimatedCost: "Estimated cost per person in local currency, e.g. \"¥1,500\" or \"Free\"; null unless costs were requested",
+  rainyDayBackup: "An indoor alternative for the day if it rains; null unless rainy-day backups were requested",
 };
 
 export function itineraryJsonSchema(cityNames) {
   const object = (properties) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
   const text = (description) => ({ type: "string", description });
+  const optionalText = (description) => ({ anyOf: [{ type: "string" }, { type: "null" }], description });
   const city = (description) => ({ type: "string", enum: cityNames, description });
   return object({
     days: {
@@ -86,6 +90,7 @@ export function itineraryJsonSchema(cityNames) {
         title: text(FIELDS.dayTitle),
         stops: { type: "array", items: { type: "string" }, description: FIELDS.stops },
         notes: { type: "array", items: { type: "string" }, description: FIELDS.notes },
+        rainyDayBackup: optionalText(FIELDS.rainyDayBackup),
       }),
     },
     spots: {
@@ -97,6 +102,7 @@ export function itineraryJsonSchema(cityNames) {
         city: city(FIELDS.spotCity),
         lat: { type: "number", description: FIELDS.lat },
         lon: { type: "number", description: FIELDS.lon },
+        estimatedCost: optionalText(FIELDS.estimatedCost),
       }),
     },
     homebases: {
@@ -114,7 +120,9 @@ export function itineraryJsonSchema(cityNames) {
 export function itinerarySchema(cityNames) {
   const city = z.enum(cityNames);
   return z.object({
-    days: z.array(z.object({ city, title: z.string(), stops: z.array(z.string()), notes: z.array(z.string()) })),
+    days: z.array(
+      z.object({ city, title: z.string(), stops: z.array(z.string()), notes: z.array(z.string()), rainyDayBackup: z.string().nullable() })
+    ),
     spots: z.array(
       z.object({
         key: z.string(),
@@ -123,6 +131,7 @@ export function itinerarySchema(cityNames) {
         city,
         lat: z.number().min(-90).max(90),
         lon: z.number().min(-180).max(180),
+        estimatedCost: z.string().nullable(),
       })
     ),
     homebases: z.array(z.object({ city, lat: z.number().min(-90).max(90), lon: z.number().min(-180).max(180) })),
@@ -134,6 +143,7 @@ export function buildPrompt(formData, traveler) {
   const numDays = tripLengthDays(formData.cities) ?? 0;
   const flightsBlock = buildFlightsBlock(formData);
   const needs = needsForPrompt(traveler);
+  const { output } = normalizePreferences(formData.preferences);
   const needsBlock = needs
     ? `
 TRAVELER NEEDS (plan the whole trip around these):
@@ -165,13 +175,17 @@ ${citiesInfo}${flightsBlock}
 PREFERENCES:
 - Travel Style: ${getTravelStyleDescription(formData.travelStyle)}
 - Vacation Type: ${getVacationTypeDescription(formData.vacationType)}
+${preferenceLines(formData.preferences).join("\n")}
 ${needsBlock}
 ITINERARY REQUIREMENTS:
 - Exactly ${numDays} days, in order, with 3-5 stops per day
 - List every place you use under "spots" once, and refer to it from a day's "stops" by its key
 - Only use real places; give each one's street address and its actual latitude and longitude
   (they're checked against a map service)
-- Match travel style: ${formData.travelStyle}${
+- Match travel style: ${formData.travelStyle}
+- Follow the preferences above; where one says "no preference", use the default it gives
+- ${output.costs ? "Give each spot an estimatedCost" : "Set every spot's estimatedCost to null"}
+- ${output.rainyDay ? "Give each day a rainyDayBackup: a short indoor alternative plan" : "Set every day's rainyDayBackup to null"}${
     needs
       ? `
 - Respect the traveler needs above: choose accessible venues and routes (e.g. step-free stations,
@@ -187,15 +201,20 @@ ITINERARY REQUIREMENTS:
   }`;
 }
 
-const searchLinks = (title) => ({
+// Search links, built here rather than asked of Claude (model-written URLs are often wrong).
+// `booking` (a search for tickets and reservations) only when the traveler asked for it.
+const searchLinks = (title, city, { booking = false } = {}) => ({
   youtube: `https://youtube.com/search?q=${encodeURIComponent(title)}`,
   maps: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`,
+  ...(booking && { booking: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${city || ""} tickets reservations`.trim())}` }),
 });
 
 // Claude's validated reply in the shape the app stores: days with markers, and spots as a map
 // with [lat, lon] coords. Stops that name a missing spot are dropped, as are days beyond the
 // trip's length. Each spot keeps its `city` for the coordinate check (server/verifyStops.js).
-export function toItinerary(parsed, numDays) {
+// `output` ({ costs, bookingLinks, rainyDay }, from the traveler's preferences) decides which
+// extras are kept; anything Claude adds that wasn't asked for is dropped.
+export function toItinerary(parsed, numDays, output = {}) {
   const spots = {};
   for (const spot of parsed.spots) {
     if (!spot.key || spots[spot.key]) continue;
@@ -205,7 +224,8 @@ export function toItinerary(parsed, numDays) {
       city: spot.city,
       coords: [spot.lat, spot.lon],
       img: null,
-      links: searchLinks(spot.title),
+      links: searchLinks(spot.title, spot.city, { booking: output.bookingLinks }),
+      ...(output.costs && spot.estimatedCost && { estimatedCost: spot.estimatedCost }),
     };
   }
 
@@ -217,6 +237,7 @@ export function toItinerary(parsed, numDays) {
     markers: [...new Set(day.stops)].filter((key) => spots[key]),
     notes: day.notes,
     hotel: null,
+    ...(output.rainyDay && day.rainyDayBackup && { rainyDayBackup: day.rainyDayBackup }),
   }));
 
   // Claude's guesses at where each city's hotel or homebase is, for withHotels; not stored
@@ -258,7 +279,7 @@ export function withHotels(itinerary, formData, homebases = {}) {
 // The structured reply, validated against `schema` (itinerarySchema), or throws a
 // UserFacingError. Checks the stop reason first: a cut-off or declined reply doesn't match the
 // schema, and deserves its own message.
-export function parseItineraryResponse(message, schema, numDays) {
+export function parseItineraryResponse(message, schema, numDays, output) {
   if (message.stop_reason === "max_tokens") {
     throw new UserFacingError("The itinerary was too long and got cut off. Try a shorter trip or fewer cities.");
   }
@@ -270,7 +291,7 @@ export function parseItineraryResponse(message, schema, numDays) {
       .filter((block) => block.type === "text")
       .map((block) => block.text)
       .join("");
-    return toItinerary(schema.parse(JSON.parse(text)), numDays);
+    return toItinerary(schema.parse(JSON.parse(text)), numDays, output);
   } catch (error) {
     logger.error({ err: error, stopReason: message.stop_reason }, "Failed to parse itinerary");
     throw new UserFacingError("Failed to parse AI response. Please try again.", { cause: error });
@@ -304,7 +325,8 @@ export async function generateItinerary(formData, apiKey, { signal, traveler, ge
     "Itinerary response"
   );
 
-  const itinerary = parseItineraryResponse(message, itinerarySchema(cityNames), numDays);
+  const { output } = normalizePreferences(formData.preferences);
+  const itinerary = parseItineraryResponse(message, itinerarySchema(cityNames), numDays, output);
   if (itinerary.days.length !== numDays) {
     logger.warn({ tripId, expected: numDays, got: itinerary.days.length }, "Itinerary has a different number of days than the trip");
   }

@@ -3,6 +3,9 @@ import { Hotel, MapPinned, SkipForward, AlertTriangle, Search, Loader2 } from 'l
 import HotelSearchModal from './HotelSearchModal';
 import Modal from '../Modal';
 import { validateAddress } from '../../utils/addressValidation';
+import { LODGING_TYPES, AREA_VIBES } from '../../../shared/tripPreferences.js';
+import { usePreferences } from './preferenceForm';
+import { OptionalField, SingleChips } from './PreferenceInputs';
 
 const HOMEBASE_OPTIONS = [
     { value: 'hotel', label: 'Hotel', icon: Hotel },
@@ -20,6 +23,7 @@ export default function AccommodationStep({ formData, updateFormData }) {
     const [skipConfirmIndex, setSkipConfirmIndex] = useState(null);
     const [hotelSearchIndex, setHotelSearchIndex] = useState(null);
     const [lastChecked, setLastChecked] = useState({});
+    const [preferences, setPreference] = usePreferences(formData, updateFormData);
 
     const patchCity = (index, patch) => {
         const newCities = [...formData.cities];
@@ -237,6 +241,19 @@ export default function AccommodationStep({ formData, updateFormData }) {
                     </div>
                 ))}
             </div>
+
+            {/* Detailed plans: what to look for where nothing is booked yet (issue #90) */}
+            {preferences.planDetail === 'detailed' && formData.cities.some((c) => c.homebaseType === 'skip') && (
+                <div className="space-y-6 rounded-xl border-2 border-gray-100 p-4">
+                    <p className="text-sm text-gray-600">Not booked yet? Tell us what you're looking for and we'll plan around it.</p>
+                    <OptionalField label="Kind of place" field={preferences.lodgingType} onChange={(f) => setPreference('lodgingType', f)}>
+                        {(value, setValue) => <SingleChips label="Lodging type" options={LODGING_TYPES} value={value} onChange={setValue} />}
+                    </OptionalField>
+                    <OptionalField label="Area" field={preferences.areaVibe} onChange={(f) => setPreference('areaVibe', f)}>
+                        {(value, setValue) => <SingleChips label="Area vibe" options={AREA_VIBES} value={value} onChange={setValue} />}
+                    </OptionalField>
+                </div>
+            )}
 
             {/* Skip confirmation modal */}
             <Modal open={skipConfirmIndex !== null} onClose={() => setSkipConfirmIndex(null)} className="max-w-sm p-6">

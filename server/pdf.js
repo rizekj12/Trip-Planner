@@ -22,6 +22,10 @@ function clean(value) {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/[–—]/g, "-")
+    // Currency signs the built-in font can't draw (estimated costs), as their codes
+    .replace(/€\s?/g, "EUR ")
+    .replace(/₹\s?/g, "INR ")
+    .replace(/₩\s?/g, "KRW ")
     .replace(/…/g, "...")
     .replace(/→/g, "->")
     // Keep only characters the PDF's built-in font can draw (tab, newlines, Latin-1)
@@ -250,7 +254,9 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
     if (stops.length) {
       label("Stops");
       doc.moveDown(0.4);
-      stops.forEach((s, n) => numbered(n + 1, s.title, [[s.address, "muted"]]));
+      stops.forEach((s, n) =>
+        numbered(n + 1, s.title, [[s.address, "muted"], [s.estimatedCost && `Estimated cost: ${s.estimatedCost}`, "muted"]])
+      );
     }
 
     if (day.notes?.length) {
@@ -258,6 +264,14 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
       label("Tips");
       doc.moveDown(0.3);
       for (const note of day.notes) body(`-  ${note}`, { indent: 0, paragraphGap: 3 });
+      doc.moveDown(0.5);
+    }
+
+    if (day.rainyDayBackup) {
+      ensureSpace(40);
+      label("If it rains");
+      doc.moveDown(0.3);
+      body(day.rainyDayBackup, { indent: 0 });
       doc.moveDown(0.5);
     }
 
