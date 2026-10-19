@@ -43,9 +43,9 @@ describe("verifyStops", () => {
   });
 
   test("corrects, unpins and leaves alone as appropriate", async () => {
-    geo.geocodePlace.mockImplementation(async (text) => {
-      if (text.startsWith("Senso-ji")) return { coords: SENSO_JI };
-      if (text.startsWith("Flaky")) throw new Error("network");
+    geo.geocodePlace.mockImplementation(async ({ name }) => {
+      if (name === "Senso-ji") return { coords: SENSO_JI };
+      if (name === "Flaky Lookup") throw new Error("network");
       return null;
     });
     const { spots } = await verifyStops(itinerary(), { country: "Japan" }, "key");
@@ -54,7 +54,7 @@ describe("verifyStops", () => {
     // A failed lookup keeps Claude's pin and isn't marked
     expect(spots.flaky).toMatchObject({ coords: SENSO_JI });
     expect(spots.flaky.location).toBeUndefined();
-    expect(geo.geocodePlace.mock.calls[0][0]).toBe("Senso-ji, Tokyo, Japan");
+    expect(geo.geocodePlace.mock.calls[0][0]).toEqual({ name: "Senso-ji", city: "Tokyo", country: "Japan" });
     expect(geo.geocodeCity).toHaveBeenCalledTimes(1);
   });
 
