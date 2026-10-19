@@ -92,6 +92,7 @@ A single-page app in [`src/`](src/).
 | [`server/limits.js`](server/limits.js) | Who's calling (from the Supabase token), rate limits per account or IP, and the daily cap of 4 itinerary generations per account |
 | [`server/memberReservations.js`](server/memberReservations.js) | Partners' and guests' own reservations: add, edit, delete and list, always filtered to the person asking. Table: `member_reservations` (server-only, no browser access) |
 | [`server/crew.js`](server/crew.js) | Travel Crew: invite links (expiry, approval setting), joining or asking to join as a member or guest, approving and denying requests, the 10-traveler limit, the crew list, the guest's view-only trip, a partner's shared view of a trip (`GET /api/trips/:id/shared`, without the organizer's reservations), and removing people |
+| [`server/savedTravelers.js`](server/savedTravelers.js) | Whether each saved traveler has shared a trip with you (with an account or as a guest) and how many, decided only from trips you share so emails can't be probed; saving a crew member linked to their account (`saved_travelers.linked_user_id`, server-only) |
 | [`server/notifications.js`](server/notifications.js) | Creates in-app notifications (join requests, approvals, itinerary ready or failed); the browser reads them directly |
 
 ## Architecture
