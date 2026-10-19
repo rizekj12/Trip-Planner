@@ -4,6 +4,7 @@ import { supabase } from "../utils/supabase";
 import { fetchTrips, fetchTrip, deleteTrip, saveDraft, tripStatus, updateTripFormData, markPdfDownloaded } from "../utils/trips";
 import { startGeneration, loadMoreFoodSpots, downloadTripPdf, refreshTripEvents } from "../utils/aiService";
 import { useAuth } from "../context/AuthContext";
+import { tripName, useHomeCountry } from "../utils/tripName";
 
 // While an itinerary is being generated:
 // - on the organizer's own trips, Supabase Realtime tells us the moment the row changes, and
@@ -126,13 +127,15 @@ export function useRefreshEvents(tripId) {
 }
 
 // Builds and downloads a trip's offline PDF. Call mutate(trip): a trip row, or
-// { id, destination, isOwner }.
+// { id, destination, name, isOwner }. The file is named after the trip ("New York-itinerary.pdf"
+// for a trip in the viewer's own country).
 export function useDownloadPdf() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const homeCountry = useHomeCountry();
   return useMutation({
     mutationFn: async (trip) => {
-      await downloadTripPdf({ tripId: trip.id, filename: pdfFilename(trip.destination) });
+      await downloadTripPdf({ tripId: trip.id, filename: pdfFilename(trip.name || tripName(trip, homeCountry)) });
       // The checklist mark lives on the trip, which only its organizer can change. Not worth
       // failing the download over.
       const isOwner = trip.isOwner ?? trip.user_id === user?.id;

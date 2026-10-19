@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Plane } from "lucide-react";
 import SkyBackground from "./SkyBackground";
 import { getCountryFlagOnly } from "../utils/countryFlags";
+import { placeName, useHomeCountry } from "../utils/tripName";
 
 // One "lap" of continents; drawn three times side by side and slid left by one lap,
 // so the loop is seamless and reads as a spinning globe.
@@ -67,6 +68,7 @@ function SpinningGlobe() {
 export default function GeneratingScreen({ formData }) {
   const country = formData?.country;
   const cities = (formData?.cities || []).map((c) => c.name).filter(Boolean);
+  const name = placeName({ country, cities }, useHomeCountry());
 
   return (
     <div className="min-h-screen text-white relative flex flex-col">
@@ -115,8 +117,9 @@ export default function GeneratingScreen({ formData }) {
 
         {country && (
           <p className="mt-3 text-lg text-white/90 drop-shadow">
-            {getCountryFlagOnly(country)} {country}
-            {cities.length > 0 && <span className="text-white/70"> · {cities.join(", ")}</span>}
+            {getCountryFlagOnly(country)} {name}
+            {/* A home trip is already named after its cities */}
+            {cities.length > 0 && name === country && <span className="text-white/70"> · {cities.join(", ")}</span>}
           </p>
         )}
 

@@ -13,6 +13,7 @@ import { RELATION_OPTIONS } from "../../utils/profile";
 import { tripStatus } from "../../utils/trips";
 import { tripRange, todayIso, formatRange } from "../../utils/calendar";
 import { Field, SectionHeading, fieldClass, primaryButton, secondaryButton } from "./ProfileUI";
+import { tripName, useHomeCountry } from "../../utils/tripName";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -212,6 +213,7 @@ function TravelerForm({ traveler, onClose }) {
 // Pick one of the user's upcoming trips, then send that trip's invite link to the traveler
 function InviteToTrip({ traveler, onClose }) {
   const { user } = useAuth();
+  const homeCountry = useHomeCountry();
   const trips = useTrips();
   const link = useMutation({ mutationFn: (tripId) => getInviteToken(tripId) });
   const [trip, setTrip] = useState(null);
@@ -232,10 +234,10 @@ function InviteToTrip({ traveler, onClose }) {
 
   const url = link.data?.token ? inviteUrl(link.data.token) : "";
   const firstName = traveler.name.split(" ")[0];
-  const message = trip && `Hi ${firstName}! Join me on my trip to ${trip.destination}. See the itinerary here: ${url}`;
+  const message = trip && `Hi ${firstName}! Join me on my trip to ${tripName(trip, homeCountry)}. See the itinerary here: ${url}`;
   const mailto =
     trip &&
-    `mailto:${encodeURIComponent(traveler.email || "")}?subject=${encodeURIComponent(`Join my trip to ${trip.destination}`)}&body=${encodeURIComponent(message)}`;
+    `mailto:${encodeURIComponent(traveler.email || "")}?subject=${encodeURIComponent(`Join my trip to ${tripName(trip, homeCountry)}`)}&body=${encodeURIComponent(message)}`;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(message);
@@ -271,7 +273,7 @@ function InviteToTrip({ traveler, onClose }) {
                       <CountryFlag name={t.destination} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-bold text-slate-900">{t.destination || "Untitled trip"}</span>
+                      <span className="block truncate font-bold text-slate-900">{tripName(t, homeCountry) || "Untitled trip"}</span>
                       {t.range && (
                         <span className="flex items-center gap-1.5 text-[13px] text-slate-600">
                           <CalendarDays size={13} aria-hidden="true" />
@@ -291,7 +293,7 @@ function InviteToTrip({ traveler, onClose }) {
       ) : (
         <>
           <p className="mt-1 text-sm text-slate-600">
-            Send {firstName} the invite link for <strong>{trip.destination}</strong>.
+            Send {firstName} the invite link for <strong>{tripName(trip, homeCountry)}</strong>.
             {link.data?.requireApproval !== false && " You'll get a notification to approve them when they join."}
           </p>
           {link.isPending && <div className="py-8 text-center text-slate-400"><Loader2 className="mx-auto animate-spin" /></div>}
