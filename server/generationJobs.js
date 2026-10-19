@@ -81,16 +81,18 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
-    let destination = null;
+    // Where the trip goes, for notifications: { destination, cities } (the app names a trip in
+    // the reader's own country after its cities, shared/tripName.js)
+    let place = {};
     try {
       const { data: trip, error } = await admin
         .from("trips")
-        .select("destination, itinerary_data")
+        .select("destination, cities, itinerary_data")
         .eq("id", tripId)
         .maybeSingle();
       if (error) throw new Error(`Couldn't read trip: ${error.message}`);
       if (!trip) return finish(job, "done"); // deleted while waiting; nothing to do
-      destination = trip.destination;
+      place = { destination: trip.destination, cities: trip.cities || [] };
       const formData = trip.itinerary_data?._form_data;
       if (!formData) throw new UserFacingError("This trip has no questionnaire answers to generate from.");
 
@@ -124,12 +126,12 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
         },
       });
       await finish(job, "done");
-      await notifier?.notify(job.user_id, "itinerary_ready", { tripId, data: { destination } });
+      await notifier?.notify(job.user_id, "itinerary_ready", { tripId, data: place });
     } catch (err) {
       // Only messages written for the traveler reach the app; everything else stays in the log
       const message = controller.signal.aborted ? TIMEOUT_MESSAGE : publicMessage(err, "Generation failed. Please try again.");
       logger.error({ err, tripId }, "Itinerary generation failed");
-      await fail(job, message, destination);
+      await fail(job, message, place);
     } finally {
       clearInterval(heartbeat);
       clearTimeout(timer);
@@ -146,7 +148,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
 
   // Marks the trip and its job failed, gives back the user's generation slot so the failure
   // doesn't count against the daily cap, and lets them know. Never throws.
-  async function fail(job, message, destination) {
+  async function fail(job, message, place = {}) {
     await guards.releaseGeneration(job.reservation_id).catch((err) =>
       logger.error({ err, tripId: job.trip_id }, "Couldn't release generation")
     );
@@ -154,7 +156,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       logger.error({ err, tripId: job.trip_id }, "Couldn't mark trip as failed")
     );
     await finish(job, "failed", message);
-    await notifier?.notify(job.user_id, "itinerary_failed", { tripId: job.trip_id, data: { destination } });
+    await notifier?.notify(job.user_id, "itinerary_failed", { tripId: job.trip_id, data: place });
   }
 
   // Finds jobs whose worker stopped (server restarted mid-generation): retries each once,
@@ -187,7 +189,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
 
       const { data: trip } = await admin
         .from("trips")
-        .select("destination, status")
+        .select("destination, cities, status")
         .eq("id", job.trip_id)
         .maybeSingle();
       if (!trip || trip.status !== "pending") {
@@ -199,7 +201,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
         run(job);
       } else {
         logger.warn({ tripId: job.trip_id }, "Giving up on generation");
-        await fail(job, LOST_MESSAGE, trip.destination);
+        await fail(job, LOST_MESSAGE, { destination: trip.destination, cities: trip.cities || [] });
       }
     }
 
