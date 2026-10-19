@@ -97,6 +97,16 @@ export function expiryStatus(doc, today = new Date()) {
 
 export const RELATION_OPTIONS = ["Partner", "Family", "Friend", "Coworker", "Other"];
 
+// For each saved traveler: { onTripPlanner, tripsTogether, avatarUrl? }, keyed by id. Decided
+// only from trips you share, so it never reveals whether some other email has an account.
+export const fetchSavedTravelerStatus = async () =>
+  (await apiJson("GET", "/api/saved-travelers/status", null, { auth: true })).travelers || {};
+
+// The organizer saves someone from a trip's Travel Crew list; the server links them to their
+// account so their name and photo follow it
+export const saveCrewMember = (tripId, memberId) =>
+  apiJson("POST", `/api/trips/${tripId}/crew/${memberId}/save`, {}, { auth: true });
+
 export async function fetchSavedTravelers() {
   const { data, error } = await supabase.from("saved_travelers").select("*").order("name");
   if (error) throw error;
