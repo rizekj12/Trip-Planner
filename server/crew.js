@@ -25,7 +25,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // for anyone who isn't the trip's owner
 export function withoutPrivateDetails(itineraryData = {}) {
   const { _form_data: form = {}, ...rest } = withoutLegacyKeys(itineraryData);
-  const { reservations, ...publicForm } = form;
+  // Preferences (budget, special occasion, ...) are the organizer's; partners don't need them
+  const { reservations, preferences, ...publicForm } = form;
   return {
     ...rest,
     _form_data: {

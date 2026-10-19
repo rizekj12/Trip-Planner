@@ -6,9 +6,13 @@ import WhereWhenStep from './WhereWhenStep';
 import FlightsStep from './FlightsStep';
 import AccommodationStep from './AccommodationStep';
 import StyleStep from './StyleStep';
+import GroupBudgetStep from './GroupBudgetStep';
+import InterestsFoodStep from './InterestsFoodStep';
+import GettingAroundStep from './GettingAroundStep';
 import ReviewStep from './ReviewStep';
 import { hasDetails } from '../../utils/reservations';
 import { tripLengthDays, isAllowedTripLength } from '../../../shared/tripLength.js';
+import { blankPreferences, formPreferences, normalizePreferences } from '../../../shared/tripPreferences.js';
 
 const BLANK_FORM_DATA = {
     country: '',
@@ -25,13 +29,39 @@ const BLANK_FORM_DATA = {
     travelStyle: '',
     vacationType: '',
     reservations: { flights: [], hotels: [] },
+    // The detailed, optional questions (issue #90), all "No preference" to start
+    preferences: blankPreferences(),
 };
+
+// The questionnaire's steps, in order. `detailed` ones only appear in a Detailed plan
+// (a Quick plan is the original five steps).
+const STEPS = [
+    { id: 'where', title: 'Where & when', Component: WhereWhenStep },
+    { id: 'flights', title: 'Flights', Component: FlightsStep },
+    { id: 'stay', title: 'Where you\'ll stay', Component: AccommodationStep },
+    { id: 'group', title: 'Who\'s going & budget', Component: GroupBudgetStep, detailed: true },
+    { id: 'style', title: 'Pace & style', Component: StyleStep },
+    { id: 'interests', title: 'Interests & food', Component: InterestsFoodStep, detailed: true },
+    { id: 'around', title: 'Getting around & extras', Component: GettingAroundStep, detailed: true },
+    { id: 'review', title: 'Review' },
+];
+
+const stepsFor = (planDetail) => STEPS.filter((s) => !s.detailed || planDetail === 'detailed');
+
+// Saved drafts (and trips retried from the dashboard) may predate some fields
+const withDefaults = (formData) => ({ ...formData, preferences: formPreferences(formData.preferences) });
 
 export default function TripQuestionnaire({ onComplete, isGenerating, initialFormData, initialCountry = "", onHome }) {
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState(() => initialFormData || { ...BLANK_FORM_DATA, country: initialCountry });
+    const [formData, setFormData] = useState(() =>
+        initialFormData ? withDefaults(initialFormData) : { ...BLANK_FORM_DATA, preferences: blankPreferences(), country: initialCountry }
+    );
 
-    const totalSteps = 5;
+    // 1-based `step` indexes into the steps for the chosen plan
+    const steps = stepsFor(formData.preferences.planDetail);
+    const totalSteps = steps.length;
+    const current = steps[Math.min(step, totalSteps) - 1];
+    const goTo = (id) => setStep(steps.findIndex((s) => s.id === id) + 1);
 
     const updateFormData = (updates) => {
         setFormData(prev => ({ ...prev, ...updates }));
@@ -51,21 +81,22 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
         onComplete({
             ...formData,
             reservations: { ...reservations, flights: reservations.flights.filter(hasDetails) },
+            // Only real answers are kept; a Quick plan keeps none
+            preferences: normalizePreferences(formData.preferences),
         });
     };
 
+    // Only destination, dates, homebase and style are required; every new question is optional
     const canProceed = () => {
-        switch (step) {
-            case 1: {
+        switch (current.id) {
+            case 'where': {
                 // Every city needs a name and a check-out after its check-in; whole trip 1 to MAX_TRIP_DAYS days
                 const citiesComplete = formData.cities.every(
                     (c) => c.name && c.checkIn && c.checkOut && c.checkOut > c.checkIn
                 );
                 return formData.country && citiesComplete && isAllowedTripLength(tripLengthDays(formData.cities));
             }
-            case 2:
-                return true; // flights are optional
-            case 3:
+            case 'stay':
                 return formData.cities.every(city => {
                     if (city.homebaseType === 'hotel') {
                         return city.hotel.name && city.hotel.address && city.hotelAddressStatus === 'valid';
@@ -76,17 +107,15 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                     if (city.homebaseType === 'skip') return true;
                     return false;
                 });
-            case 4:
+            case 'style':
                 return formData.travelStyle && formData.vacationType;
-            case 5:
-                return true;
             default:
-                return false;
+                return true;
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 py-12 px-4">
+        <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 pt-20 pb-12 sm:py-12 px-4">
             <button
                 onClick={() => onHome(formData)}
                 disabled={isGenerating}
@@ -100,7 +129,7 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                 {/* Progress Bar */}
                 <div className="mb-8">
                     <div className="flex justify-between mb-2">
-                        <span className="text-white text-sm font-medium">Step {step} of {totalSteps}</span>
+                        <span className="text-white text-sm font-medium">Step {step} of {totalSteps} · {current.title}</span>
                         <span className="text-white text-sm">{Math.round((step / totalSteps) * 100)}%</span>
                     </div>
                     <div className="h-2 bg-white/20 rounded-full overflow-hidden">
@@ -116,42 +145,17 @@ export default function TripQuestionnaire({ onComplete, isGenerating, initialFor
                 {/* Form Content */}
                 <AnimatePresence mode="wait">
                     <motion.div
-                        key={step}
+                        key={current.id}
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -20 }}
                         transition={{ duration: 0.3 }}
-                        className="bg-white rounded-3xl shadow-2xl p-8"
+                        className="bg-white rounded-3xl shadow-2xl p-5 sm:p-8"
                     >
-                        {step === 1 && (
-                            <WhereWhenStep
-                                formData={formData}
-                                updateFormData={updateFormData}
-                            />
-                        )}
-                        {step === 2 && (
-                            <FlightsStep
-                                formData={formData}
-                                updateFormData={updateFormData}
-                            />
-                        )}
-                        {step === 3 && (
-                            <AccommodationStep
-                                formData={formData}
-                                updateFormData={updateFormData}
-                            />
-                        )}
-                        {step === 4 && (
-                            <StyleStep
-                                formData={formData}
-                                updateFormData={updateFormData}
-                            />
-                        )}
-                        {step === 5 && (
-                            <ReviewStep
-                                formData={formData}
-                                onEdit={(stepNum) => setStep(stepNum)}
-                            />
+                        {current.Component ? (
+                            <current.Component formData={formData} updateFormData={updateFormData} />
+                        ) : (
+                            <ReviewStep formData={formData} steps={steps} onEdit={goTo} />
                         )}
                     </motion.div>
                 </AnimatePresence>
