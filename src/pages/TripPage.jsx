@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, RotateCcw, Loader2 } from "lucide-react";
@@ -19,6 +19,7 @@ import GeneratingScreen from "../components/GeneratingScreen";
 import { useTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
 import { describeDays } from "../utils/itineraryDays";
+import { todayIso } from "../utils/calendar";
 import { placeName, useHomeCountry } from "../utils/tripName";
 
 const toMarker = (it, idx) =>
@@ -103,7 +104,8 @@ function FailedScreen({ tripId, formData, error, canRetry }) {
 // Layout (mobile first): navy header with the section tabs, then for the itinerary a day strip
 // (every day, with arrows) pinned to the top, the day's title, its map, the plan, and
 // previous/next day at the bottom. Swiping the plan left or right also changes day.
-// ?section=food (etc.) and ?day=3 open straight on a section or day.
+// ?section=food (etc.) and ?day=3 open straight on a section or day; without ?day it opens on
+// today if today is part of the trip.
 export function TripView({ tripId, itinerary, formData, foodSpots, homebases, viewer = "owner", crew, guestToken }) {
   const pdf = useDownloadPdf();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -121,7 +123,11 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
   ];
   const section = sections.some((s) => s.id === searchParams.get("section")) ? searchParams.get("section") : "days";
   const dayParam = Number(searchParams.get("day"));
-  const dayIndex = Number.isInteger(dayParam) && dayParam >= 1 && dayParam <= days.length ? dayParam - 1 : 0;
+  // Opens on today during the trip (by the device's date), otherwise on day 1. Kept for the
+  // visit, so the plan doesn't jump if the page is left open past midnight.
+  const [today] = useState(todayIso);
+  const defaultDay = Math.max(0, days.findIndex((d) => d.iso === today));
+  const dayIndex = Number.isInteger(dayParam) && dayParam >= 1 && dayParam <= days.length ? dayParam - 1 : defaultDay;
   const activeDay = itinerary.days[dayIndex];
 
   // Section and day live in the URL, so reloading, sharing a link or the back button keep them
@@ -138,7 +144,8 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
   const dayTop = useRef(null);
   const selectDay = (i) => {
     if (i < 0 || i >= days.length) return;
-    setParams({ day: i === 0 ? null : String(i + 1) });
+    // Always in the URL, even day 1: without it the page would go back to today
+    setParams({ day: String(i + 1) });
     // Scrolled past the day's title (e.g. using previous/next at the bottom, or the pinned
     // strip mid-way down): go back up so the new day starts at its title and map
     if (dayTop.current && dayTop.current.getBoundingClientRect().top < 0) {
