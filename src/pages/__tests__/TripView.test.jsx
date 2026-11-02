@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Itinerary page (Design A): every day in a strip, arrows, previous/next, and the URL
-import { describe, test, expect, vi, beforeAll } from "vitest";
+import { describe, test, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 
@@ -84,6 +84,43 @@ describe("TripView", () => {
     expect(dayHeading()).toHaveTextContent("Bullet train to Kyoto");
     fireEvent.click(screen.getByRole("button", { name: /Previous · Day 2/ }));
     expect(dayHeading()).toHaveTextContent("Shibuya and Harajuku");
+  });
+
+  describe("opening during the trip", () => {
+    beforeAll(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+    });
+    afterAll(() => {
+      vi.useRealTimers();
+    });
+    const on = (y, m, d) => vi.setSystemTime(new Date(y, m - 1, d, 12));
+
+    test("opens on today's day", () => {
+      on(2030, 4, 2);
+      renderAt();
+      expect(dayHeading()).toHaveTextContent("Shibuya and Harajuku");
+    });
+
+    test("opens on day 1 before and after the trip", () => {
+      on(2030, 3, 31);
+      const { unmount } = renderAt();
+      expect(dayHeading()).toHaveTextContent("Arrival in Asakusa");
+      unmount();
+      on(2030, 4, 10);
+      renderAt();
+      expect(dayHeading()).toHaveTextContent("Arrival in Asakusa");
+    });
+
+    test("a day in the link wins, and you can still go back to day 1", () => {
+      on(2030, 4, 2);
+      const { unmount } = renderAt("/trip/t1?day=3");
+      expect(dayHeading()).toHaveTextContent("Bullet train to Kyoto");
+      unmount();
+      renderAt();
+      fireEvent.click(screen.getByRole("button", { name: "Previous day" }));
+      expect(dayHeading()).toHaveTextContent("Arrival in Asakusa");
+      expect(location.search).toBe("?day=1");
+    });
   });
 
   test("?day= and ?section= open straight on a day or section", () => {
