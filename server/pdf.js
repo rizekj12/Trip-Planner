@@ -2,6 +2,7 @@
 // hotel), up to 10 local events, and up to 10 food spots per city.
 import PDFDocument from "pdfkit";
 import { staticMapImage } from "./geoapify.js";
+import { placeName } from "../shared/tripName.js";
 
 const MAX_EVENTS = 10;
 const MAX_FOOD_SPOTS = 10;
@@ -84,13 +85,15 @@ function dayMarkers(day, spots) {
 }
 
 // `trip`: a trips row (itinerary_data with _form_data) plus its foodSpots and homebases
-// ({ city: ... }, see shared/tripRow.js)
-export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
+// ({ city: ... }, see shared/tripRow.js). `homeCountry`: the reader's, for the trip's name.
+export async function buildTripPdf(trip, { geoapifyKey, miles = false, homeCountry = null }) {
   const { _form_data: form = {}, ...itinerary } = trip.itinerary_data || {};
   const { foodSpots = {}, homebases = {} } = trip;
   const days = itinerary.days || [];
   const spots = itinerary.spots || {};
   const country = form.country || trip.destination || "";
+  // A trip in the reader's own country is named after its cities ("Your New York Trip")
+  const name = placeName({ country, cities: (form.cities || []).map((c) => c.name) }, homeCountry);
 
   // Fetch every day's map up front (rate-limited), so a slow map can't stall the PDF midway
   const dayData = days.map((day) => dayMarkers(day, spots));
@@ -100,7 +103,7 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
     size: "LETTER",
     margins: { top: 54, bottom: 60, left: 54, right: 54 },
     bufferPages: true,
-    info: { Title: clean(`${country} trip itinerary`), Creator: "Trip Planner" },
+    info: { Title: clean(`${name} trip itinerary`), Creator: "Trip Planner" },
   });
   const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
@@ -145,7 +148,7 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
   const cities = (form.cities || []).filter((c) => c.name);
   label("Trip itinerary");
   doc.moveDown(0.3);
-  heading(country ? `Your ${country} Trip` : "Your Trip", 30);
+  heading(name ? `Your ${name} Trip` : "Your Trip", 30);
   doc.moveDown(0.3);
   if (cities.length) body(cities.map((c) => c.name).join("  -  "), { lineGap: 2 });
   const first = cities[0]?.checkIn;
@@ -340,7 +343,7 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false }) {
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0; // let the footer sit in the margin without adding a page
     doc.font("Helvetica").fontSize(8).fillColor(COLORS.muted)
-      .text(clean(`${country} trip  |  Trip Planner`), doc.page.margins.left, doc.page.height - 36, { width, align: "left" })
+      .text(clean(`${name} trip  |  Trip Planner`), doc.page.margins.left, doc.page.height - 36, { width, align: "left" })
       .text(`Page ${p + 1} of ${range.count}`, doc.page.margins.left, doc.page.height - 36, { width, align: "right" });
     doc.page.margins.bottom = bottom;
   }

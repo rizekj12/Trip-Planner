@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { UserPlus, UserCheck, Sparkles, AlertTriangle, Bell, Check, X, Loader2 } from "lucide-react";
 import { notificationText, notificationLink, timeAgo } from "../../utils/notifications";
+import { useHomeCountry } from "../../utils/tripName";
 import { useAnswerJoinRequest } from "../../hooks/useCrew";
 
 const ICONS = {
@@ -15,6 +16,7 @@ const ICONS = {
 // One notification: icon, text, time, and Approve / Deny on an open join request.
 // `onOpen` runs when the text link is followed (e.g. to close the bell's dropdown).
 export default function NotificationItem({ notification: n, onOpen, compact = false }) {
+  const homeCountry = useHomeCountry();
   const answer = useAnswerJoinRequest();
   const { Icon, style } = ICONS[n.type] || { Icon: Bell, style: "bg-gray-100 text-gray-600" };
   const href = notificationLink(n);
@@ -24,7 +26,7 @@ export default function NotificationItem({ notification: n, onOpen, compact = fa
   const decide = (decision) =>
     answer.mutate({ tripId: n.trip_id, memberId: n.data.member_id, decision });
 
-  const text = <span className={unread ? "font-semibold text-gray-900" : "text-gray-700"}>{notificationText(n)}</span>;
+  const text = <span className={unread ? "font-semibold text-gray-900" : "text-gray-700"}>{notificationText(n, homeCountry)}</span>;
 
   return (
     <li className={`flex gap-3 ${compact ? "px-4 py-3" : "rounded-xl p-4"} ${unread ? "bg-violet-50/60" : ""}`}>

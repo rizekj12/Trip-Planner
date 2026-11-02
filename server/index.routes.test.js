@@ -23,8 +23,9 @@ vi.mock("./foodSpots.js", () => ({ addFoodSpots: (...args) => mocks.addFoodSpots
 vi.mock("./events.js", () => ({ eventsForTrip: (...args) => mocks.eventsForTrip(...args) }));
 vi.mock("./geoapify.js", () => ({ geocodeCity: async () => null, locateHomebase: async () => null, homebasesForTrip: async () => ({}) }));
 vi.mock("./pdf.js", () => ({
-  buildTripPdf: async (trip) => {
+  buildTripPdf: async (trip, options) => {
     mocks.pdfTrips.push(trip);
+    mocks.pdfOptions = options;
     return { pipe: (res) => res.end("%PDF-fake"), end: () => {} };
   },
 }));
@@ -169,6 +170,16 @@ describe("POST /api/trip-pdf", () => {
   test("a partner's PDF never triggers Claude calls for missing food spots", async () => {
     await pdf("token-member");
     expect(mocks.addFoodSpots).not.toHaveBeenCalled();
+  });
+
+  test("the PDF is told the reader's home country, to name a home trip after its cities", async () => {
+    await pdf("token-owner");
+    expect(mocks.pdfOptions).toMatchObject({ homeCountry: null });
+    const owner = { ...OWNER, user_metadata: { ...OWNER.user_metadata, home_country: "Japan" } };
+    const users = USERS.map((u) => (u.id === OWNER.id ? owner : u));
+    db.reset({ trips: [readyTrip()], trip_members: members(), trip_generations: [], profiles: [] }, { users, tokens: TOKENS });
+    await pdf("token-owner");
+    expect(mocks.pdfOptions.homeCountry).toBe("Japan");
   });
 
   test("the organizer's own PDF keeps their codes", async () => {

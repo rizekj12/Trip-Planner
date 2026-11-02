@@ -5,6 +5,7 @@ import AppHeader from "../components/AppHeader";
 import BottomTabBar from "../components/BottomTabBar";
 import TripThumb from "../components/dashboard/TripThumb";
 import { useAuth } from "../context/AuthContext";
+import { tripName, useHomeCountry } from "../utils/tripName";
 import { useTrips } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
 import { getCountryFlagOnly } from "../utils/countryFlags";
@@ -40,6 +41,7 @@ const monthKey = ({ year, month }) => `${year}-${String(month + 1).padStart(2, "
 export default function CalendarPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const homeCountry = useHomeCountry();
   const { data: rawTrips = [], isLoading } = useTrips();
   const today = todayIso();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -66,7 +68,7 @@ export default function CalendarPage() {
             ...range,
             range,
             id: t.id,
-            name: t.destination || "Untitled trip",
+            name: tripName(t, homeCountry) || "Untitled trip",
             cities: t.cities || [],
             status: tripStatus(t),
             isPast: range.end < today,
@@ -75,7 +77,7 @@ export default function CalendarPage() {
         })
         .filter(Boolean)
         .sort((a, b) => a.start.localeCompare(b.start)),
-    [rawTrips, today, user]
+    [rawTrips, today, user, homeCountry]
   );
 
   // From the month the account was created to a year out (stretched to fit any trip)

@@ -1,7 +1,7 @@
 // Checks the coordinates Claude gives each stop of an itinerary against Geoapify (issue #35),
 // since a wrong pin puts a stop in the wrong place on the day map and in the PDF.
 //
-// For each stop, a confident venue match near its city (server/geoapify.js geocodePlace):
+// For each stop, a venue near its city with the same name (server/geoapify.js geocodePlace):
 //   - more than CORRECT_AFTER_KM from Claude's pin: the pin moves to the match ("corrected")
 //   - otherwise Claude's pin stays ("verified")
 // No match: Claude's pin stays ("unverified"), unless it's also more than FAR_KM from the
@@ -55,9 +55,7 @@ export async function verifyStops(itinerary, { country }, apiKey, { tripId } = {
       const center = centers.get(spot.city);
       // Without the city's center there's nothing to search around or compare with
       if (!center) return;
-      // Name and city only: adding Claude's street address makes matches much less confident
-      const text = [spot.title, spot.city, country].filter(Boolean).join(", ");
-      const match = await geocodePlace(text, { lat: center[0], lon: center[1] }, apiKey).catch(() => undefined);
+      const match = await geocodePlace({ name: spot.title, city: spot.city, country }, { lat: center[0], lon: center[1] }, apiKey).catch(() => undefined);
       if (match === undefined) return; // the lookup itself failed; keep Claude's pin
       Object.assign(spot, checkStop(spot.coords, match, center));
     })

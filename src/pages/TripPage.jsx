@@ -19,6 +19,7 @@ import GeneratingScreen from "../components/GeneratingScreen";
 import { useTrip, useStartGeneration, useDownloadPdf } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
 import { describeDays } from "../utils/itineraryDays";
+import { placeName, useHomeCountry } from "../utils/tripName";
 
 const toMarker = (it, idx) =>
   it && it.coords
@@ -107,6 +108,8 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
   const pdf = useDownloadPdf();
   const [searchParams, setSearchParams] = useSearchParams();
   const days = useMemo(() => describeDays(itinerary.days, formData), [itinerary.days, formData]);
+  // "New York" for a trip in the viewer's own country, otherwise the country
+  const name = placeName({ country: formData.country, cities: (formData.cities || []).map((c) => c.name) }, useHomeCountry());
 
   const sections = [
     { id: "days", label: "Itinerary" },
@@ -173,7 +176,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
         section={section}
         onSection={openSection}
         pdf={{
-          download: () => pdf.mutate({ id: tripId, destination: formData.country, isOwner: viewer === "owner" }),
+          download: () => pdf.mutate({ id: tripId, destination: formData.country, name, isOwner: viewer === "owner" }),
           busy: pdf.isPending,
           error: pdf.error?.message,
         }}
@@ -241,7 +244,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
             ) : section === "photos" ? (
               <PhotosPanel tripId={tripId} guestToken={viewer === "guest" ? guestToken : undefined} days={days} />
             ) : section === "crew" ? (
-              <CrewPanel tripId={tripId} destination={formData.country} crew={crew} />
+              <CrewPanel tripId={tripId} destination={name} crew={crew} />
             ) : (
               <FoodSpotsPanel
                 tripId={tripId}

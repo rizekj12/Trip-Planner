@@ -3,7 +3,6 @@ const GEOCODE_URL = "https://api.geoapify.com/v1/geocode/search";
 
 // Only pin a place when the match is an actual venue or building, not a street or district
 const PLACE_RESULT_TYPES = new Set(["amenity", "building"]);
-const MIN_CONFIDENCE = 0.5;
 const SEARCH_RADIUS_M = 30000;
 // Free tier allows 5 requests/second, so start at most one request every 250ms (4/sec).
 // Requests overlap; only their start times are spaced, and the spacing is shared by every caller.
@@ -33,18 +32,55 @@ export async function geocodeCity(city, country, apiKey) {
   return result ? { lat: result.lat, lon: result.lon } : null;
 }
 
-// The best confident venue or building match for `text` within SEARCH_RADIUS_M of `center`
-// ({ lat, lon }), as { coords: [lat, lon], address }, or null when there isn't one
-export async function geocodePlace(text, center, apiKey) {
+// Words that describe a kind of place rather than which one, and come and go between how
+// Claude and the map name it ("Yoshikawa Inn" / "Tempura Yoshikawa", "Senso-ji Temple" /
+// "Sensō Ji")
+const GENERIC_WORDS = new Set([
+  "restaurant", "restaurants", "cafe", "coffee", "bakery", "bar", "inn", "dining", "shop", "store",
+  "ramen", "sushi", "soba", "udon", "tempura", "temple", "shrine", "the", "of", "and", "de", "la", "le", "el",
+]);
+
+// Distinctive words of a place name: lowercase, accents removed, without generic words and
+// without the city or country (`exclude`)
+export function nameWords(name, exclude = []) {
+  const words = (s) =>
+    String(s || "")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  const skip = new Set(exclude.flatMap(words));
+  return new Set(words(name).filter((w) => !GENERIC_WORDS.has(w) && !skip.has(w)));
+}
+
+// Whether the map's result is the place we asked for: every distinctive word of one name
+// appears in the other ("% Arabica" for "Arabica Kyoto Higashiyama", "Omen" for "Omen
+// (Ponta-cho)"). The geocoder's own confidence can't tell: it rated Hilton Kyoto 1.0 for
+// "Ippudo Kyoto" and a different restaurant 1.0 for "Gion Karyo".
+export function sameName(asked, found, exclude = []) {
+  const a = nameWords(asked, exclude);
+  const b = nameWords(found, exclude);
+  if (!a.size || !b.size) return false;
+  const within = (x, y) => [...x].every((w) => y.has(w));
+  return within(a, b) || within(b, a);
+}
+
+// The venue or building called `name` in `city` within SEARCH_RADIUS_M of `center`
+// ({ lat, lon }), as { coords: [lat, lon], address }, or null when the map doesn't have it.
+// Searched by name and city only: neighborhoods and street addresses from Claude make the
+// search land on other places.
+export async function geocodePlace({ name, city, country }, center, apiKey) {
   const near = `${center.lon},${center.lat}`;
+  const text = [name, city, country].filter(Boolean).join(", ");
   const url =
     `${GEOCODE_URL}?text=${encodeURIComponent(text)}&format=json&limit=1` +
     `&filter=circle:${near},${SEARCH_RADIUS_M}&bias=proximity:${near}&apiKey=${apiKey}`;
   const data = await rateLimitedFetchJson(url);
   const result = data.results?.[0];
-  const confident =
-    result && PLACE_RESULT_TYPES.has(result.result_type) && (result.rank?.confidence ?? 0) >= MIN_CONFIDENCE;
-  return confident ? { coords: [result.lat, result.lon], address: result.formatted } : null;
+  const match =
+    result && PLACE_RESULT_TYPES.has(result.result_type) && sameName(name, result.name, [city, country]);
+  return match ? { coords: [result.lat, result.lon], address: result.formatted } : null;
 }
 
 // Adds `coords` ([lat, lon], or null when there's no confident match) and `address` to each
@@ -59,9 +95,8 @@ export async function locatePlaces(spots, { city, country }, apiKey) {
   const located = new Map();
   await Promise.all(
     todo.map(async (spot) => {
-      const text = [spot.name, spot.neighborhood, city, country].filter(Boolean).join(", ");
-      // A failed request (undefined) is retried next time; "no confident match" (null) is final
-      const match = await geocodePlace(text, center, apiKey).catch(() => undefined);
+      // A failed request (undefined) is retried next time; "not found" (null) is final
+      const match = await geocodePlace({ name: spot.name, city, country }, center, apiKey).catch(() => undefined);
       if (match !== undefined) located.set(spot, match || { coords: null });
     })
   );
@@ -99,7 +134,7 @@ export async function locateHomebase(cityForm, apiKey, { country } = {}) {
 
   if (isHotel && hotel?.name && cityName) {
     const center = await geocodeCity(cityName, country, apiKey);
-    const match = center && (await geocodePlace(`${hotel.name}, ${cityName}`, center, apiKey));
+    const match = center && (await geocodePlace({ name: hotel.name, city: cityName, country }, center, apiKey));
     if (match) return homebase(match.coords);
   }
   return null;

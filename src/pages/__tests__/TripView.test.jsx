@@ -5,7 +5,8 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 
 vi.mock("../../hooks/useTrips", () => ({ useDownloadPdf: () => ({ mutate: vi.fn(), isPending: false }), useTrip: vi.fn(), useStartGeneration: vi.fn() }));
-vi.mock("../../context/AuthContext", () => ({ useAuth: () => ({ user: { id: "me" } }) }));
+const auth = vi.hoisted(() => ({ user: { id: "me" } }));
+vi.mock("../../context/AuthContext", () => ({ useAuth: () => auth }));
 vi.mock("../../components/DayMap", () => ({ default: ({ items }) => <div data-testid="map">{items.length} pins</div> }));
 vi.mock("../../components/crew/CrewBubbles", () => ({ default: () => null }));
 vi.mock("../../components/EventsPanel", () => ({ default: () => <div>Events panel</div> }));
@@ -111,6 +112,13 @@ describe("TripView", () => {
     expect(screen.getByRole("button", { name: "My reservations" })).toBeInTheDocument();
     expect(screen.getByText("My reservations panel")).toBeInTheDocument();
     expect(screen.queryByText("Reservations panel")).toBeNull();
+  });
+
+  test("a trip in your own country is named after its cities", () => {
+    auth.user = { id: "me", user_metadata: { home_country: "Japan" } };
+    renderAt();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3 days in Tokyo & Kyoto");
+    auth.user = { id: "me" };
   });
 
   test("swiping the plan changes day", () => {

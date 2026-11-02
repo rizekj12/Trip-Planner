@@ -401,7 +401,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
 
     await notifier?.notify(trip.user_id, status === "pending" ? "join_request" : "member_joined", {
       tripId: trip.id,
-      data: { member_id: member.id, name, role: user ? "member" : "guest", destination: trip.destination },
+      data: { member_id: member.id, name, role: user ? "member" : "guest", destination: trip.destination, cities: trip.cities || [] },
     });
     res.json(user ? { tripId: trip.id, status } : { guestToken, status });
   });
@@ -502,7 +502,7 @@ export function registerCrewRoutes(app, { supabaseUrl, serviceKey, notifier }) {
     await notifier?.resolveJoinRequest(member.id, "approved");
     await notifier?.notify(member.user_id, "join_approved", {
       tripId: trip.id,
-      data: { destination: trip.destination, owner_name: displayName(owner) },
+      data: { destination: trip.destination, cities: trip.cities || [], owner_name: displayName(owner) },
     });
     res.json({ ok: true });
   });
