@@ -201,17 +201,20 @@ Respond with ONLY valid JSON (no markdown):
 {"picks": [{"id": "tm_...", "description": "..."}]}`;
 }
 
-async function pickWithClaude(candidates, formData, { anthropicKey, signal }) {
+const PICK_MODEL = "claude-sonnet-5";
+
+async function pickWithClaude(candidates, formData, { anthropicKey, signal, usage }) {
   const client = new Anthropic({ apiKey: anthropicKey });
   const message = await client.messages.create(
     {
-      model: "claude-sonnet-5",
+      model: PICK_MODEL,
       max_tokens: 4000,
       output_config: { effort: "low" },
       messages: [{ role: "user", content: pickPrompt(candidates, formData) }],
     },
     { signal }
   );
+  usage?.add(PICK_MODEL, message.usage);
   const text = message.content.filter((b) => b.type === "text").map((b) => b.text).join("");
   const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
   const picks = JSON.parse(json).picks;
@@ -223,7 +226,8 @@ async function pickWithClaude(candidates, formData, { anthropicKey, signal }) {
 
 // { events, source, checkedAt } for a trip. source: "ticketmaster" (searched; events may be
 // empty if nothing was on) or "unavailable" (no key, or every search failed). Never throws.
-export async function eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal } = {}) {
+// `usage` (server/usage.js) collects the token usage of the Claude call that picks events.
+export async function eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal, usage } = {}) {
   const checkedAt = new Date().toISOString();
   if (!ticketmasterKey) {
     logger.warn("TICKETMASTER_API_KEY not set; skipping local events");
@@ -252,7 +256,7 @@ export async function eventsForTrip(formData, { ticketmasterKey, geoapifyKey, an
   let picks;
   if (anthropicKey) {
     try {
-      picks = await pickWithClaude(candidates, formData, { anthropicKey, signal });
+      picks = await pickWithClaude(candidates, formData, { anthropicKey, signal, usage });
     } catch (err) {
       logger.warn({ err: err.message }, "Couldn't pick events with Claude; using the soonest");
     }
