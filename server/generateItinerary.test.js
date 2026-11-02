@@ -18,6 +18,7 @@ const verify = vi.hoisted(() => ({ verifyStops: vi.fn(async (itinerary) => itine
 vi.mock("./verifyStops.js", () => verify);
 const { logger } = await import("./logger.js");
 const { generateItinerary } = await import("./itinerary.js");
+const { createUsageTracker } = await import("./usage.js");
 
 const body = {
   days: [1, 2, 3, 4].map((n) => ({ city: "Tokyo", title: `Day ${n}`, stops: ["senso_ji"], notes: [], rainyDayBackup: "Museum day" })),
@@ -71,4 +72,11 @@ test("extras are kept only when the traveler asked for them", async () => {
   expect(extras.spots.senso_ji.links.booking).toContain("google.com/search?q=Senso-ji%20Tokyo%20tickets");
   expect(extras.days[0].rainyDayBackup).toBe("Museum day");
   expect(sdk.requests[1].messages[0].content).toContain("Give each spot an estimatedCost");
+});
+
+test("runs at medium effort and reports its usage (issue #47)", async () => {
+  const usage = createUsageTracker();
+  await generateItinerary(formData(), "anthropic-key", { usage });
+  expect(sdk.requests[0].output_config.effort).toBe("medium");
+  expect(usage.summary()).toMatchObject({ calls: 1, input_tokens: 1200, output_tokens: 5400 });
 });
