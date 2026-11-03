@@ -1,35 +1,77 @@
-import React from "react";
-import { BedDouble, MapPin, PlayCircle, Ticket, CloudRain } from "lucide-react";
+import React, { useState } from "react";
+import { BedDouble, MapPin, PlayCircle, Ticket, CloudRain, Check, Pencil } from "lucide-react";
+import EditDay from "./EditDay";
+import { useEditItinerary } from "../../hooks/useTrips";
+import { toggleDone } from "../../../shared/itineraryEdits.js";
 import { gmaps } from "../../utils/helpers";
 
 const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
 
 // One day's plan: the stops in order (numbered like the map's pins, joined by a line), tips,
-// and where the travelers sleep that night
-export default function DayDetails({ day, spots }) {
-  const stops = (day.markers || []).map((k) => spots[k]).filter(Boolean);
+// and where the travelers sleep that night. The organizer (`canEdit`, with `tripId`) can tick
+// stops off during the trip by tapping their number, and edit the day (issue #37); everyone
+// sees what's been ticked off. `days` (describeDays) and `country` are for editing.
+export default function DayDetails({ day, spots, canEdit = false, tripId, days = [], country }) {
+  const [editing, setEditing] = useState(false);
+  const edit = useEditItinerary(tripId);
+  const keys = (day.markers || []).filter((k) => spots[k]);
+  const stops = keys.map((k) => spots[k]);
+  const done = new Set(day.done || []);
   const notes = day.notes || [];
 
   return (
     <div className="space-y-4">
       <section className={card} aria-labelledby="day-plan">
-        <h3 id="day-plan" className="mb-4 text-lg font-extrabold">The plan</h3>
-        {stops.length ? (
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 id="day-plan" className="text-lg font-extrabold">The plan</h3>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setEditing((e) => !e)}
+              aria-pressed={editing}
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold ${
+                editing ? "bg-violet-700 text-white hover:bg-violet-800" : "text-violet-800 ring-1 ring-violet-200 hover:bg-violet-50"
+              }`}
+            >
+              {editing ? <Check size={15} /> : <Pencil size={15} />}
+              {editing ? "Done editing" : "Edit day"}
+            </button>
+          )}
+        </div>
+        {editing ? (
+          <EditDay tripId={tripId} day={day} spots={spots} days={days} country={country} />
+        ) : stops.length ? (
           <ol>
             {stops.map((spot, i) => {
               const last = i === stops.length - 1;
               const links = spot.links || {};
+              const key = keys[i];
+              const isDone = done.has(key);
+              const circle = `flex h-8 w-8 flex-none items-center justify-center rounded-full text-[13px] font-extrabold text-white ${
+                isDone ? "bg-emerald-600" : "bg-violet-700"
+              }`;
               return (
-                <li key={`${spot.title}-${i}`} className="flex gap-3.5">
-                  <span className="flex flex-col items-center" aria-hidden="true">
-                    <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-violet-700 text-[13px] font-extrabold text-white">
-                      {i + 1}
-                    </span>
-                    {!last && <span className="min-h-[18px] w-0.5 flex-1 bg-violet-200" />}
+                <li key={key} className="flex gap-3.5">
+                  <span className="flex flex-col items-center">
+                    {canEdit ? (
+                      // 44px target around the 32px circle
+                      <button
+                        type="button"
+                        onClick={() => edit.mutate((it) => toggleDone(it, day.key, key))}
+                        aria-pressed={isDone}
+                        aria-label={isDone ? `${spot.title}: done. Tap to undo` : `Mark ${spot.title} as done`}
+                        className="-m-1.5 flex h-11 w-11 items-center justify-center rounded-full"
+                      >
+                        <span className={circle} aria-hidden="true">{isDone ? <Check size={16} strokeWidth={3} /> : i + 1}</span>
+                      </button>
+                    ) : (
+                      <span className={circle} aria-hidden="true">{isDone ? <Check size={16} strokeWidth={3} /> : i + 1}</span>
+                    )}
+                    {!last && <span className="min-h-[18px] w-0.5 flex-1 bg-violet-200" aria-hidden="true" />}
                   </span>
                   <div className={`min-w-0 flex-1 ${last ? "" : "pb-5"}`}>
-                    <p className="font-extrabold leading-snug text-slate-900">
-                      <span className="sr-only">Stop {i + 1}: </span>
+                    <p className={`font-extrabold leading-snug ${isDone ? "text-slate-500 line-through" : "text-slate-900"}`}>
+                      <span className="sr-only">Stop {i + 1}{isDone ? " (done)" : ""}: </span>
                       {spot.title}
                     </p>
                     {spot.address && <p className="mt-0.5 text-sm text-slate-600">{spot.address}</p>}
@@ -66,6 +108,7 @@ export default function DayDetails({ day, spots }) {
         ) : (
           <p className="text-sm text-slate-600">No stops planned for this day.</p>
         )}
+        {!editing && edit.isError && <p className="mt-3 text-sm text-red-600">Couldn't save that: {edit.error.message}</p>}
       </section>
 
       {notes.length > 0 && (

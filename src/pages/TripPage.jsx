@@ -220,7 +220,14 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
                   </div>
                 </div>
                 <div className="md:col-span-2" {...swipe}>
-                  <DayDetails day={activeDay} spots={itinerary.spots} />
+                  <DayDetails
+                    day={activeDay}
+                    spots={itinerary.spots}
+                    canEdit={viewer === "owner"}
+                    tripId={tripId}
+                    days={days}
+                    country={formData.country}
+                  />
                 </div>
               </motion.div>
             </AnimatePresence>

@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => {
     addFoodSpots: async () => [{ name: "New spot" }],
     eventsForTrip: async () => ({ events: [], source: "ticketmaster", checkedAt: "now" }),
     pdfTrips: [],
+    regenerateDay: async () => ({ title: "New day", notes: ["Tip"], rainyDayBackup: null, markers: ["new_spot"], spots: { new_spot: { title: "New spot", coords: [1, 2] } } }),
+    searchPlaces: async () => [{ title: "Place", address: "Somewhere", coords: [1, 2] }],
   };
 });
 
@@ -21,7 +23,13 @@ vi.mock("@supabase/supabase-js", async () => (await import("./test/fakeSupabase.
 vi.mock("./generationJobs.js", () => ({ createGenerationJobs: () => mocks.jobs }));
 vi.mock("./foodSpots.js", () => ({ addFoodSpots: (...args) => mocks.addFoodSpots(...args), foodSpotsForTrip: async () => ({}) }));
 vi.mock("./events.js", () => ({ eventsForTrip: (...args) => mocks.eventsForTrip(...args) }));
-vi.mock("./geoapify.js", () => ({ geocodeCity: async () => null, locateHomebase: async () => null, homebasesForTrip: async () => ({}) }));
+vi.mock("./geoapify.js", () => ({
+  geocodeCity: async () => null,
+  locateHomebase: async () => null,
+  homebasesForTrip: async () => ({}),
+  searchPlaces: (...args) => mocks.searchPlaces(...args),
+}));
+vi.mock("./regenerateDay.js", () => ({ MAX_NOTE: 300, regenerateDay: (...args) => mocks.regenerateDay(...args) }));
 vi.mock("./pdf.js", () => ({
   buildTripPdf: async (trip, options) => {
     mocks.pdfTrips.push(trip);
@@ -186,5 +194,54 @@ describe("POST /api/trip-pdf", () => {
     db.rows("trip_food_spots").push({ trip_id: TRIP_ID, city: "Tokyo", spots: [{ name: "Saved" }], homebase: null, homebase_checked_at: "2030-01-01T00:00:00Z" });
     await pdf("token-owner");
     expect(leaksSecrets(mocks.pdfTrips[0])).not.toEqual([]);
+  });
+});
+
+describe("POST /api/trips/:tripId/days/:dayKey/regenerate (issue #37)", () => {
+  const regenerate = (token, dayKey = "d1", body = {}) =>
+    request(app).post(`/api/trips/${TRIP_ID}/days/${dayKey}/regenerate`).set(token ? auth(token) : {}).send(body);
+
+  test("the organizer gets a new plan for the day, saved on the trip", async () => {
+    let seen;
+    mocks.regenerateDay = async (input) => ((seen = input), { title: "New day", notes: ["Tip"], rainyDayBackup: null, markers: ["new_spot"], spots: { new_spot: { title: "New spot", coords: [1, 2] } } });
+    const res = await regenerate("token-owner", "d1", { note: "  more food  " });
+    expect(res.status).toBe(200);
+    expect(seen).toMatchObject({ dayIndex: 0, note: "more food" });
+    const saved = db.rows("trips")[0].itinerary_data;
+    expect(saved.days[0]).toMatchObject({ title: "New day", markers: ["new_spot"], done: [] });
+    expect(saved.spots).toEqual({ new_spot: { title: "New spot", coords: [1, 2] } });
+    expect(res.body.days[0].title).toBe("New day");
+  });
+
+  test("only the organizer, only days on the trip", async () => {
+    mocks.regenerateDay = vi.fn();
+    expect((await regenerate("token-member")).status).toBe(403);
+    expect((await regenerate()).status).toBe(401);
+    expect((await regenerate("token-owner", "d99")).status).toBe(404);
+    expect(mocks.regenerateDay).not.toHaveBeenCalled();
+  });
+
+  test("a failed attempt leaves the trip as it was", async () => {
+    const before = structuredClone(db.rows("trips")[0].itinerary_data);
+    mocks.regenerateDay = async () => {
+      throw new Error("boom");
+    };
+    expect((await regenerate("token-owner")).status).toBe(502);
+    expect(db.rows("trips")[0].itinerary_data).toEqual(before);
+  });
+});
+
+describe("GET /api/places/search (issue #37)", () => {
+  test("signed-in travelers search near a city", async () => {
+    let args;
+    mocks.searchPlaces = async (...a) => ((args = a), [{ title: "Fushimi Inari", address: "Kyoto", coords: [34.9, 135.7] }]);
+    const res = await request(app).get("/api/places/search?q=fushimi&city=Kyoto&country=Japan").set(auth("token-owner"));
+    expect(res.body.places[0].title).toBe("Fushimi Inari");
+    expect(args.slice(0, 2)).toEqual(["fushimi", { city: "Kyoto", country: "Japan" }]);
+  });
+
+  test("needs an account, and ignores one-letter searches", async () => {
+    expect((await request(app).get("/api/places/search?q=fushimi")).status).toBe(401);
+    expect((await request(app).get("/api/places/search?q=f").set(auth("token-owner"))).body).toEqual({ places: [] });
   });
 });
