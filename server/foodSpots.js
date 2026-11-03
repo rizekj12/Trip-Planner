@@ -77,8 +77,21 @@ async function generateFoodSpots({ city, country, count, exclude, apiKey, signal
 // Next batch for one city (12 the first time, then 10 more), with map coordinates from
 // Geoapify for any spot not looked up yet. Returns the city's full list.
 // `traveler` ({ needs }) keeps the list to places that suit the traveler's dietary needs.
-// `usage` (server/usage.js) collects the call's token usage.
-export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal, traveler, usage }) {
+// `usage` (server/usage.js) collects the call's token usage. `cache`
+// (server/foodSpotCache.js): a first batch is reused from another trip to the same place when
+// there's a recent one, and shared after it's made. Later batches ("load more") exclude what
+// this trip already has, so they're always asked for.
+export async function addFoodSpots({ city, country, existing = [], anthropicKey, geoapifyKey, signal, traveler, usage, cache }) {
+  const place = { country, city, traveler };
+  const firstBatch = !existing.length;
+  if (firstBatch && cache) {
+    const shared = await cache.get(place).catch(() => null);
+    if (shared) {
+      logger.info({ city, country, spots: shared.length }, "Food spots reused from another trip");
+      return shared;
+    }
+  }
+
   const spots = await generateFoodSpots({
     usage,
     city,
@@ -89,7 +102,9 @@ export async function addFoodSpots({ city, country, existing = [], anthropicKey,
     signal,
     traveler,
   });
-  return locatePlaces([...existing, ...spots], { city, country }, geoapifyKey);
+  const located = await locatePlaces([...existing, ...spots], { city, country }, geoapifyKey);
+  if (firstBatch && cache) await cache.put(place, located).catch(() => {});
+  return located;
 }
 
 // First batch for every city in a trip, run in parallel. Never throws: a city that fails

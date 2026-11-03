@@ -26,7 +26,8 @@ const UNSTARTED_AFTER_MS = 15 * 60 * 1000;
 const TIMEOUT_MESSAGE = "Generating this itinerary took too long. Please try again.";
 const LOST_MESSAGE = "The server restarted while generating this itinerary. Please try again.";
 
-export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, geoapifyKey, ticketmasterKey, guards, notifier }) {
+// `foodSpotCache` (server/foodSpotCache.js) shares food spots between trips to the same city
+export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, geoapifyKey, ticketmasterKey, guards, notifier, foodSpotCache }) {
   const admin = serviceKey
     ? createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     : null;
@@ -107,7 +108,7 @@ export function createGenerationJobs({ supabaseUrl, serviceKey, anthropicKey, ge
       // Local events come from Ticketmaster, not the model (server/events.js, issue #36)
       const [itinerary, foodSpots, homebases, localEvents] = await Promise.all([
         generateItinerary(formData, anthropicKey, { signal, traveler, geoapifyKey, tripId, usage }),
-        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler, usage }),
+        foodSpotsForTrip(formData, { anthropicKey, geoapifyKey, signal, traveler, usage, cache: foodSpotCache }),
         homebasesForTrip(formData, geoapifyKey),
         eventsForTrip(formData, { ticketmasterKey, geoapifyKey, anthropicKey, signal, usage }),
       ]);
