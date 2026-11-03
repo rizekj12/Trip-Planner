@@ -23,6 +23,7 @@ import { createGenerationJobs } from "./generationJobs.js";
 import { updateTrip, loadFoodSpots, saveFoodSpots } from "./tripData.js";
 import { toTrip } from "../shared/tripRow.js";
 import { createUsageTracker } from "./usage.js";
+import { createFoodSpotCache } from "./foodSpotCache.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -69,6 +70,9 @@ const notifier = createNotifier({ supabaseUrl: SUPABASE_URL, serviceKey: process
 
 // Itinerary generation runs as a job that survives restarts; the sweeper picks up jobs a
 // previous server left unfinished
+// Food spots shared between trips to the same city (same dietary needs), for 30 days
+const foodSpotCache = createFoodSpotCache({ supabaseUrl: SUPABASE_URL, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY });
+
 const generationJobs = createGenerationJobs({
   supabaseUrl: SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -77,6 +81,7 @@ const generationJobs = createGenerationJobs({
   ticketmasterKey: process.env.TICKETMASTER_API_KEY,
   guards,
   notifier,
+  foodSpotCache,
 });
 // Not in tests, which import the app without starting background work
 if (!process.env.VITEST) generationJobs.startSweeper();
@@ -318,6 +323,7 @@ app.post("/api/food-spots", async (req, res) => {
             // Only the owner gets here, so these are their own dietary needs
             traveler: await travelerNeeds(supabase, user.id),
             usage,
+            cache: foodSpotCache,
           }),
       // undefined = lookup failed, try again next time; null = nothing to pin
       city in homebases ? homebases[city] : locateHomebase(cityForm, geoapifyKey, { country: data._form_data.country }).catch(() => undefined),
@@ -400,7 +406,7 @@ async function fillMissingFoodSpots(supabase, trip) {
       .map(async (c) => {
         const [spots, homebase] = await Promise.all([
           ANTHROPIC_API_KEY && !trip.foodSpots[c.name]?.length
-            ? addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey, usage }).catch((err) => {
+            ? addFoodSpots({ city: c.name, country: form.country, anthropicKey: ANTHROPIC_API_KEY, geoapifyKey, usage, cache: foodSpotCache }).catch((err) => {
                 logger.error({ err, city: c.name }, "Food spots failed");
                 return undefined;
               })
