@@ -180,3 +180,24 @@ export async function staticMapImage(markers, apiKey, { width = 800, height = 42
     return null;
   }
 }
+
+// Places matching what a traveler typed, near a city, for adding a stop to their itinerary
+// (issue #37): up to `limit` of { title, address, coords }. Countries, regions and whole cities
+// are left out; venues, buildings, streets and neighborhoods are kept. Throws on a network error.
+const NOT_A_STOP = new Set(["country", "state", "county", "city", "postcode"]);
+export async function searchPlaces(query, { city, country }, apiKey, { limit = 6 } = {}) {
+  const center = city ? await geocodeCity(city, country, apiKey) : null;
+  const near = center && `${center.lon},${center.lat}`;
+  const text = [query, city, country].filter(Boolean).join(", ");
+  const url =
+    `${GEOCODE_URL}?text=${encodeURIComponent(text)}&format=json&limit=${limit + 4}` +
+    (near ? `&filter=circle:${near},${SEARCH_RADIUS_M}&bias=proximity:${near}` : "") +
+    `&apiKey=${apiKey}`;
+  const data = await rateLimitedFetchJson(url);
+  const seen = new Set();
+  return (data.results || [])
+    .filter((r) => !NOT_A_STOP.has(r.result_type) && Number.isFinite(r.lat) && Number.isFinite(r.lon))
+    .map((r) => ({ title: r.name || r.address_line1 || r.formatted, address: r.formatted || "", coords: [r.lat, r.lon] }))
+    .filter((p) => p.title && !seen.has(`${p.title}|${p.address}`) && seen.add(`${p.title}|${p.address}`))
+    .slice(0, limit);
+}

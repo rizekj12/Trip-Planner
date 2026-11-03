@@ -123,5 +123,18 @@ export const updateMyReservation = (who, id, details) =>
 export const deleteMyReservation = (who, id) =>
   apiJson("DELETE", `${myReservationsPath(who)}/${id}`, null, asTraveler(who));
 
+// ---- Editing an itinerary (issue #37) ----
+
+// Places near a city to add as a stop: [{ title, address, coords }]
+export const searchPlaces = async (q, { city, country }) => {
+  const params = new URLSearchParams({ q, city: city || "", country: country || "" });
+  return (await apiJson("GET", `/api/places/search?${params}`, null, { auth: true })).places || [];
+};
+
+// A new plan for one day (organizer only), with an optional note; resolves with the trip's
+// new { days, spots }
+export const regenerateTripDay = (tripId, dayKey, note) =>
+  apiJson("POST", `/api/trips/${tripId}/days/${encodeURIComponent(dayKey)}/regenerate`, { note }, { auth: true });
+
 // Signed-in GET to our API (hotel search, address checks), parsed as JSON
 export const apiGet = (path) => apiJson("GET", path, null, { auth: true });

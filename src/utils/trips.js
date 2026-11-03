@@ -166,6 +166,19 @@ export async function updateTripFormData(id, update) {
   return fetchTrip(id);
 }
 
+// Applies an itinerary edit (`edit(itinerary) => itinerary`, from shared/itineraryEdits.js) to
+// one of the user's own trips, on top of the latest saved version. Resolves with the saved
+// { days, spots }. Organizer only.
+export async function editItinerary(id, edit) {
+  const saved = await patchTrip(id, {
+    patch: (current) => {
+      const { days, spots } = edit(current);
+      return { days, spots };
+    },
+  });
+  return { days: saved.days, spots: saved.spots };
+}
+
 // Remembered so the dashboard's "Before you go" checklist can tick it off
 export function markPdfDownloaded(id) {
   return patchTrip(id, { columns: { pdf_downloaded_at: new Date().toISOString() } });
@@ -206,7 +219,7 @@ async function patchTrip(id, { columns = {}, patch }) {
       .eq("revision", revision)
       .select("id");
     if (error) throw error;
-    if (data?.length) return;
+    if (data?.length) return merged;
     // Someone else saved the trip in between: go again on top of their change
   }
   throw new Error("This trip kept changing while saving. Please try again.");
