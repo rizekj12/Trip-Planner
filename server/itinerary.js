@@ -7,6 +7,7 @@ import { z } from "zod";
 import { tripLengthDays } from "../shared/tripLength.js";
 import { needsForPrompt } from "../shared/accessibility.js";
 import { normalizePreferences, preferenceLines } from "../shared/tripPreferences.js";
+import { searchLinks } from "../shared/itineraryEdits.js";
 import { logger } from "./logger.js";
 import { UserFacingError } from "./errors.js";
 import { verifyStops } from "./verifyStops.js";
@@ -204,14 +205,6 @@ ITINERARY REQUIREMENTS:
       : ""
   }`;
 }
-
-// Search links, built here rather than asked of Claude (model-written URLs are often wrong).
-// `booking` (a search for tickets and reservations) only when the traveler asked for it.
-const searchLinks = (title, city, { booking = false } = {}) => ({
-  youtube: `https://youtube.com/search?q=${encodeURIComponent(title)}`,
-  maps: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`,
-  ...(booking && { booking: `https://www.google.com/search?q=${encodeURIComponent(`${title} ${city || ""} tickets reservations`.trim())}` }),
-});
 
 // Claude's validated reply in the shape the app stores: days with markers, and spots as a map
 // with [lat, lon] coords. Stops that name a missing spot are dropped, as are days beyond the

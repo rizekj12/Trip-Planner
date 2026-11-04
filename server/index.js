@@ -10,7 +10,7 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { tripLengthDays, isAllowedTripLength, MAX_TRIP_DAYS } from "../shared/tripLength.js";
 import { addFoodSpots } from "./foodSpots.js";
-import { geocodeCity, locateHomebase } from "./geoapify.js";
+import { geocodeCity, locateHomebase, searchPlaces } from "./geoapify.js";
 import { buildTripPdf } from "./pdf.js";
 import { registerCrewRoutes, withoutPrivateDetails } from "./crew.js";
 import { registerMemberReservationRoutes } from "./memberReservations.js";
@@ -24,6 +24,8 @@ import { updateTrip, loadFoodSpots, saveFoodSpots } from "./tripData.js";
 import { toTrip } from "../shared/tripRow.js";
 import { createUsageTracker } from "./usage.js";
 import { createFoodSpotCache } from "./foodSpotCache.js";
+import { regenerateDay, MAX_NOTE } from "./regenerateDay.js";
+import { replaceDay } from "../shared/itineraryEdits.js";
 import { travelerNeeds } from "./travelerProfile.js";
 import { eventsForTrip } from "./events.js";
 import { logger } from "./logger.js";
@@ -58,12 +60,13 @@ const guards = createGuards({
 });
 app.use("/api", guards.identify, guards.limits.api);
 app.use(["/api/generate-itinerary", "/api/food-spots", "/api/trip-pdf"], guards.limits.ai);
+app.post("/api/trips/:tripId/days/:dayKey/regenerate", guards.limits.ai);
 app.use(["/api/invites", "/api/guest"], guards.limits.public);
 // Joining (or asking to join) a trip gets a tighter per-IP limit, on top of crew.js's per-trip one
 app.post("/api/invites/:token/join", guards.limits.join);
 // Geoapify lookups are only used from the signed-in questionnaire; without this, anyone
 // could use the server as a free proxy and exhaust the quota
-app.use(["/api/search-hotels", "/api/validate-address"], guards.requireUser, guards.limits.geo);
+app.use(["/api/search-hotels", "/api/validate-address", "/api/places/search"], guards.requireUser, guards.limits.geo);
 
 // In-app notifications (join requests, approvals, itinerary ready/failed)
 const notifier = createNotifier({ supabaseUrl: SUPABASE_URL, serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY });
@@ -428,6 +431,64 @@ async function fillMissingFoodSpots(supabase, trip) {
     );
   }
 }
+
+// Places to add as a stop to an itinerary (issue #37), searched near one of the trip's cities:
+// { places: [{ title, address, coords }] }
+app.get("/api/places/search", async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 100);
+  const city = String(req.query.city || "").trim().slice(0, 100);
+  const country = String(req.query.country || "").trim().slice(0, 100);
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: "Place search isn't set up on the server" });
+  if (q.length < 2) return res.json({ places: [] });
+  try {
+    res.json({ places: await searchPlaces(q, { city, country }, apiKey) });
+  } catch (err) {
+    logger.error({ err }, "Place search failed");
+    res.status(502).json({ error: "Place search isn't available right now. Please try again." });
+  }
+});
+
+// "Regenerate this day" (issue #37): a new plan for one day, with an optional note, saved on
+// the trip. Owner only, since it spends a Claude call. Replies with the trip's new { days, spots }.
+app.post("/api/trips/:tripId/days/:dayKey/regenerate", async (req, res) => {
+  const token = req.headers.authorization?.replace(/^Bearer /, "");
+  const configError = checkAiConfig();
+  if (configError) return res.status(500).json({ error: configError });
+  if (!token) return res.status(401).json({ error: "Please sign in" });
+  const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, MAX_NOTE) : "";
+
+  const supabase = supabaseAsUser(token);
+  const { data: { user } = {} } = await supabase.auth.getUser(token);
+  const { data: row } = await supabase.from("trips").select("id, user_id, status, itinerary_data").eq("id", req.params.tripId).maybeSingle();
+  const trip = toTrip(row);
+  const formData = trip?.itinerary_data?._form_data;
+  if (!formData || !trip.itinerary_data.days?.length) return res.status(404).json({ error: "Trip not found" });
+  if (!user || trip.user_id !== user.id) return res.status(403).json({ error: "Only the trip's organizer can change its itinerary" });
+  const dayIndex = trip.itinerary_data.days.findIndex((d) => d.key === req.params.dayKey);
+  if (dayIndex === -1) return res.status(404).json({ error: "That day isn't part of this trip" });
+
+  const usage = createUsageTracker();
+  try {
+    const plan = await regenerateDay(
+      { formData, itinerary: trip.itinerary_data, dayIndex, note, traveler: await travelerNeeds(supabase, user.id) },
+      { anthropicKey: ANTHROPIC_API_KEY, geoapifyKey: process.env.GEOAPIFY_API_KEY, tripId: trip.id, usage }
+    );
+    // Applied to the latest saved copy, so edits made meanwhile to other days are kept
+    const saved = await updateTrip(supabase, trip.id, {
+      patch: (current) => {
+        const { days, spots } = replaceDay(current, req.params.dayKey, plan, plan.spots);
+        return { days, spots };
+      },
+    });
+    res.json({ days: saved.days, spots: saved.spots });
+  } catch (err) {
+    logger.error({ err, tripId: trip.id }, "Regenerating a day failed");
+    res.status(502).json({ error: publicMessage(err, "Couldn't re-plan this day. Please try again.") });
+  } finally {
+    logAiCost(trip.id, "regenerate day", usage);
+  }
+});
 
 // Hotel search endpoint
 app.get("/api/search-hotels", async (req, res) => {

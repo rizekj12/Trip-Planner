@@ -4,7 +4,13 @@ import { describe, test, expect, vi, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 
-vi.mock("../../hooks/useTrips", () => ({ useDownloadPdf: () => ({ mutate: vi.fn(), isPending: false }), useTrip: vi.fn(), useStartGeneration: vi.fn() }));
+vi.mock("../../hooks/useTrips", () => ({
+  useDownloadPdf: () => ({ mutate: vi.fn(), isPending: false }),
+  useTrip: vi.fn(),
+  useStartGeneration: vi.fn(),
+  useEditItinerary: () => ({ mutate: vi.fn(), isError: false }),
+  useRegenerateDay: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+}));
 const auth = vi.hoisted(() => ({ user: { id: "me" } }));
 vi.mock("../../context/AuthContext", () => ({ useAuth: () => auth }));
 vi.mock("../../components/DayMap", () => ({ default: ({ items }) => <div data-testid="map">{items.length} pins</div> }));
