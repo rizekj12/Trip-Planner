@@ -7,6 +7,12 @@ describe("needsForPrompt", () => {
     expect(needsForPrompt({ needs: [], notes: "  " })).toBe("");
   });
 
+  it("is empty for a user with no profile row (null), issue #106", () => {
+    expect(needsForPrompt(null)).toBe("");
+    expect(needsForPrompt(null, { dietaryOnly: true })).toBe("");
+    expect(needsForPrompt({ needs: null, notes: null })).toBe("");
+  });
+
   it("lists known needs and the notes", () => {
     expect(needsForPrompt({ needs: ["Limited walking", "Vegan"], notes: "Breaks often" })).toBe(
       '- Needs: Limited walking, Vegan\n- In their words: "Breaks often"'
