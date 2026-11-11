@@ -8,6 +8,10 @@ import { formData, SECRETS } from "./test/fixtures.js";
 const reply = (text, stop_reason = "end_turn") => ({ content: [{ type: "text", text }], stop_reason });
 
 describe("buildPrompt", () => {
+  test("builds for a traveler with no profile row (null), issue #106", () => {
+    expect(() => buildPrompt(formData(), null)).not.toThrow();
+  });
+
   test("never includes confirmation codes, flight numbers or notes", () => {
     const prompt = buildPrompt(formData());
     for (const secret of SECRETS) expect(prompt).not.toContain(secret);

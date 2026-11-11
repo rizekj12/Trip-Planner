@@ -16,8 +16,10 @@ export const DIETARY_NEEDS = ["Gluten-free", "Vegetarian", "Vegan", "Nut allergy
 export const ACCESSIBILITY_OPTIONS = [...MOBILITY_AND_ACCESS_NEEDS, ...DIETARY_NEEDS];
 
 // Lines for a prompt describing the traveler's needs ("" when there are none). Only known
-// options are included; the free-text notes are trimmed and capped.
-export function needsForPrompt({ needs = [], notes = "" } = {}, { dietaryOnly = false } = {}) {
+// options are included; the free-text notes are trimmed and capped. `traveler` is null for a
+// user with no profiles row (they never saved the profile page), which means no needs (issue #106).
+export function needsForPrompt(traveler, { dietaryOnly = false } = {}) {
+  const { needs = [], notes = "" } = traveler || {};
   const known = (needs || []).filter((n) =>
     (dietaryOnly ? DIETARY_NEEDS : ACCESSIBILITY_OPTIONS).includes(n)
   );
