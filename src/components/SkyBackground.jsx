@@ -10,12 +10,12 @@ export default function SkyBackground() {
           inset: 0;
           background: linear-gradient(
             to bottom,
-            #0f2b5b 0%,
-            #1a4a8a 25%,
-            #2e6dbf 50%,
-            #5b9bd5 70%,
-            #a8c8e8 85%,
-            #ddeeff 100%
+            #1e1160 0%,
+            #361eae 25%,
+            #4f2cff 50%,
+            #a855ff 70%,
+            #ff8fa6 85%,
+            #ffcb81 100%
           );
         }
 

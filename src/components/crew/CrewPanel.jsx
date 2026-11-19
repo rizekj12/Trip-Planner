@@ -9,7 +9,7 @@ import { theme } from "../../utils/theme";
 
 const ROLE_LABEL = { owner: "Organizer", member: "Member", guest: "Guest" };
 const ROLE_STYLE = {
-  owner: "bg-violet-100 text-violet-800",
+  owner: "bg-orchid-100 text-orchid-800",
   member: "bg-emerald-100 text-emerald-800",
   guest: "bg-gray-100 text-gray-700",
 };
@@ -51,7 +51,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
         {isOwner && (
           <button
             onClick={() => setInviteOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-orchid-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-orchid-700"
           >
             <UserPlus size={16} />
             Invite travel partner
@@ -67,14 +67,14 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
       {crew.isError && <p className="py-6 text-center text-sm text-red-600">{crew.error.message}</p>}
 
       {isOwner && pending.length > 0 && (
-        <div className="mb-5 rounded-xl border-2 border-amber-200 bg-amber-50 p-3">
-          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-amber-900">
+        <div className="mb-5 rounded-xl border-2 border-mango-200 bg-mango-50 p-3">
+          <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-mango-900">
             <Hourglass size={15} />
             Waiting for your approval
           </h3>
           <ul className="space-y-2">
             {pending.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-white p-3">
+              <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-white/60 p-3">
                 <CrewAvatar person={p} size="h-10 w-10" textSize="text-sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold text-gray-900">{p.name}</span>
@@ -88,7 +88,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
                     onClick={() => answer.mutate({ tripId, memberId: p.id, decision: "approve" })}
                     disabled={answer.isPending || spotsLeft === 0}
                     title={spotsLeft === 0 ? "The trip is full" : undefined}
-                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-orchid-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orchid-700 disabled:opacity-50"
                   >
                     <Check size={13} />
                     Approve
@@ -128,7 +128,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
                   <button
                     onClick={() => !saved && saveTraveler.mutate({ tripId, memberId: p.id })}
                     disabled={saved || saveTraveler.isPending}
-                    className={`rounded-lg p-1.5 ${saved ? "text-violet-600" : "text-gray-400 hover:bg-violet-50 hover:text-violet-700"}`}
+                    className={`rounded-lg p-1.5 ${saved ? "text-orchid-600" : "text-gray-400 hover:bg-orchid-50 hover:text-orchid-700"}`}
                     aria-label={saved ? `${p.name} is in your saved travelers` : `Save ${p.name} to your travelers`}
                     title={saved ? "In your saved travelers" : "Save to my travelers"}
                   >
@@ -159,7 +159,7 @@ export default function CrewPanel({ tripId, destination, crew: given }) {
               </div>
               {/* Shared by the member for this trip (organizer only, around the trip dates) */}
               {p.emergency && (
-                <div className="ml-14 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-900">
+                <div className="ml-14 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-coral-50 px-3 py-2 text-xs text-coral-900">
                   <Phone size={13} aria-hidden="true" />
                   <span className="font-semibold">Emergency contact:</span>
                   <span>

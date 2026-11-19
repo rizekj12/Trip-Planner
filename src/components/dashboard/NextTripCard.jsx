@@ -20,10 +20,10 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwne
   const items = beforeYouGo(entry, { isOwner });
 
   return (
-    <section className="flex flex-wrap overflow-hidden rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+    <section className="flex flex-wrap glass overflow-hidden rounded-3xl shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
       <div className="relative min-h-[220px] flex-[1_1_320px] bg-slate-200">
         <TripThumb country={trip.destination} className="absolute inset-0 h-full w-full" flagSize="text-7xl" />
-        <span className="absolute left-3.5 top-3.5 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider text-[#0f2b5b]">
+        <span className="absolute left-3.5 top-3.5 rounded-full bg-white px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider text-brand-700">
           {count.mode === "during" ? "On your trip" : "Next trip"}
         </span>
       </div>
@@ -33,9 +33,9 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwne
           {/* Progress ring with the countdown */}
           <div className="relative h-28 w-28 flex-none">
             <svg width="112" height="112" viewBox="0 0 112 112" aria-hidden="true">
-              <circle cx="56" cy="56" r="48" fill="none" stroke="#ede9fe" strokeWidth="10" />
+              <circle cx="56" cy="56" r="48" fill="none" stroke="#e6e1ff" strokeWidth="10" />
               <circle
-                cx="56" cy="56" r="48" fill="none" stroke="#7c3aed" strokeWidth="10" strokeLinecap="round"
+                cx="56" cy="56" r="48" fill="none" stroke="#4f2cff" strokeWidth="10" strokeLinecap="round"
                 strokeDasharray={RING} strokeDashoffset={RING * (1 - progress)} transform="rotate(-90 56 56)"
               />
             </svg>
@@ -97,7 +97,7 @@ export default function NextTripCard({ entry, onDownloadPdf, downloading, isOwne
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-2.5">
-          <Link to={`/trip/${trip.id}`} className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-violet-700">
+          <Link to={`/trip/${trip.id}`} className="rounded-xl bg-orchid-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-orchid-700">
             Open itinerary
           </Link>
           {status === "ready" && (

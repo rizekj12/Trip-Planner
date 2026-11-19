@@ -10,11 +10,11 @@ export default function DayStrip({ days, index, onSelect }) {
   }, [index]);
 
   const arrow =
-    "flex h-11 w-11 flex-none items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-800 transition hover:border-violet-300 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-35";
+    "flex h-11 w-11 flex-none items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-800 transition hover:border-orchid-300 hover:text-orchid-800 disabled:cursor-not-allowed disabled:opacity-35";
 
   return (
-    <div className="sticky top-0 z-30 bg-[#eef2f8]/95 py-2 backdrop-blur sm:py-3">
-      <nav aria-label="Days" className="flex items-center gap-2 rounded-2xl bg-white p-2 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:gap-3 sm:rounded-3xl sm:p-3">
+    <div className="sticky top-0 z-30 bg-cream/85 py-2 backdrop-blur sm:py-3">
+      <nav aria-label="Days" className="flex items-center gap-2 glass rounded-2xl p-2 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:gap-3 sm:rounded-3xl sm:p-3">
         <button onClick={() => onSelect(index - 1)} disabled={index === 0} className={arrow} aria-label="Previous day">
           <ChevronLeft size={20} strokeWidth={2.5} />
         </button>
@@ -29,7 +29,7 @@ export default function DayStrip({ days, index, onSelect }) {
                 aria-current={on ? "step" : undefined}
                 aria-label={`Day ${d.n}${d.longDate ? `, ${d.longDate}` : ""}${d.city ? `, ${d.city}` : ""}`}
                 className={`min-w-[88px] flex-none snap-center rounded-xl border-2 px-3 py-2 text-left transition sm:min-w-[108px] sm:rounded-2xl ${
-                  on ? "border-[#0f2b5b] bg-[#0f2b5b] text-white" : "border-slate-200 bg-white text-slate-900 hover:border-violet-300"
+                  on ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-slate-900 hover:border-orchid-300"
                 }`}
               >
                 <span className={`block text-[11px] font-extrabold uppercase tracking-wider ${on ? "text-slate-300" : "text-slate-500"}`}>

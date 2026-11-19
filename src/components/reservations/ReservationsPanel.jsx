@@ -35,7 +35,7 @@ function CodeChip({ code }) {
   return (
     <button
       onClick={copy}
-      className="mt-2 inline-flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-1.5 font-mono text-base font-semibold tracking-wider text-indigo-800 hover:bg-indigo-100 transition"
+      className="mt-2 inline-flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-base font-semibold tracking-wider text-brand-800 hover:bg-brand-100 transition"
       title="Copy confirmation code"
     >
       {code.toUpperCase()}
@@ -47,7 +47,7 @@ function CodeChip({ code }) {
 function ReservationCard({ icon: Icon, title, badge, lines, code, emptyCodeHint, onEdit }) {
   return (
     <div className={`flex gap-3 rounded-xl p-4 ${theme.sub}`}>
-      <div className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+      <div className="mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-100 text-brand-700">
         <Icon size={18} />
       </div>
       <div className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ function ReservationCard({ icon: Icon, title, badge, lines, code, emptyCodeHint,
           </div>
           <button
             onClick={onEdit}
-            className="inline-flex flex-none items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 hover:bg-white hover:text-indigo-700 transition"
+            className="inline-flex flex-none items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-gray-500 hover:bg-white hover:text-brand-700 transition"
           >
             <Pencil size={13} />
             Edit
@@ -70,7 +70,7 @@ function ReservationCard({ icon: Icon, title, badge, lines, code, emptyCodeHint,
         {code ? (
           <CodeChip code={code} />
         ) : (
-          <button onClick={onEdit} className="mt-2 text-sm font-medium text-indigo-600 hover:underline">
+          <button onClick={onEdit} className="mt-2 text-sm font-medium text-brand-600 hover:underline">
             {emptyCodeHint}
           </button>
         )}
@@ -132,7 +132,7 @@ export function ReservationsView({ flights, hotels, save, saveChange, deleteChan
       </div>
 
       {notice && (
-        <div className="mb-6 flex items-start gap-2 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+        <div className="mb-6 flex items-start gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900">
           <Lock size={16} className="mt-0.5 flex-none" />
           <p>{notice}</p>
         </div>
@@ -150,7 +150,7 @@ export function ReservationsView({ flights, hotels, save, saveChange, deleteChan
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Flights</h3>
           <button
             onClick={() => setEditing({ kind: "flight", value: { ...BLANK_FLIGHT }, isNew: true })}
-            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition"
+            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 transition"
           >
             <Plus size={15} />
             Add flight
@@ -187,7 +187,7 @@ export function ReservationsView({ flights, hotels, save, saveChange, deleteChan
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Hotels</h3>
           <button
             onClick={() => setEditing({ kind: "hotel", value: { ...BLANK_HOTEL, source: "manual" }, isNew: true })}
-            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition"
+            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 transition"
           >
             <Plus size={15} />
             Add hotel
@@ -263,7 +263,7 @@ export function ReservationsView({ flights, hotels, save, saveChange, deleteChan
                 <button
                   onClick={onSave}
                   disabled={save.isPending || !canSave}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50 transition"
                 >
                   {save.isPending && <Loader2 size={15} className="animate-spin" />}
                   Save

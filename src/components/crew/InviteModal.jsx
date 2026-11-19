@@ -44,7 +44,7 @@ export default function InviteModal({ open, onClose, tripId, destination }) {
   return (
     <Modal open={open} onClose={onClose} className="max-w-md p-6">
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-100 text-violet-700">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-orchid-100 text-orchid-700">
           <UserPlus size={22} />
         </span>
         <div>
@@ -71,7 +71,7 @@ export default function InviteModal({ open, onClose, tripId, destination }) {
           <button
             onClick={copy}
             disabled={!url}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-orchid-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orchid-700 disabled:opacity-50"
           >
             {copied ? <Check size={15} /> : <Copy size={15} />}
             {copied ? "Copied" : "Copy"}
@@ -93,11 +93,11 @@ export default function InviteModal({ open, onClose, tripId, destination }) {
           checked={settings?.requireApproval ?? true}
           disabled={!settings || link.isPending}
           onChange={(e) => link.mutate({ requireApproval: e.target.checked })}
-          className="mt-0.5 h-4 w-4 accent-violet-600"
+          className="mt-0.5 h-4 w-4 accent-orchid-600"
         />
         <span className="text-sm">
           <span className="flex items-center gap-1.5 font-semibold text-gray-900">
-            <ShieldCheck size={15} className="text-violet-600" />
+            <ShieldCheck size={15} className="text-orchid-600" />
             Approve new travelers
           </span>
           <span className="block text-xs text-gray-500">
@@ -117,12 +117,12 @@ export default function InviteModal({ open, onClose, tripId, destination }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="friend@example.com"
-            className="min-w-0 flex-1 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm focus:border-orchid-500 focus:outline-none"
           />
           <a
             href={url ? emailHref : undefined}
             aria-disabled={!url}
-            className={`inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:border-violet-300 hover:text-violet-700 ${url ? "" : "pointer-events-none opacity-50"}`}
+            className={`inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:border-orchid-300 hover:text-orchid-700 ${url ? "" : "pointer-events-none opacity-50"}`}
           >
             <Mail size={15} />
             Email
@@ -146,7 +146,7 @@ export default function InviteModal({ open, onClose, tripId, destination }) {
             <button
               onClick={share}
               disabled={!url}
-              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:border-violet-300 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border-2 border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:border-orchid-300 disabled:opacity-50"
             >
               <Share2 size={15} />
               Share

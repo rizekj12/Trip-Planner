@@ -3,5 +3,13 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+body { background-color: #fdf4e1; }
+
+@layer components {
+  /* Frosted-glass surfaces on the cream background: cards use .glass, things that sit on top
+     of other content (headers, menus, pop-ups) use the more opaque .glass-strong */
+  .glass { @apply bg-white/[0.78] backdrop-blur-xl backdrop-saturate-150 ring-1 ring-inset ring-white/60; }
+  .glass-strong { @apply bg-white/[0.88] backdrop-blur-xl backdrop-saturate-150 ring-1 ring-inset ring-white/70; }
+}
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

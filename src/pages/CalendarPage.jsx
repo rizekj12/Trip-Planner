@@ -21,17 +21,17 @@ const SHORT_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 // Solid colors for trip bars, picked per trip so each keeps its color across months
 const BAR_COLORS = [
-  "bg-indigo-600", "bg-pink-600", "bg-emerald-600", "bg-orange-600",
-  "bg-cyan-700", "bg-violet-600", "bg-lime-700", "bg-rose-600",
+  "bg-brand-600", "bg-coral-600", "bg-emerald-600", "bg-mango-600",
+  "bg-aqua-700", "bg-orchid-600", "bg-lime-700", "bg-coral-600",
 ];
 const colorFor = (id) => BAR_COLORS[[...String(id)].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % BAR_COLORS.length];
 
 const LANE_HEIGHT = 24; // px per stacked trip bar
-const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] sm:p-6";
+const card = "glass rounded-3xl p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] sm:p-6";
 const iconButton =
-  "inline-flex h-10 w-10 items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-700 transition hover:border-violet-300 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-10 w-10 items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-slate-700 transition hover:border-orchid-300 hover:text-orchid-800 disabled:cursor-not-allowed disabled:opacity-40";
 const textButton =
-  "inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-violet-300 hover:text-violet-800 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-orchid-300 hover:text-orchid-800 disabled:cursor-not-allowed disabled:opacity-40";
 
 const monthKey = ({ year, month }) => `${year}-${String(month + 1).padStart(2, "0")}`;
 
@@ -118,7 +118,7 @@ export default function CalendarPage() {
   const openTrip = (t) => navigate(t.status === "draft" ? `/drafts/${t.id}` : `/trip/${t.id}`);
 
   return (
-    <div className="min-h-screen bg-[#eef2f8] pb-24 text-slate-900 sm:pb-10">
+    <div className="min-h-screen bg-cream pb-24 text-slate-900 sm:pb-10">
       <AppHeader />
 
       <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-6 px-4 py-7 sm:px-6">
@@ -131,7 +131,7 @@ export default function CalendarPage() {
             </div>
             <Link
               to="/new"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f2b5b] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#163a75]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
             >
               <Plus size={16} />
               New itinerary
@@ -182,11 +182,11 @@ export default function CalendarPage() {
                       aria-current={current ? "date" : undefined}
                       aria-label={`${label} ${shown.year}${hasTrip ? ", has trips" : ""}`}
                       className={`relative flex h-11 w-14 flex-col items-center justify-center rounded-xl text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                        current ? "bg-[#0f2b5b] text-white" : "bg-slate-50 text-slate-700 hover:bg-violet-50 hover:text-violet-800"
+                        current ? "bg-brand-600 text-white" : "bg-slate-50 text-slate-700 hover:bg-orchid-50 hover:text-orchid-800"
                       }`}
                     >
                       {label}
-                      <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${hasTrip ? (current ? "bg-pink-400" : "bg-violet-600") : "bg-transparent"}`} />
+                      <span className={`mt-0.5 h-1.5 w-1.5 rounded-full ${hasTrip ? (current ? "bg-coral-400" : "bg-orchid-600") : "bg-transparent"}`} />
                     </button>
                   );
                 })}
@@ -223,7 +223,7 @@ export default function CalendarPage() {
                             <span
                               className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${
                                 isToday
-                                  ? "bg-violet-700 font-extrabold text-white"
+                                  ? "bg-orchid-700 font-extrabold text-white"
                                   : inMonth
                                     ? "font-semibold text-slate-800"
                                     : "text-slate-400"
@@ -274,12 +274,12 @@ export default function CalendarPage() {
             {/* Legend */}
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-slate-600">
               <span className="flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-violet-700 text-[11px] font-bold text-white">{Number(today.slice(8))}</span>
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-orchid-700 text-[11px] font-bold text-white">{Number(today.slice(8))}</span>
                 Today
               </span>
-              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded bg-indigo-600" /> Trip</span>
-              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded bg-indigo-600 opacity-55" /> Past trip</span>
-              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded border-2 border-dashed border-indigo-400 bg-indigo-100" /> Draft</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded bg-brand-600" /> Trip</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded bg-brand-600 opacity-55" /> Past trip</span>
+              <span className="flex items-center gap-2"><span className="h-3 w-6 rounded border-2 border-dashed border-brand-400 bg-brand-100" /> Draft</span>
             </div>
           </section>
         </main>
@@ -289,7 +289,7 @@ export default function CalendarPage() {
           <section className={card}>
             <h2 className="flex items-center gap-2 text-base font-extrabold">
               In {SHORT_MONTHS[shown.month]} {shown.year}
-              <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm text-violet-800">{tripsThisMonth.length}</span>
+              <span className="rounded-full bg-orchid-100 px-2.5 py-0.5 text-sm text-orchid-800">{tripsThisMonth.length}</span>
             </h2>
             {isLoading ? (
               <div className="mt-3 space-y-2">
@@ -317,7 +317,7 @@ export default function CalendarPage() {
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
                             <span className="truncate font-extrabold">{getCountryFlagOnly(t.name)} {t.name}</span>
-                            {t.isShared && <span className="flex-none rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Shared</span>}
+                            {t.isShared && <span className="flex-none rounded-full bg-azure-100 px-2 py-0.5 text-[11px] font-bold text-azure-800">Shared</span>}
                           </span>
                           <span className="block truncate text-[13px] text-slate-600">
                             {[formatRange(t), t.cities.join(", ")].filter(Boolean).join(" · ")}
@@ -336,11 +336,11 @@ export default function CalendarPage() {
                 <CalendarDays className="mx-auto text-slate-300" size={28} aria-hidden="true" />
                 <p className="mt-2 text-sm font-bold text-slate-800">No trips this month</p>
                 {nextTrip ? (
-                  <button onClick={() => setShown(monthOf(nextTrip.start))} className="mt-1 text-sm font-bold text-violet-700 hover:underline">
+                  <button onClick={() => setShown(monthOf(nextTrip.start))} className="mt-1 text-sm font-bold text-orchid-700 hover:underline">
                     Jump to {nextTrip.name} ({formatRange(nextTrip)})
                   </button>
                 ) : (
-                  <Link to="/new" className="mt-1 inline-block text-sm font-bold text-violet-700 hover:underline">
+                  <Link to="/new" className="mt-1 inline-block text-sm font-bold text-orchid-700 hover:underline">
                     Plan a trip
                   </Link>
                 )}
@@ -358,7 +358,7 @@ export default function CalendarPage() {
                     <li key={t.id}>
                       <button
                         onClick={() => setShown(monthOf(t.start))}
-                        className="flex w-full items-center gap-3 rounded-xl border-2 border-slate-100 p-3 text-left transition hover:border-violet-200"
+                        className="flex w-full items-center gap-3 rounded-xl border-2 border-slate-100 p-3 text-left transition hover:border-orchid-200"
                         aria-label={`Show ${t.name} on the calendar`}
                       >
                         <span className={`h-9 w-1.5 flex-none rounded-full ${colorFor(t.id)}`} aria-hidden="true" />
@@ -377,7 +377,7 @@ export default function CalendarPage() {
             </section>
           )}
 
-          <section className="rounded-3xl bg-[#0f2b5b] p-5 text-white">
+          <section className="rounded-3xl bg-brand-600 p-5 text-white">
             <h2 className="text-base font-extrabold">{shown.year} at a glance</h2>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               {[
@@ -387,11 +387,11 @@ export default function CalendarPage() {
               ].map((i) => (
                 <div key={i.label} className="rounded-2xl bg-white/10 px-1 py-3">
                   <div className="text-2xl font-extrabold">{i.value}</div>
-                  <div className="text-xs text-slate-300">{i.label}</div>
+                  <div className="text-xs text-brand-100">{i.label}</div>
                 </div>
               ))}
             </div>
-            {year.trips === 0 && <p className="mt-3 text-xs text-slate-300">No trips in {shown.year} yet.</p>}
+            {year.trips === 0 && <p className="mt-3 text-xs text-brand-100">No trips in {shown.year} yet.</p>}
           </section>
         </aside>
       </div>

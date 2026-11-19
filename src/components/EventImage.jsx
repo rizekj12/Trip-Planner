@@ -3,15 +3,15 @@ import { Utensils, Music, Trophy, Palette, Martini, PartyPopper, ShoppingBag, Ca
 
 // Icon + gradient per event category, used when an event has no usable image
 const CATEGORY_STYLES = {
-  "Food & Drink": { icon: Utensils, gradient: "from-orange-400 to-rose-500" },
-  "Music & Dance": { icon: Music, gradient: "from-fuchsia-500 to-purple-600" },
-  "Sports & Recreation": { icon: Trophy, gradient: "from-emerald-400 to-teal-600" },
-  "Arts & Culture": { icon: Palette, gradient: "from-sky-400 to-indigo-600" },
-  "Nightlife": { icon: Martini, gradient: "from-violet-600 to-slate-900" },
-  "Festival": { icon: PartyPopper, gradient: "from-pink-500 to-orange-400" },
-  "Market": { icon: ShoppingBag, gradient: "from-amber-400 to-orange-600" },
+  "Food & Drink": { icon: Utensils, gradient: "from-mango-400 to-coral-500" },
+  "Music & Dance": { icon: Music, gradient: "from-coral-500 to-orchid-600" },
+  "Sports & Recreation": { icon: Trophy, gradient: "from-emerald-400 to-aqua-600" },
+  "Arts & Culture": { icon: Palette, gradient: "from-azure-400 to-brand-600" },
+  "Nightlife": { icon: Martini, gradient: "from-orchid-600 to-slate-900" },
+  "Festival": { icon: PartyPopper, gradient: "from-coral-500 to-mango-400" },
+  "Market": { icon: ShoppingBag, gradient: "from-mango-400 to-mango-600" },
 };
-const DEFAULT_STYLE = { icon: CalendarDays, gradient: "from-indigo-500 to-purple-600" };
+const DEFAULT_STYLE = { icon: CalendarDays, gradient: "from-brand-500 to-orchid-600" };
 
 // Placeholder services the AI used to fill in instead of real photos
 const PLACEHOLDER_HOSTS = /(^|\.)(placeholder\.com|placehold\.co|placehold\.it|dummyimage\.com)$/i;

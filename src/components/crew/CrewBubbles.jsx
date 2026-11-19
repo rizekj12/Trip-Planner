@@ -35,7 +35,7 @@ export default function CrewBubbles({ tripId, destination, tone = "dark", crew: 
             className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
               tone === "dark"
                 ? "bg-white/15 text-white ring-1 ring-white/30 hover:bg-white/25"
-                : "bg-violet-100 text-violet-700 hover:bg-violet-200"
+                : "bg-orchid-100 text-orchid-700 hover:bg-orchid-200"
             }`}
           >
             <UserPlus size={17} />
@@ -89,7 +89,7 @@ export default function CrewBubbles({ tripId, destination, tone = "dark", crew: 
         {isOwner && (
           <button
             onClick={() => { setListOpen(false); setInviteOpen(true); }}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-orchid-600 py-2.5 text-sm font-semibold text-white hover:bg-orchid-700"
           >
             <UserPlus size={16} />
             Invite travel partner

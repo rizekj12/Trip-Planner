@@ -24,10 +24,10 @@ function PreferenceCard({ title, Icon, stepId, rows, onEdit }) {
         <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
-                    <Icon className="text-indigo-600" size={20} />
+                    <Icon className="text-brand-600" size={20} />
                     <h3 className="font-semibold text-gray-900">{title}</h3>
                 </div>
-                <button onClick={() => onEdit(stepId)} className="min-h-[44px] -my-3 text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm">
+                <button onClick={() => onEdit(stepId)} className="min-h-[44px] -my-3 text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm">
                     <Edit2 size={16} />
                     Edit
                 </button>
@@ -73,12 +73,12 @@ export default function ReviewStep({ formData, steps = [], onEdit }) {
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <MapPin className="text-indigo-600" size={20} />
+                        <MapPin className="text-brand-600" size={20} />
                         <h3 className="font-semibold text-gray-900">Destination</h3>
                     </div>
                     <button
                         onClick={() => onEdit('where')}
-                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                        className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
                         Edit
@@ -91,12 +91,12 @@ export default function ReviewStep({ formData, steps = [], onEdit }) {
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <Calendar className="text-indigo-600" size={20} />
+                        <Calendar className="text-brand-600" size={20} />
                         <h3 className="font-semibold text-gray-900">Cities & Dates</h3>
                     </div>
                     <button
                         onClick={() => onEdit('where')}
-                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                        className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
                         Edit
@@ -119,12 +119,12 @@ export default function ReviewStep({ formData, steps = [], onEdit }) {
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <Plane className="text-indigo-600" size={20} />
+                        <Plane className="text-brand-600" size={20} />
                         <h3 className="font-semibold text-gray-900">Flights</h3>
                     </div>
                     <button
                         onClick={() => onEdit('flights')}
-                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                        className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
                         Edit
@@ -153,12 +153,12 @@ export default function ReviewStep({ formData, steps = [], onEdit }) {
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <Hotel className="text-indigo-600" size={20} />
+                        <Hotel className="text-brand-600" size={20} />
                         <h3 className="font-semibold text-gray-900">Accommodation</h3>
                     </div>
                     <button
                         onClick={() => onEdit('stay')}
-                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                        className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
                         Edit
@@ -201,12 +201,12 @@ export default function ReviewStep({ formData, steps = [], onEdit }) {
             <div className="border-2 border-gray-100 rounded-xl p-5 bg-gray-50">
                 <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <User className="text-indigo-600" size={20} />
+                        <User className="text-brand-600" size={20} />
                         <h3 className="font-semibold text-gray-900">Your Style</h3>
                     </div>
                     <button
                         onClick={() => onEdit('style')}
-                        className="text-indigo-600 hover:text-indigo-700 flex items-center gap-1 text-sm"
+                        className="text-brand-600 hover:text-brand-700 flex items-center gap-1 text-sm"
                     >
                         <Edit2 size={16} />
                         Edit

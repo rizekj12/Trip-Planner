@@ -28,7 +28,7 @@ export default function Modal({ open, onClose, children, className = "max-w-lg m
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             onClick={(e) => e.stopPropagation()}
-            className={`relative w-full rounded-2xl bg-white text-gray-900 shadow-2xl ${className}`}
+            className={`relative w-full glass-strong rounded-2xl text-gray-900 shadow-2xl ${className}`}
           >
             {children}
           </motion.div>

@@ -42,7 +42,7 @@ export default function GuestTripPage() {
 
   return (
     <>
-      <div className="bg-violet-700 px-4 py-2 text-center text-sm text-white">
+      <div className="bg-orchid-700 px-4 py-2 text-center text-sm text-white">
         Hi {guestName}! You're viewing this trip as a guest. Bookmark this page to come back to it.
       </div>
       <TripView

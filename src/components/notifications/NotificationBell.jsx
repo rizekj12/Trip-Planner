@@ -34,13 +34,13 @@ export default function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20 transition hover:bg-white/20"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
         aria-label={unread.length ? `Notifications, ${unread.length} unread` : "Notifications"}
         aria-expanded={open}
       >
         <Bell size={18} />
         {unread.length > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-pink-600 px-1 text-[11px] font-bold leading-none ring-2 ring-[#0f2b5b]">
+          <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-coral-600 px-1 text-[11px] font-bold leading-none text-white ring-2 ring-white">
             {unread.length > 9 ? "9+" : unread.length}
           </span>
         )}
@@ -48,13 +48,13 @@ export default function NotificationBell() {
 
       {open && (
         <div
-          className="absolute right-0 z-50 mt-2 w-[22rem] overflow-hidden rounded-2xl border border-gray-100 bg-white text-gray-900 shadow-2xl"
+          className="absolute right-0 z-50 mt-2 w-[22rem] overflow-hidden glass-strong rounded-2xl text-gray-900 shadow-2xl"
           style={{ maxWidth: "calc(100vw - 1.5rem)" }}
         >
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <h2 className="font-bold">Notifications</h2>
             {unread.length > 0 && (
-              <button onClick={() => markRead.mutate()} className="text-xs font-semibold text-violet-700 hover:underline">
+              <button onClick={() => markRead.mutate()} className="text-xs font-semibold text-orchid-700 hover:underline">
                 Mark all read
               </button>
             )}
@@ -81,7 +81,7 @@ export default function NotificationBell() {
           <Link
             to="/notifications"
             onClick={() => setOpen(false)}
-            className="block border-t border-gray-100 px-4 py-3 text-center text-sm font-semibold text-violet-700 hover:bg-violet-50"
+            className="block border-t border-gray-100 px-4 py-3 text-center text-sm font-semibold text-orchid-700 hover:bg-orchid-50"
           >
             View all notifications
           </Link>

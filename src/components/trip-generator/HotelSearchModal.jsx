@@ -15,17 +15,17 @@ function LetterFilter({ letter, onSelect }) {
             <button
                 type="button"
                 onClick={() => setOpen((o) => !o)}
-                className="h-full flex items-center gap-1 px-3 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:border-indigo-300 transition-colors"
+                className="h-full flex items-center gap-1 px-3 py-3 border-2 border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:border-brand-300 transition-colors"
             >
                 {letter || 'A-Z'}
                 <ChevronDown size={14} />
             </button>
 
             {open && (
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 grid grid-cols-6 gap-1">
+                <div className="absolute right-0 mt-1 w-56 glass-strong rounded-xl shadow-xl p-2 z-50 grid grid-cols-6 gap-1">
                     <button
                         onClick={() => { onSelect(null); setOpen(false); }}
-                        className={`col-span-6 text-left px-2 py-1.5 rounded-lg text-sm font-medium ${!letter ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                        className={`col-span-6 text-left px-2 py-1.5 rounded-lg text-sm font-medium ${!letter ? 'bg-brand-100 text-brand-700' : 'text-gray-600 hover:bg-gray-50'}`}
                     >
                         All letters
                     </button>
@@ -33,7 +33,7 @@ function LetterFilter({ letter, onSelect }) {
                         <button
                             key={l}
                             onClick={() => { onSelect(l); setOpen(false); }}
-                            className={`w-8 h-8 rounded-lg text-sm font-medium ${letter === l ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
+                            className={`w-8 h-8 rounded-lg text-sm font-medium ${letter === l ? 'bg-brand-100 text-brand-700' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             {l}
                         </button>
@@ -110,7 +110,7 @@ function HotelSearch({ city, country, onSelect, onClose }) {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Type a hotel name…"
-                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
+                        className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-lg focus:border-brand-500 focus:outline-none"
                     />
                 </div>
                 <LetterFilter letter={letter} onSelect={setLetter} />
@@ -150,9 +150,9 @@ function HotelSearch({ city, country, onSelect, onClose }) {
                     <button
                         key={`${hotel.name}-${i}`}
                         onClick={() => onSelect(hotel)}
-                        className="w-full text-left px-4 py-3 border-2 border-gray-100 rounded-xl hover:border-indigo-300 hover:bg-indigo-50/50 transition-colors flex items-start gap-3"
+                        className="w-full text-left px-4 py-3 border-2 border-gray-100 rounded-xl hover:border-brand-300 hover:bg-brand-50/50 transition-colors flex items-start gap-3"
                     >
-                        <MapPin className="text-indigo-500 flex-shrink-0 mt-0.5" size={16} />
+                        <MapPin className="text-brand-500 flex-shrink-0 mt-0.5" size={16} />
                         <div className="min-w-0">
                             <p className="font-medium text-gray-900 truncate">{hotel.name}</p>
                             <p className="text-sm text-gray-500 truncate">{hotel.address}</p>

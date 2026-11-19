@@ -3,12 +3,12 @@ import { destinationImage } from "../../data/destinationImages";
 import { getCountryFlagOnly } from "../../utils/countryFlags";
 
 const TILE_COLORS = [
-  "from-indigo-500 to-purple-600",
-  "from-pink-500 to-rose-600",
-  "from-emerald-500 to-teal-600",
-  "from-orange-500 to-amber-600",
-  "from-cyan-500 to-blue-600",
-  "from-violet-500 to-fuchsia-600",
+  "from-brand-500 to-orchid-600",
+  "from-coral-500 to-coral-600",
+  "from-emerald-500 to-aqua-600",
+  "from-mango-500 to-mango-600",
+  "from-aqua-500 to-azure-600",
+  "from-orchid-500 to-coral-600",
 ];
 const tileFor = (name = "") =>
   TILE_COLORS[[...name].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % TILE_COLORS.length];

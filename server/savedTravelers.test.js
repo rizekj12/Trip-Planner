@@ -1,4 +1,4 @@
-// Saved travelers and their accounts (issue #57): "on Trip Planner" comes only from trips the
+// Saved travelers and their accounts (issue #57): "on TriptAi" comes only from trips the
 // two people share, so the list can't be used to probe whether an email is registered
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import express from "express";

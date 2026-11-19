@@ -17,12 +17,12 @@ export default defineConfig({
         "favicon.svg",
       ],
       manifest: {
-        name: "Trip Planner",
-        short_name: "Trip Planner",
+        name: "TriptAi",
+        short_name: "TriptAi",
         description: "AI-planned trips with maps, food spots, reservations and offline PDFs.",
-        // Matches the top of the sky background
-        theme_color: "#0f2b5b",
-        background_color: "#0f2b5b",
+        // Matches the cream site background
+        theme_color: "#fdf4e1",
+        background_color: "#fdf4e1",
         display: "standalone",
         start_url: "/",
         icons: [

@@ -31,22 +31,22 @@ export default function ProfileMenu() {
         aria-label="Profile menu"
       >
         {/* Circle avatar */}
-        <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/50 group-hover:ring-white transition bg-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
+        <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-brand-100 group-hover:ring-brand-300 transition bg-brand-500 flex items-center justify-center shadow-lg flex-shrink-0">
           {avatarUrl
             ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
             : <User size={20} className="text-white" />
           }
         </div>
         {name && (
-          <span className="hidden max-w-[8rem] truncate text-sm font-semibold text-white drop-shadow sm:inline">{name}</span>
+          <span className="hidden max-w-[8rem] truncate text-sm font-semibold text-slate-800 sm:inline">{name}</span>
         )}
-        <ChevronDown size={14} className="text-white/70 group-hover:text-white transition" />
+        <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-700 transition" />
       </button>
 
       {open && (
         /* Use right-0 but cap it so it never goes off screen */
         <div
-          className="absolute mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 text-sm"
+          className="absolute mt-2 w-48 glass-strong rounded-xl shadow-xl py-1 z-50 text-sm"
           style={{ right: 0, maxWidth: "calc(100vw - 1.5rem)" }}
         >
           {user?.email && (
@@ -56,7 +56,7 @@ export default function ProfileMenu() {
           )}
           <button
             onClick={() => { setOpen(false); navigate("/profile"); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+            className="w-full flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition"
           >
             <User size={15} />
             My Profile

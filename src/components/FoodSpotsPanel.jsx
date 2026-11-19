@@ -100,7 +100,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
                 key={c}
                 onClick={() => setCity(c)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  c === city ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  c === city ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
                 {c}
@@ -112,7 +112,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
         {/* First load */}
         {spots.length === 0 && loading && (
           <div className="py-10 text-center text-gray-600">
-            <Loader2 size={28} className="mx-auto mb-3 animate-spin text-indigo-600" />
+            <Loader2 size={28} className="mx-auto mb-3 animate-spin text-brand-600" />
             <p className="font-medium">Finding the best places to eat in {city}…</p>
             <p className="mt-1 text-sm text-gray-500">This usually takes 20–30 seconds.</p>
           </div>
@@ -129,7 +129,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
             >
               <span
                 className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors ${
-                  closestFirst ? "bg-indigo-600" : "bg-gray-300"
+                  closestFirst ? "bg-brand-600" : "bg-gray-300"
                 }`}
               >
                 <span
@@ -160,7 +160,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
                       href={gmaps(spot.address ? `${spot.name}, ${spot.address}` : `${spot.name} ${spot.neighborhood || ""} ${city}`)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
                     >
                       <MapPin size={12} />
                       Maps
@@ -171,7 +171,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
                     {spot.coords === null && <span className="text-gray-400"> · not on map</span>}
                   </p>
                   {km !== null && (
-                    <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                    <p className="mt-0.5 text-xs font-medium text-brand-600">
                       {formatDistance(km)} {homebaseLabel}
                     </p>
                   )}
@@ -208,7 +208,7 @@ export default function FoodSpotsPanel({ tripId, cities, foodSpots, homebases, r
             <button
               onClick={loadMore}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-brand-300 hover:text-brand-700 disabled:opacity-60"
             >
               {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               {loading ? "Finding 10 more…" : "Load 10 more"}

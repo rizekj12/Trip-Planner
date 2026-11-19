@@ -103,7 +103,7 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false, homeCount
     size: "LETTER",
     margins: { top: 54, bottom: 60, left: 54, right: 54 },
     bufferPages: true,
-    info: { Title: clean(`${name} trip itinerary`), Creator: "Trip Planner" },
+    info: { Title: clean(`${name} trip itinerary`), Creator: "TriptAi" },
   });
   const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
@@ -343,7 +343,7 @@ export async function buildTripPdf(trip, { geoapifyKey, miles = false, homeCount
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0; // let the footer sit in the margin without adding a page
     doc.font("Helvetica").fontSize(8).fillColor(COLORS.muted)
-      .text(clean(`${name} trip  |  Trip Planner`), doc.page.margins.left, doc.page.height - 36, { width, align: "left" })
+      .text(clean(`${name} trip  |  TriptAi`), doc.page.margins.left, doc.page.height - 36, { width, align: "left" })
       .text(`Page ${p + 1} of ${range.count}`, doc.page.margins.left, doc.page.height - 36, { width, align: "right" });
     doc.page.margins.bottom = bottom;
   }

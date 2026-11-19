@@ -15,10 +15,10 @@ import { useTrips } from "../hooks/useTrips";
 import { tripStatus } from "../utils/trips";
 
 const TABS = [
-  { id: "about", label: "About me", Icon: UserRound, iconClass: "bg-indigo-100 text-indigo-800" },
-  { id: "safety", label: "Safety & accessibility", Icon: ShieldAlert, iconClass: "bg-rose-100 text-rose-800" },
+  { id: "about", label: "About me", Icon: UserRound, iconClass: "bg-brand-100 text-brand-800" },
+  { id: "safety", label: "Safety & accessibility", Icon: ShieldAlert, iconClass: "bg-coral-100 text-coral-800" },
   { id: "documents", label: "Travel documents", Icon: IdCard, iconClass: "bg-emerald-100 text-emerald-800" },
-  { id: "travelers", label: "Saved travelers", Icon: Users, iconClass: "bg-amber-100 text-amber-800" },
+  { id: "travelers", label: "Saved travelers", Icon: Users, iconClass: "bg-mango-100 text-mango-800" },
 ];
 
 // What counts toward "Profile N% complete", in the order we nudge for them
@@ -56,17 +56,17 @@ export default function ProfilePage() {
   const progress = completeness(user, profile.data, documents.data);
 
   return (
-    <div className="min-h-screen bg-[#eef2f8] pb-24 text-slate-900 sm:pb-16">
+    <div className="min-h-screen bg-cream pb-24 text-slate-900 sm:pb-16">
       <AppHeader />
 
       <main className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-800 hover:text-violet-950">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-orchid-800 hover:text-orchid-950">
           <ArrowLeft size={16} />
           Back to my trips
         </Link>
 
         {/* Identity band */}
-        <section className="mt-4 flex flex-wrap items-center gap-6 rounded-[20px] bg-white p-6 shadow-[0_1px_2px_rgba(15,43,91,.06),0_8px_24px_rgba(15,43,91,.06)] sm:p-7">
+        <section className="mt-4 flex flex-wrap items-center gap-6 glass rounded-[20px] p-6 shadow-[0_1px_2px_rgba(79,44,255,.06),0_8px_24px_rgba(79,44,255,.06)] sm:p-7">
           <AvatarButton user={user} />
           <div className="min-w-0 flex-[1_1_260px]">
             <h1 className="truncate text-[28px] font-extrabold tracking-tight">{name}</h1>
@@ -90,20 +90,20 @@ export default function ProfilePage() {
             <div className="min-w-[220px] flex-[0_1_300px]">
               <div className="flex justify-between text-[13px] font-bold text-slate-700">
                 <span>Profile {progress.percent}% complete</span>
-                {progress.left > 0 && <span className="text-violet-800">{progress.left} left</span>}
+                {progress.left > 0 && <span className="text-orchid-800">{progress.left} left</span>}
               </div>
               <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-violet-100"
+                className="mt-2 h-2 overflow-hidden rounded-full bg-orchid-100"
                 role="progressbar"
                 aria-valuenow={progress.percent}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Profile completeness"
               >
-                <div className="h-full rounded-full bg-violet-700 transition-all" style={{ width: `${progress.percent}%` }} />
+                <div className="h-full rounded-full bg-orchid-700 transition-all" style={{ width: `${progress.percent}%` }} />
               </div>
               {progress.next && (
-                <button onClick={() => openTab(progress.next.tab)} className="mt-2 text-left text-[13px] text-slate-600 hover:text-violet-800 hover:underline">
+                <button onClick={() => openTab(progress.next.tab)} className="mt-2 text-left text-[13px] text-slate-600 hover:text-orchid-800 hover:underline">
                   {progress.next.todo}.
                 </button>
               )}
@@ -115,7 +115,7 @@ export default function ProfilePage() {
         <div className="mt-6 flex flex-wrap items-start gap-6">
           <nav
             aria-label="Profile sections"
-            className="flex max-w-full flex-[1_1_240px] flex-col gap-1 rounded-[20px] bg-white p-3 shadow-[0_1px_2px_rgba(15,43,91,.06),0_8px_24px_rgba(15,43,91,.06)]"
+            className="flex max-w-full flex-[1_1_240px] flex-col gap-1 glass rounded-[20px] p-3 shadow-[0_1px_2px_rgba(79,44,255,.06),0_8px_24px_rgba(79,44,255,.06)]"
           >
             {TABS.map(({ id, label, Icon, iconClass }) => {
               const current = id === tab;
@@ -126,7 +126,7 @@ export default function ProfilePage() {
                   onClick={() => openTab(id)}
                   aria-current={current ? "page" : undefined}
                   className={`flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[15px] font-semibold transition ${
-                    current ? "bg-violet-100 text-violet-950" : "text-slate-700 hover:bg-slate-100"
+                    current ? "bg-orchid-100 text-orchid-950" : "text-slate-700 hover:bg-slate-100"
                   }`}
                 >
                   <span className={`flex h-[34px] w-[34px] flex-none items-center justify-center rounded-[10px] ${iconClass}`}>
@@ -134,7 +134,7 @@ export default function ProfilePage() {
                   </span>
                   <span className="flex-1">{label}</span>
                   {needsContact && (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">Add contact</span>
+                    <span className="rounded-full bg-mango-100 px-2.5 py-1 text-xs font-bold text-mango-900">Add contact</span>
                   )}
                 </button>
               );
@@ -144,7 +144,7 @@ export default function ProfilePage() {
             </p>
           </nav>
 
-          <section className="min-w-0 flex-[999_1_560px] rounded-[20px] bg-white p-6 shadow-[0_1px_2px_rgba(15,43,91,.06),0_8px_24px_rgba(15,43,91,.06)] sm:p-7">
+          <section className="min-w-0 flex-[999_1_560px] glass rounded-[20px] p-6 shadow-[0_1px_2px_rgba(79,44,255,.06),0_8px_24px_rgba(79,44,255,.06)] sm:p-7">
             {tab === "documents" ? (
               <DocumentsSection />
             ) : tab === "travelers" ? (
@@ -204,12 +204,12 @@ function AvatarButton({ user }) {
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
         aria-label="Change profile photo"
-        className="group relative h-24 w-24 flex-none rounded-full bg-indigo-500 shadow-[0_0_0_4px_#ede9fe]"
+        className="group relative h-24 w-24 flex-none rounded-full bg-brand-500 shadow-[0_0_0_4px_#e6e1ff]"
       >
         <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full">
           {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <User size={40} className="text-white" />}
         </span>
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-[#0f2b5b] text-white ring-[3px] ring-white transition group-hover:bg-violet-700">
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white ring-[3px] ring-white transition group-hover:bg-orchid-700">
           {uploading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
         </span>
       </button>

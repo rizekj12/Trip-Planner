@@ -64,7 +64,7 @@ export default function EditDay({ tripId, day, spots, days, country }) {
       {removed && (
         <div role="status" className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-2 text-sm text-white">
           <span className="truncate">Removed {removed.spot?.title || "stop"}</span>
-          <button onClick={undo} className="min-h-[40px] flex-none font-bold text-amber-300 hover:underline">Undo</button>
+          <button onClick={undo} className="min-h-[40px] flex-none font-bold text-mango-300 hover:underline">Undo</button>
         </div>
       )}
       {edit.isError && <p className="text-sm text-red-600">Couldn't save that change: {edit.error.message}</p>}
@@ -88,7 +88,7 @@ function EditableStop({ spotKey, spot, index, count, day, days, onDrop, onMove, 
       dragListener={false}
       dragControls={controls}
       onDragEnd={onDrop}
-      className="rounded-2xl border border-slate-200 bg-white p-1.5"
+      className="glass rounded-2xl p-1.5"
     >
       {/* Phone first: the name gets its own line; moving controls sit underneath */}
       <div className="flex items-center gap-1">
@@ -101,7 +101,7 @@ function EditableStop({ spotKey, spot, index, count, day, days, onDrop, onMove, 
           <GripVertical size={18} />
         </button>
         <p className="min-w-0 flex-1 px-1 font-bold leading-snug text-slate-900">
-          <span className="mr-1.5 text-violet-700">{index + 1}.</span>
+          <span className="mr-1.5 text-orchid-700">{index + 1}.</span>
           {title}
         </p>
         <button type="button" onClick={onRemove} className={`${iconButton} hover:bg-red-50 hover:text-red-600`} aria-label={`Remove ${title}`}>
@@ -181,7 +181,7 @@ function AddStop({ city, country, onAdd }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search places in ${city || "this city"}`}
-          className="min-h-[44px] w-full rounded-xl border-2 border-slate-200 py-2 pl-9 pr-3 text-base focus:border-violet-500 focus:outline-none"
+          className="min-h-[44px] w-full rounded-xl border-2 border-slate-200 py-2 pl-9 pr-3 text-base focus:border-orchid-500 focus:outline-none"
           autoComplete="off"
         />
         {state === "searching" && <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />}
@@ -191,7 +191,7 @@ function AddStop({ city, country, onAdd }) {
         <ul className="mt-2 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
           {results.map((p) => (
             <li key={`${p.title}|${p.address}`}>
-              <button type="button" onClick={() => pick(p)} className="block min-h-[44px] w-full px-3 py-2 text-left hover:bg-violet-50">
+              <button type="button" onClick={() => pick(p)} className="block min-h-[44px] w-full px-3 py-2 text-left hover:bg-orchid-50">
                 <span className="block font-semibold text-slate-900">{p.title}</span>
                 <span className="block truncate text-xs text-slate-600">{p.address}</span>
               </button>
@@ -217,14 +217,14 @@ function ReplanDay({ tripId, day }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border-2 border-violet-200 px-4 text-sm font-bold text-violet-800 hover:bg-violet-50"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border-2 border-orchid-200 px-4 text-sm font-bold text-orchid-800 hover:bg-orchid-50"
       >
         <Sparkles size={16} /> Re-plan this day with AI
       </button>
     );
   }
   return (
-    <div className="space-y-3 rounded-2xl border-2 border-violet-200 bg-violet-50/50 p-4">
+    <div className="space-y-3 rounded-2xl border-2 border-orchid-200 bg-orchid-50/50 p-4">
       <label htmlFor="replan-note" className="block text-sm font-bold text-slate-800">
         Re-plan this day
         <span className="mt-0.5 block text-xs font-normal text-slate-600">
@@ -238,7 +238,7 @@ function ReplanDay({ tripId, day }) {
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder='Anything to change? e.g. "more food, less museums"'
-        className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-base focus:border-violet-500 focus:outline-none"
+        className="w-full rounded-xl border-2 border-slate-200 px-3 py-2 text-base focus:border-orchid-500 focus:outline-none"
       />
       {replan.isError && <p className="text-sm text-red-600">{replan.error.message}</p>}
       <div className="flex gap-2">
@@ -246,7 +246,7 @@ function ReplanDay({ tripId, day }) {
           type="button"
           disabled={replan.isPending}
           onClick={() => replan.mutate({ dayKey: day.key, note: note.trim() }, { onSuccess: () => (setOpen(false), setNote("")) })}
-          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 text-sm font-bold text-white hover:bg-violet-800 disabled:opacity-60"
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-orchid-700 px-4 text-sm font-bold text-white hover:bg-orchid-800 disabled:opacity-60"
         >
           {replan.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
           {replan.isPending ? "Re-planning… (about 30 s)" : "Re-plan"}

@@ -51,7 +51,7 @@ export default function PhotosPanel({ tripId, guestToken, days }) {
     <button
       onClick={() => input.current?.click()}
       disabled={!!progress}
-      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-pink-600 px-4 text-sm font-bold text-white hover:bg-pink-700 disabled:opacity-60"
+      className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-coral-600 px-4 text-sm font-bold text-white hover:bg-coral-700 disabled:opacity-60"
     >
       {progress ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
       {progress ? `Adding ${progress.done + 1} of ${progress.total}…` : "Add photos"}
@@ -98,7 +98,7 @@ export default function PhotosPanel({ tripId, guestToken, days }) {
         <p className="py-8 text-center text-sm text-red-600">Couldn't load the photos: {album.error.message}</p>
       ) : photos.length === 0 ? (
         <div className="px-4 py-12 text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-pink-100 text-pink-600">
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-coral-100 text-coral-600">
             <Camera size={26} />
           </span>
           <p className="text-lg font-bold text-gray-900">No photos yet</p>
@@ -110,7 +110,7 @@ export default function PhotosPanel({ tripId, guestToken, days }) {
         <div className="space-y-5">
           {groups.map((g) => (
             <section key={g.key} aria-label={g.title || "Photos"}>
-              {g.title && <h3 className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider text-violet-700">{g.title}</h3>}
+              {g.title && <h3 className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider text-orchid-700">{g.title}</h3>}
               <ul className="grid grid-cols-3 gap-1 sm:grid-cols-4 sm:gap-2 md:grid-cols-5">
                 {g.photos.map((p) => (
                   <li key={p.id}>
@@ -247,13 +247,13 @@ function PhotoDetails({ who, photo, days, position, onDeleted }) {
             maxLength={MAX_CAPTION}
             placeholder="Add a caption"
             aria-label="Caption"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-violet-500 focus:outline-none sm:text-sm"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-orchid-500 focus:outline-none sm:text-sm"
           />
           <select
             value={day}
             onChange={(e) => setDay(e.target.value)}
             aria-label="Day"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-violet-500 focus:outline-none sm:text-sm"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:border-orchid-500 focus:outline-none sm:text-sm"
           >
             <option value="">Not tied to a day</option>
             {days.map((d) => (
@@ -263,7 +263,7 @@ function PhotoDetails({ who, photo, days, position, onDeleted }) {
             ))}
           </select>
           <div className="flex gap-2">
-            <button type="submit" disabled={update.isPending} className="flex-1 rounded-lg bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60">
+            <button type="submit" disabled={update.isPending} className="flex-1 rounded-lg bg-orchid-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orchid-700 disabled:opacity-60">
               {update.isPending ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">

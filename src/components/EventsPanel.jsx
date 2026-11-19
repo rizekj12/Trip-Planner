@@ -4,7 +4,7 @@ import EventModal from "./EventModal";
 import EventImage from "./EventImage";
 import { useRefreshEvents } from "../hooks/useTrips";
 
-const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
+const card = "glass rounded-3xl p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
 
 // Local events during the trip. Since issue #36 they're real listings from Ticketmaster
 // (`source` "ticketmaster"); trips made earlier have AI-suggested events (no source), shown
@@ -20,7 +20,7 @@ export default function EventsPanel({ tripId, events = [], source, checkedAt, ci
       <button
         onClick={() => refresh.mutate()}
         disabled={refresh.isPending}
-        className="inline-flex min-h-[40px] flex-none items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 transition hover:border-violet-300 disabled:opacity-60"
+        className="inline-flex min-h-[40px] flex-none items-center gap-1.5 rounded-xl border-2 border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 transition hover:border-orchid-300 disabled:opacity-60"
       >
         {refresh.isPending ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
         {refresh.isPending ? "Searching…" : label}
@@ -37,7 +37,7 @@ export default function EventsPanel({ tripId, events = [], source, checkedAt, ci
         {live ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
             <span className="flex items-center gap-2">
-              <Ticket size={16} className="text-violet-700" aria-hidden="true" />
+              <Ticket size={16} className="text-orchid-700" aria-hidden="true" />
               Live listings from Ticketmaster{checked && ` · checked ${checked}`}
             </span>
             {refreshButton("Refresh")}
@@ -52,7 +52,7 @@ export default function EventsPanel({ tripId, events = [], source, checkedAt, ci
           </div>
         ) : (
           events.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mango-50 px-4 py-3 text-sm text-mango-900">
               <span className="flex items-start gap-2">
                 <Sparkles size={16} className="mt-0.5 flex-none" aria-hidden="true" />
                 Suggested by AI when this trip was made. Dates and details may be wrong, so check before you go.
@@ -69,13 +69,13 @@ export default function EventsPanel({ tripId, events = [], source, checkedAt, ci
               <li key={event.id}>
                 <button
                   onClick={() => setSelectedEvent(event)}
-                  className="group flex w-full gap-4 rounded-2xl border-2 border-slate-100 p-3 text-left transition hover:border-violet-200"
+                  className="group flex w-full gap-4 rounded-2xl border-2 border-slate-100 p-3 text-left transition hover:border-orchid-200"
                 >
                   <span className="h-20 w-20 flex-none overflow-hidden rounded-xl">
                     <EventImage event={event} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-extrabold leading-snug text-slate-900 group-hover:text-violet-800">{event.title}</span>
+                    <span className="block font-extrabold leading-snug text-slate-900 group-hover:text-orchid-800">{event.title}</span>
                     <span className="mt-1 flex items-center gap-1.5 text-sm text-slate-600">
                       <Calendar size={14} aria-hidden="true" />
                       {[event.date, event.time].filter(Boolean).join(" · ")}
@@ -88,7 +88,7 @@ export default function EventsPanel({ tripId, events = [], source, checkedAt, ci
                     )}
                     <span className="mt-1.5 flex flex-wrap gap-1.5">
                       {event.category && (
-                        <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-800">{event.category}</span>
+                        <span className="rounded-full bg-orchid-100 px-2.5 py-0.5 text-xs font-bold text-orchid-800">{event.category}</span>
                       )}
                       {live && event.price && (
                         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">{event.price}</span>

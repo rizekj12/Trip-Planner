@@ -26,7 +26,7 @@ function HotelInfo({ hotel, onClose }) {
     return (
         <>
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
+            <div className="flex items-center justify-between px-4 py-3 bg-brand-600 text-white">
                 <div className="min-w-0">
                     <h2 className="truncate text-base font-semibold">{hotel.title}</h2>
                     {hotel.region && (
@@ -62,7 +62,7 @@ function HotelInfo({ hotel, onClose }) {
                     <div className="flex flex-wrap items-center gap-2">
                         {hasDates && (
                             <span
-                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium shadow-sm bg-indigo-200/90 text-indigo-900 ring-1 ring-indigo-300`}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium shadow-sm bg-brand-200/90 text-brand-900 ring-1 ring-brand-300`}
                             >
                                 <Calendar size={16} className="opacity-80" />
                                 {hotel.checkIn && hotel.checkOut ? (
@@ -106,7 +106,7 @@ function HotelInfo({ hotel, onClose }) {
                             href={hotel.links.maps}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                            className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                             title="Open in Google Maps"
                         >
                             <MapPin size={18} />
@@ -134,7 +134,7 @@ function HotelInfo({ hotel, onClose }) {
                             href={hotel.links.youtube}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                            className="inline-flex items-center gap-2 rounded-lg bg-coral-600 px-3 py-2 text-sm font-semibold text-white hover:bg-coral-700"
                             title="Watch on YouTube"
                         >
                             <Youtube size={18} />

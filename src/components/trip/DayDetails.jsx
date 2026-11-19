@@ -5,7 +5,7 @@ import { useEditItinerary } from "../../hooks/useTrips";
 import { toggleDone } from "../../../shared/itineraryEdits.js";
 import { gmaps } from "../../utils/helpers";
 
-const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
+const card = "glass rounded-3xl p-5 shadow-[0_6px_20px_rgba(15,23,42,0.06)] sm:p-6";
 
 // One day's plan: the stops in order (numbered like the map's pins, joined by a line), tips,
 // and where the travelers sleep that night. The organizer (`canEdit`, with `tripId`) can tick
@@ -30,7 +30,7 @@ export default function DayDetails({ day, spots, canEdit = false, tripId, days =
               onClick={() => setEditing((e) => !e)}
               aria-pressed={editing}
               className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-sm font-bold ${
-                editing ? "bg-violet-700 text-white hover:bg-violet-800" : "text-violet-800 ring-1 ring-violet-200 hover:bg-violet-50"
+                editing ? "bg-orchid-700 text-white hover:bg-orchid-800" : "text-orchid-800 ring-1 ring-orchid-200 hover:bg-orchid-50"
               }`}
             >
               {editing ? <Check size={15} /> : <Pencil size={15} />}
@@ -48,7 +48,7 @@ export default function DayDetails({ day, spots, canEdit = false, tripId, days =
               const key = keys[i];
               const isDone = done.has(key);
               const circle = `flex h-8 w-8 flex-none items-center justify-center rounded-full text-[13px] font-extrabold text-white ${
-                isDone ? "bg-emerald-600" : "bg-violet-700"
+                isDone ? "bg-emerald-600" : "bg-orchid-700"
               }`;
               return (
                 <li key={key} className="flex gap-3.5">
@@ -67,7 +67,7 @@ export default function DayDetails({ day, spots, canEdit = false, tripId, days =
                     ) : (
                       <span className={circle} aria-hidden="true">{isDone ? <Check size={16} strokeWidth={3} /> : i + 1}</span>
                     )}
-                    {!last && <span className="min-h-[18px] w-0.5 flex-1 bg-violet-200" aria-hidden="true" />}
+                    {!last && <span className="min-h-[18px] w-0.5 flex-1 bg-orchid-200" aria-hidden="true" />}
                   </span>
                   <div className={`min-w-0 flex-1 ${last ? "" : "pb-5"}`}>
                     <p className={`font-extrabold leading-snug ${isDone ? "text-slate-500 line-through" : "text-slate-900"}`}>
@@ -85,17 +85,17 @@ export default function DayDetails({ day, spots, canEdit = false, tripId, days =
                         href={links.maps || gmaps(`${spot.title} ${spot.address || ""}`)}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex min-h-[32px] items-center gap-1 text-violet-800 hover:underline"
+                        className="inline-flex min-h-[32px] items-center gap-1 text-orchid-800 hover:underline"
                       >
                         <MapPin size={14} /> Directions
                       </a>
                       {links.booking && (
-                        <a href={links.booking} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-violet-800 hover:underline">
+                        <a href={links.booking} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-orchid-800 hover:underline">
                           <Ticket size={14} /> Book
                         </a>
                       )}
                       {links.youtube && (
-                        <a href={links.youtube} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-violet-800 hover:underline">
+                        <a href={links.youtube} target="_blank" rel="noreferrer" className="inline-flex min-h-[32px] items-center gap-1 text-orchid-800 hover:underline">
                           <PlayCircle size={14} /> Videos
                         </a>
                       )}
@@ -125,21 +125,21 @@ export default function DayDetails({ day, spots, canEdit = false, tripId, days =
       {day.rainyDayBackup && (
         <section className={card} aria-labelledby="day-rain">
           <h3 id="day-rain" className="mb-2 flex items-center gap-2 text-lg font-extrabold">
-            <CloudRain size={18} className="text-sky-700" aria-hidden="true" /> If it rains
+            <CloudRain size={18} className="text-azure-700" aria-hidden="true" /> If it rains
           </h3>
           <p className="text-[15px] leading-relaxed text-slate-700">{day.rainyDayBackup}</p>
         </section>
       )}
 
       {day.hotel?.name && (
-        <section className="flex items-center gap-3.5 rounded-3xl bg-[#0f2b5b] p-5 text-white">
+        <section className="flex items-center gap-3.5 rounded-3xl bg-brand-600 p-5 text-white">
           <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-white/10">
             <BedDouble size={20} aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-extrabold uppercase tracking-wider text-amber-300">Tonight</p>
+            <p className="text-xs font-extrabold uppercase tracking-wider text-mango-300">Tonight</p>
             <p className="truncate font-extrabold">{day.hotel.name}</p>
-            {day.hotel.address && <p className="truncate text-sm text-slate-300">{day.hotel.address}</p>}
+            {day.hotel.address && <p className="truncate text-sm text-brand-100">{day.hotel.address}</p>}
           </div>
           <a
             href={gmaps(`${day.hotel.name} ${day.hotel.address || ""}`)}

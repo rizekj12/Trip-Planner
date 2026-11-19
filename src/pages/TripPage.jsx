@@ -67,8 +67,8 @@ function FailedScreen({ tripId, formData, error, canRetry }) {
   const retry = useStartGeneration();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#eef2f8] px-6 text-center text-slate-900">
-      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 text-center text-slate-900">
+      <div className="w-full max-w-md glass rounded-3xl p-8 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-700">
           <AlertTriangle size={28} />
         </div>
@@ -79,14 +79,14 @@ function FailedScreen({ tripId, formData, error, canRetry }) {
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             to="/"
-            className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-3 font-bold transition hover:border-violet-300"
+            className="flex-1 rounded-xl border-2 border-slate-200 px-4 py-3 font-bold transition hover:border-orchid-300"
           >
             My Trips
           </Link>
           {canRetry && <button
             onClick={() => retry.mutate({ id: tripId, formData })}
             disabled={retry.isPending}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-700 px-4 py-3 font-bold text-white transition hover:bg-violet-800 disabled:opacity-60"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-orchid-700 px-4 py-3 font-bold text-white transition hover:bg-orchid-800 disabled:opacity-60"
           >
             {retry.isPending ? <Loader2 size={18} className="animate-spin" /> : <RotateCcw size={18} />}
             Try again
@@ -172,7 +172,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
   const meta = days[dayIndex];
 
   return (
-    <div className="min-h-screen bg-[#eef2f8] text-slate-900">
+    <div className="min-h-screen bg-cream text-slate-900">
       <TripHeader
         tripId={tripId}
         formData={formData}
@@ -195,7 +195,7 @@ export function TripView({ tripId, itinerary, formData, foodSpots, homebases, vi
             <DayStrip days={days} index={dayIndex} onSelect={selectDay} />
 
             <div ref={dayTop} className="scroll-mt-32 px-1 pb-3 pt-2 sm:pt-3">
-              <p className="text-xs font-extrabold uppercase tracking-wider text-violet-700 sm:text-[13px]">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-orchid-700 sm:text-[13px]">
                 Day {meta.n} of {days.length}
                 {meta.longDate && ` · ${meta.longDate}`}
                 {meta.city && ` · ${meta.city}`}

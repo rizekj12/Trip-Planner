@@ -6,11 +6,11 @@ import { useHomeCountry } from "../../utils/tripName";
 import { useAnswerJoinRequest } from "../../hooks/useCrew";
 
 const ICONS = {
-  join_request: { Icon: UserPlus, style: "bg-violet-100 text-violet-700" },
+  join_request: { Icon: UserPlus, style: "bg-orchid-100 text-orchid-700" },
   member_joined: { Icon: UserCheck, style: "bg-emerald-100 text-emerald-700" },
   join_approved: { Icon: UserCheck, style: "bg-emerald-100 text-emerald-700" },
-  itinerary_ready: { Icon: Sparkles, style: "bg-pink-100 text-pink-700" },
-  itinerary_failed: { Icon: AlertTriangle, style: "bg-amber-100 text-amber-700" },
+  itinerary_ready: { Icon: Sparkles, style: "bg-coral-100 text-coral-700" },
+  itinerary_failed: { Icon: AlertTriangle, style: "bg-mango-100 text-mango-700" },
 };
 
 // One notification: icon, text, time, and Approve / Deny on an open join request.
@@ -29,7 +29,7 @@ export default function NotificationItem({ notification: n, onOpen, compact = fa
   const text = <span className={unread ? "font-semibold text-gray-900" : "text-gray-700"}>{notificationText(n, homeCountry)}</span>;
 
   return (
-    <li className={`flex gap-3 ${compact ? "px-4 py-3" : "rounded-xl p-4"} ${unread ? "bg-violet-50/60" : ""}`}>
+    <li className={`flex gap-3 ${compact ? "px-4 py-3" : "rounded-xl p-4"} ${unread ? "bg-orchid-50/60" : ""}`}>
       <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-full ${style}`}>
         <Icon size={17} />
       </span>
@@ -51,7 +51,7 @@ export default function NotificationItem({ notification: n, onOpen, compact = fa
             <button
               onClick={() => decide("approve")}
               disabled={answer.isPending}
-              className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg bg-orchid-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orchid-700 disabled:opacity-50"
             >
               {answer.isPending && answer.variables?.decision === "approve" ? (
                 <Loader2 size={13} className="animate-spin" />
@@ -76,7 +76,7 @@ export default function NotificationItem({ notification: n, onOpen, compact = fa
         )}
         {answer.isError && <p className="mt-1 text-xs text-red-600">{answer.error.message}</p>}
       </div>
-      {unread && <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-violet-600" aria-label="Unread" />}
+      {unread && <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-orchid-600" aria-label="Unread" />}
     </li>
   );
 }

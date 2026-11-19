@@ -82,7 +82,7 @@ export default function SafetySection({ profile }) {
                 aria-pressed={on}
                 onClick={() => toggleNeed(need)}
                 className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border-2 px-3.5 py-2 text-sm font-semibold transition ${
-                  on ? "border-violet-600 bg-violet-50 text-violet-900" : "border-gray-200 bg-white text-slate-700 hover:border-violet-300"
+                  on ? "border-orchid-600 bg-orchid-50 text-orchid-900" : "border-gray-200 bg-white text-slate-700 hover:border-orchid-300"
                 }`}
               >
                 {on && <Check size={14} strokeWidth={3} aria-hidden="true" />}
@@ -149,7 +149,7 @@ export default function SafetySection({ profile }) {
             type="checkbox"
             checked={form.shareEmergency}
             onChange={(e) => update({ shareEmergency: e.target.checked })}
-            className="mt-0.5 h-[18px] w-[18px] accent-violet-700"
+            className="mt-0.5 h-[18px] w-[18px] accent-orchid-700"
           />
           <span className="text-sm text-slate-700">
             <span className="block font-bold text-slate-900">Share with the organizer while I'm traveling</span>

@@ -1,6 +1,5 @@
 import React from "react";
 import { Bell, Loader2 } from "lucide-react";
-import SkyBackground from "../components/SkyBackground";
 import AppHeader from "../components/AppHeader";
 import BottomTabBar from "../components/BottomTabBar";
 import NotificationItem from "../components/notifications/NotificationItem";
@@ -15,16 +14,15 @@ export default function NotificationsPage() {
   const waiting = all.filter((n) => n.type === "join_request" && !n.data?.resolution).length;
 
   return (
-    <div className="relative min-h-screen pb-24 text-white sm:pb-16">
-      <SkyBackground />
+    <div className="relative min-h-screen bg-cream pb-24 text-slate-900 sm:pb-16">
       <AppHeader />
 
       <div className="mx-auto mt-6 max-w-2xl px-4 md:px-8">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight drop-shadow md:text-4xl">Notifications</h1>
+            <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">Notifications</h1>
             {waiting > 0 && (
-              <p className="mt-1 text-sm text-white/80">
+              <p className="mt-1 text-sm text-slate-600">
                 {waiting} join request{waiting === 1 ? "" : "s"} waiting for you
               </p>
             )}
@@ -32,14 +30,14 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={() => markRead.mutate()}
-              className="rounded-xl bg-white/10 px-3 py-2 text-sm font-medium ring-1 ring-white/20 transition hover:bg-white/20"
+              className="rounded-xl bg-white/60 px-3 py-2 text-sm font-medium ring-1 ring-slate-200 transition hover:bg-white"
             >
               Mark all read
             </button>
           )}
         </div>
 
-        <div className="mt-5 rounded-2xl bg-white p-2 text-gray-900 shadow-xl">
+        <div className="glass mt-5 rounded-2xl p-2 text-gray-900 shadow-xl">
           {notifications.isLoading ? (
             <div className="py-12 text-center text-gray-400">
               <Loader2 className="mx-auto animate-spin" />

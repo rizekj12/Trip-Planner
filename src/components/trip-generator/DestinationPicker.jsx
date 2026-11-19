@@ -68,14 +68,14 @@ export default function DestinationPicker({ value, onChange }) {
                 onBlur={settle}
                 onKeyDown={onKeyDown}
                 placeholder="Start typing a country or territory…"
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors bg-white text-gray-900"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 focus:outline-none transition-colors bg-white text-gray-900"
             />
 
             {showList && (
                 <ul
                     id="destination-options"
                     role="listbox"
-                    className="absolute z-50 mt-1 w-full max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-xl"
+                    className="absolute z-50 mt-1 w-full max-h-72 overflow-y-auto glass-strong rounded-xl py-1 shadow-xl"
                 >
                     {suggestions.length ? (
                         suggestions.map((name, i) => (
@@ -87,7 +87,7 @@ export default function DestinationPicker({ value, onChange }) {
                                 onMouseDown={(e) => { e.preventDefault(); choose(name); }}
                                 onMouseEnter={() => setHighlight(i)}
                                 className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm ${
-                                    i === highlight ? 'bg-indigo-50 text-indigo-700' : 'text-gray-800'
+                                    i === highlight ? 'bg-brand-50 text-brand-700' : 'text-gray-800'
                                 }`}
                             >
                                 <span className="flex w-6 justify-center"><CountryFlag name={name} /></span>

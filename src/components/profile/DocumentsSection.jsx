@@ -11,13 +11,13 @@ import { prepareAttachment, formatSize } from "../../utils/attachmentFile";
 import { Field, SectionHeading, Pill, fieldClass, primaryButton, secondaryButton } from "./ProfileUI";
 
 const KIND_STYLE = {
-  passport: { Icon: IdCard, className: "bg-blue-100 text-blue-900" },
-  known_traveler: { Icon: BadgeCheck, className: "bg-indigo-100 text-indigo-800" },
+  passport: { Icon: IdCard, className: "bg-azure-100 text-azure-900" },
+  known_traveler: { Icon: BadgeCheck, className: "bg-brand-100 text-brand-800" },
   drivers_license: { Icon: Car, className: "bg-slate-200 text-slate-800" },
-  visa: { Icon: Stamp, className: "bg-orange-100 text-orange-800" },
+  visa: { Icon: Stamp, className: "bg-mango-100 text-mango-800" },
   insurance: { Icon: ShieldCheck, className: "bg-emerald-100 text-emerald-800" },
-  frequent_flyer: { Icon: Plane, className: "bg-pink-100 text-pink-800" },
-  vaccination: { Icon: Syringe, className: "bg-cyan-100 text-cyan-900" },
+  frequent_flyer: { Icon: Plane, className: "bg-coral-100 text-coral-800" },
+  vaccination: { Icon: Syringe, className: "bg-aqua-100 text-aqua-900" },
   other: { Icon: FileText, className: "bg-slate-100 text-slate-700" },
 };
 
@@ -146,7 +146,7 @@ export default function DocumentsSection() {
       {!documents.isLoading && !documents.isError && (
         <button
           onClick={() => setEditing({})}
-          className="mt-4 block w-full rounded-2xl border-2 border-dashed border-slate-300 p-5 text-center text-sm text-slate-600 transition hover:border-violet-400 hover:bg-violet-50/40"
+          className="mt-4 block w-full rounded-2xl border-2 border-dashed border-slate-300 p-5 text-center text-sm text-slate-600 transition hover:border-orchid-400 hover:bg-orchid-50/40"
         >
           {docs.length ? (
             <>
@@ -350,7 +350,7 @@ function DocumentForm({ document, onClose }) {
                 type="checkbox"
                 checked={form.removeNumber}
                 onChange={(e) => setForm((f) => ({ ...f, removeNumber: e.target.checked, number: "" }))}
-                className="h-4 w-4 accent-violet-700"
+                className="h-4 w-4 accent-orchid-700"
               />
               Remove the saved number
             </label>
@@ -371,10 +371,10 @@ function DocumentForm({ document, onClose }) {
             </div>
           )}
           {file && (
-            <div className="mb-2 flex items-center gap-2 rounded-xl bg-violet-50 px-3 py-2 text-sm text-violet-900">
+            <div className="mb-2 flex items-center gap-2 rounded-xl bg-orchid-50 px-3 py-2 text-sm text-orchid-900">
               <Paperclip size={15} aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{file.name} · {formatSize(file.size)}</span>
-              <button type="button" onClick={() => setFile(null)} className="rounded p-1 hover:bg-violet-100" aria-label="Don't attach this file">
+              <button type="button" onClick={() => setFile(null)} className="rounded p-1 hover:bg-orchid-100" aria-label="Don't attach this file">
                 <X size={15} />
               </button>
             </div>

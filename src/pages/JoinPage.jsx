@@ -52,7 +52,7 @@ export default function JoinPage() {
         <div className="text-center">
           <h2 className="text-xl font-bold">This invite isn't valid</h2>
           <p className="mt-2 text-sm text-white/80">{invite.error.message}</p>
-          <Link to="/" className="mt-5 inline-block text-sm font-semibold underline">Go to Trip Planner</Link>
+          <Link to="/" className="mt-5 inline-block text-sm font-semibold underline">Go to TriptAi</Link>
         </div>
       </AuthLayout>
     );
@@ -67,7 +67,7 @@ export default function JoinPage() {
     <AuthLayout>
       {/* Trip preview */}
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-200">You're invited</p>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-mango-200">You're invited</p>
         <h2 className="mt-2 text-2xl font-extrabold">
           {getCountryFlagOnly(trip.destination)} {trip.destination}
         </h2>
@@ -107,7 +107,7 @@ export default function JoinPage() {
 
         {requested ? (
           <div className="rounded-xl bg-white/15 p-4 text-center ring-1 ring-white/25">
-            <Hourglass className="mx-auto mb-2 text-amber-200" size={22} />
+            <Hourglass className="mx-auto mb-2 text-mango-200" size={22} />
             <p className="font-semibold">Request sent</p>
             <p className="mt-1 text-sm text-white/80">
               {firstName} will get a notification. Once they approve you, the trip shows up on your dashboard.
@@ -122,7 +122,7 @@ export default function JoinPage() {
           <button
             onClick={joinAsMember}
             disabled={join.isPending}
-            className="w-full rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 py-3 text-sm font-semibold shadow-lg disabled:opacity-60"
+            className="w-full rounded-xl bg-gradient-to-r from-coral-500 to-orchid-600 py-3 text-sm font-semibold shadow-lg disabled:opacity-60"
           >
             {join.isPending ? "Joining…" : joinLabel}
           </button>
@@ -143,7 +143,7 @@ export default function JoinPage() {
           <>
             <button
               onClick={() => setMode("signin")}
-              className="w-full rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 py-3 text-sm font-semibold shadow-lg"
+              className="w-full rounded-xl bg-gradient-to-r from-coral-500 to-orchid-600 py-3 text-sm font-semibold shadow-lg"
             >
               Sign in or create an account
             </button>

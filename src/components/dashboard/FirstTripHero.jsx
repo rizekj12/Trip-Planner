@@ -22,7 +22,7 @@ export default function FirstTripHero({ name }) {
           ))}
         </div>
         <div className="relative mx-auto max-w-3xl px-5 py-20 text-center text-white sm:py-28">
-          <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-amber-200">
+          <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-mango-200">
             Welcome{name ? `, ${name}` : ""}
           </p>
           <h1 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
@@ -33,9 +33,9 @@ export default function FirstTripHero({ name }) {
           </p>
           <Link
             to="/new"
-            className="mt-8 inline-flex items-center gap-3 rounded-2xl bg-white px-7 py-4 text-lg font-extrabold text-violet-900 shadow-2xl transition hover:bg-violet-50"
+            className="mt-8 inline-flex items-center gap-3 rounded-2xl bg-white px-7 py-4 text-lg font-extrabold text-orchid-900 shadow-2xl transition hover:bg-orchid-50"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-600 text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orchid-600 text-white">
               <Plus size={20} />
             </span>
             New itinerary
@@ -48,8 +48,8 @@ export default function FirstTripHero({ name }) {
           <h2 className="text-2xl font-extrabold tracking-tight sm:text-center">How it works</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-3">
             {STEPS.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:flex-col">
-                <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-violet-100 text-violet-800">
+              <div key={title} className="flex gap-4 glass rounded-2xl p-5 sm:flex-col">
+                <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-orchid-100 text-orchid-800">
                   <Icon size={21} />
                 </span>
                 <span>

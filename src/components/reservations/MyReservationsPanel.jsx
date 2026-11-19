@@ -13,7 +13,7 @@ export default function MyReservationsPanel({ tripId, guestToken }) {
 
   if (list.isError) {
     return (
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 text-center text-gray-700 shadow-xl">
+      <div className="mx-auto max-w-3xl glass rounded-2xl p-6 text-center text-gray-700 shadow-xl">
         Couldn't load your reservations: {list.error.message}
       </div>
     );

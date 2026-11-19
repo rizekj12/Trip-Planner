@@ -35,12 +35,12 @@ function TripCardMenu({ actions, disabled, busy, onPhoto = false }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-44 rounded-xl border border-gray-100 bg-white py-1 text-sm shadow-xl">
+        <div className="absolute right-0 z-50 mt-1 w-44 glass-strong rounded-xl py-1 text-sm shadow-xl">
           {actions.map(({ label, icon: Icon, onClick, danger }) => (
             <button
               key={label}
               onClick={() => { setOpen(false); onClick(); }}
-              className={`flex w-full items-center gap-2 px-4 py-2 text-gray-700 transition ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-indigo-50 hover:text-indigo-700"}`}
+              className={`flex w-full items-center gap-2 px-4 py-2 text-gray-700 transition ${danger ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-brand-50 hover:text-brand-700"}`}
             >
               <Icon size={15} />
               {label}
@@ -52,7 +52,7 @@ function TripCardMenu({ actions, disabled, busy, onPhoto = false }) {
   );
 }
 
-const card = "rounded-3xl bg-white p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] sm:p-6";
+const card = "glass rounded-3xl p-5 shadow-[0_6px_20px_rgba(15,23,42,0.05)] sm:p-6";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -105,7 +105,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#eef2f8] pb-24 text-slate-900 sm:pb-0">
+    <div className="min-h-screen bg-cream pb-24 text-slate-900 sm:pb-0">
       <AppHeader />
 
       {loading ? (
@@ -130,15 +130,15 @@ export default function DashboardPage() {
                 isOwner={!isShared(next.trip)}
               />
             ) : (
-              <section className="flex flex-wrap items-center gap-5 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
-                <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+              <section className="flex flex-wrap items-center gap-5 glass rounded-3xl p-6 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+                <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-orchid-100 text-orchid-700">
                   <Compass size={28} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-xl font-extrabold">Nothing booked yet — where to next?</h1>
                   <p className="text-slate-600">Plan your next trip and we'll count down the days with you.</p>
                 </div>
-                <Link to="/new" className="rounded-xl bg-violet-600 px-5 py-3 font-bold text-white transition hover:bg-violet-700">
+                <Link to="/new" className="rounded-xl bg-orchid-600 px-5 py-3 font-bold text-white transition hover:bg-orchid-700">
                   New itinerary
                 </Link>
               </section>
@@ -149,11 +149,11 @@ export default function DashboardPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="flex items-center gap-2 text-xl font-extrabold">
                   Upcoming trips
-                  <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-sm text-violet-800">{upcoming.length}</span>
+                  <span className="rounded-full bg-orchid-100 px-2.5 py-0.5 text-sm text-orchid-800">{upcoming.length}</span>
                 </h2>
                 <Link
                   to="/new"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f2b5b] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#163a75]"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700"
                 >
                   <Plus size={16} />
                   New itinerary
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                           <span className="flex items-center gap-2 truncate font-extrabold">
                             <span className="truncate">{getCountryFlagOnly(trip.destination)} {tripName(trip, homeCountry) || "Untitled trip"}</span>
                             {isShared(trip) && (
-                              <span className="flex-none rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800">Shared</span>
+                              <span className="flex-none rounded-full bg-azure-100 px-2 py-0.5 text-[11px] font-bold text-azure-800">Shared</span>
                             )}
                           </span>
                           <span className="block truncate text-sm text-slate-600">
@@ -209,14 +209,14 @@ export default function DashboardPage() {
             <section className="rounded-3xl bg-slate-200/80 p-5 sm:p-6">
               <h2 className="flex items-center gap-2 text-xl font-extrabold">
                 Past trips
-                <span className="rounded-full bg-white px-2.5 py-0.5 text-sm text-slate-700">{past.length}</span>
+                <span className="rounded-full bg-white/60 px-2.5 py-0.5 text-sm text-slate-700">{past.length}</span>
               </h2>
               {past.length ? (
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))]">
                   {past.map((entry) => {
                     const { trip, range } = entry;
                     return (
-                      <div key={trip.id} {...openProps(entry)} className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white">
+                      <div key={trip.id} {...openProps(entry)} className="group relative cursor-pointer glass overflow-hidden rounded-2xl">
                         <div className="h-24 overflow-hidden">
                           <TripThumb country={trip.destination} muted className="h-24 w-full transition group-hover:scale-105" flagSize="text-4xl" />
                         </div>

@@ -58,8 +58,8 @@ export default function HomeCountryMenu({ fullWidth = false, tone = "dark", id }
         title="Where you're based"
         className={
           tone === "light"
-            ? "flex min-h-[44px] w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-3.5 py-2.5 text-left text-[15px] text-gray-900 transition hover:border-violet-300"
-            : `items-center gap-2 rounded-xl bg-white/15 px-3 text-sm font-medium text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/25 ${
+            ? "flex min-h-[44px] w-full items-center gap-2 rounded-xl border-2 border-gray-200 bg-white px-3.5 py-2.5 text-left text-[15px] text-gray-900 transition hover:border-orchid-300"
+            : `items-center gap-2 rounded-xl px-3 text-sm font-medium bg-slate-100 text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200 ${
                 fullWidth ? "flex w-full py-2.5 text-left" : "inline-flex py-2"
               }`
         }
@@ -73,7 +73,7 @@ export default function HomeCountryMenu({ fullWidth = false, tone = "dark", id }
 
       {open && (
         <div
-          className={`absolute right-0 z-50 mt-2 overflow-hidden rounded-xl border border-gray-100 bg-white text-gray-900 shadow-2xl ${
+          className={`absolute right-0 z-50 mt-2 overflow-hidden glass-strong rounded-xl text-gray-900 shadow-2xl ${
             fullWidth ? "left-0" : "w-72 max-w-[calc(100vw-2rem)]"
           }`}
         >
@@ -93,7 +93,7 @@ export default function HomeCountryMenu({ fullWidth = false, tone = "dark", id }
                   if (e.key === "Escape") setOpen(false);
                 }}
                 placeholder="Search countries"
-                className="w-full rounded-lg border-2 border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border-2 border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:outline-none"
               />
             </div>
             {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
@@ -108,8 +108,8 @@ export default function HomeCountryMenu({ fullWidth = false, tone = "dark", id }
                     role="option"
                     aria-selected={country === current}
                     onClick={() => choose(country)}
-                    className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-indigo-50 ${
-                      country === current ? "font-semibold text-indigo-700" : "text-gray-800"
+                    className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition hover:bg-brand-50 ${
+                      country === current ? "font-semibold text-brand-700" : "text-gray-800"
                     }`}
                   >
                     <span className="flex w-6 justify-center"><CountryFlag name={country} /></span>

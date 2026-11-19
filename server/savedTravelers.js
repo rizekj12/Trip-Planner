@@ -1,6 +1,6 @@
 // Saved travelers and their accounts (issue #57).
 //
-// Privacy rule: whether a saved traveler is "on Trip Planner" is decided only from trips the
+// Privacy rule: whether a saved traveler is "on TriptAi" is decided only from trips the
 // two people actually share (the caller's own trips and trips they've joined). It never looks
 // up an email against all accounts, so the list can't be used to find out whether some
 // address is registered: it only tells you what your trips' crew lists already show.

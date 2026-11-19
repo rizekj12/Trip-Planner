@@ -49,12 +49,12 @@ function MarkerInfo({ active, onClose }) {
                         href={mapsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-10 h-10 rounded-full bg-indigo-600 inline-flex items-center justify-center shadow-sm hover:bg-indigo-700"
+                        className="w-10 h-10 rounded-full bg-brand-600 inline-flex items-center justify-center shadow-sm hover:bg-brand-700"
                         aria-label="Open in Maps"
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
                             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="#fff" />
-                            <circle cx="12" cy="9" r="1.8" fill="#e0e7ff" />
+                            <circle cx="12" cy="9" r="1.8" fill="#e6e1ff" />
                         </svg>
                     </a>
 

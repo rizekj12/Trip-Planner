@@ -1,7 +1,8 @@
 import React from "react";
+import TimeSelect from "../TimeSelect";
 
 const inputClass =
-  "w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none text-sm text-gray-900 bg-white";
+  "w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-brand-500 focus:outline-none text-sm text-gray-900 bg-white";
 
 function Field({ label, className = "", children }) {
   return (
@@ -32,7 +33,9 @@ export function FlightFields({ value, onChange }) {
       <Field label="From">{input("from", { placeholder: "e.g. SFO" })}</Field>
       <Field label="To">{input("to", { placeholder: "e.g. NRT" })}</Field>
       <Field label="Departure date">{input("date", { type: "date" })}</Field>
-      <Field label="Departure time">{input("time", { type: "time" })}</Field>
+      <Field label="Departure time">
+        <TimeSelect value={value.time || ""} onChange={(time) => onChange({ time })} className={inputClass} />
+      </Field>
       <Field label="Notes" className="col-span-2">{input("notes", { placeholder: "Seat, terminal, baggage…" })}</Field>
     </div>
   );
